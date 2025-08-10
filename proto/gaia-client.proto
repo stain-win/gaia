@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package gaia;
+
+option go_package = "github.com/stain-win/gaia/apps/gaia/proto/client";
+
+import "google/protobuf/empty.proto";
+
+service GaiaClient {
+  rpc GetSecret(GetSecretRequest) returns (Secret);
+  rpc GetStatus(google.protobuf.Empty) returns (StatusResponse);
+   rpc GetNamespaces(google.protobuf.Empty) returns (NamespaceResponse);
+}
+
+message Secret {
+  string id = 1;
+  string value = 2;
+}
+
+message GetSecretRequest {
+  string namespace = 1; // Namespace to which the secret belongs
+  string id = 2;
+}
+
+message StatusResponse {
+  string status = 1;
+}
+
+ message NamespaceResponse {
+   repeated string namespaces = 1;
+ }

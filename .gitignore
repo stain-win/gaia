@@ -30,3 +30,17 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+.nx/installation
+.nx/cache
+.nx/workspace-data
+
+
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+/build
+/nx
+/nx.bat
+/gaia.db
+/.github/copilot-instructions.md
+/certs/

@@ -1,0 +1,155 @@
+syntax = "proto3";
+
+package gaia;
+
+option go_package = "github.com/stain-win/gaia/apps/gaia/proto";
+
+service GaiaAdmin {
+  rpc AddSecret(AddSecretRequest) returns (AddSecretResponse);
+  rpc DeleteSecret(DeleteSecretRequest) returns (DeleteSecretResponse);
+  rpc ListSecrets(ListSecretsRequest) returns (ListSecretsResponse);
+  rpc RevokeCert(RevokeCertRequest) returns (RevokeCertResponse);
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+  rpc Stop(StopRequest) returns (StopResponse);
+  rpc Unlock(UnlockRequest) returns (UnlockResponse);
+  rpc Lock(LockRequest) returns (LockResponse);
+  rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
+  rpc ListClients(ListClientsRequest) returns (ListClientsResponse);
+  rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse);
+  rpc RevokeClient(RevokeClientRequest) returns (RevokeClientResponse);
+  rpc ImportSecrets(stream ImportSecretsRequest) returns (ImportSecretsResponse);
+}
+
+
+service GaiaClient {
+  rpc GetSecret(GetSecretRequest) returns (Secret);
+}
+
+message Secret {
+  string id = 1;
+  string value = 2;
+}
+
+message AddSecretRequest {
+  string namespace = 1;
+  string id = 2;
+  string value = 3;
+  string client_name = 4; // Add this field for the admin
+}
+
+message AddSecretResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListSecretsRequest {
+  string client_name = 1;
+  string namespace = 2;
+}
+
+message ListSecretsResponse {
+  map<string, string> secrets = 1;
+}
+
+message RevokeCertRequest {
+  string cert_id = 1;
+}
+
+message RevokeCertResponse {
+  bool success = 1;
+}
+
+message GetSecretRequest {
+  string namespace = 1; // Change from just 'id'
+  string id = 2;
+}
+
+message GetStatusRequest {}
+
+message GetStatusResponse {
+  string status = 1;
+}
+
+message StopRequest {}
+
+message StopResponse {
+  bool success = 1;
+}
+
+message UnlockRequest {
+  string passphrase = 1;
+}
+
+message UnlockResponse {
+  bool success = 1;
+}
+
+message LockRequest {}
+
+message LockResponse {
+  bool success = 1;
+}
+
+message RegisterClientRequest {
+  string client_name = 1;
+}
+
+message RegisterClientResponse {
+  string certificate = 1; // PEM-encoded cert
+  string private_key = 2; // PEM-encoded key
+}
+
+message ListClientsRequest {}
+
+message ListClientsResponse {
+  repeated string client_names = 1;
+}
+
+message ListNamespacesRequest {
+  string client_name = 1;
+}
+message ListNamespacesResponse {
+  repeated string namespaces = 1;
+}
+
+message RevokeClientRequest {
+  string client_name = 1;
+}
+
+message RevokeClientResponse {
+  bool success = 1;
+}
+
+message DeleteSecretRequest {
+  string client_name = 1;
+  string namespace = 2;
+  string id = 3;
+}
+
+message DeleteSecretResponse {
+  bool success = 1;
+}
+
+message ImportSecretsConfig {
+  bool overwrite = 1;
+}
+
+message ImportSecretItem {
+  string client_name = 1;
+  string namespace = 2;
+  string id = 3;
+  string value = 4;
+}
+
+// Wrapper message for the stream to handle config and items
+message ImportSecretsRequest {
+  oneof payload {
+    ImportSecretsConfig config = 1;
+    ImportSecretItem item = 2;
+  }
+}
+
+message ImportSecretsResponse {
+  int32 secrets_imported = 1;
+  string message = 2;
+}
