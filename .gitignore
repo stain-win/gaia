@@ -38,7 +38,7 @@ go.work.sum
 
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
-/build_gaia
+/build
 /nx
 /nx.bat
 /gaia.db

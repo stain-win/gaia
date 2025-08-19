@@ -27,8 +27,7 @@ func (m model) View() string {
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Center, logo, screenView)
-	return lipgloss.NewStyle().
+	return appStyle.
 		Width(m.width).
-		Align(lipgloss.Center).
 		Render(content)
 }

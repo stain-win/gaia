@@ -74,9 +74,7 @@ var certMenuItems = []list.Item{
 // initialModel creates the starting state of the TUI.
 func initialModel(config *config.Config) model {
 	mainList := list.New(menuItems, list.NewDefaultDelegate(), 0, 0)
-	mainList.Title = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FF8C00")).
+	mainList.Title = titleStyle.
 		Render("Main Menu")
 
 	dataList := list.New(dataMenuItems, list.NewDefaultDelegate(), 0, 0)

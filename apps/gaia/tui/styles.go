@@ -4,7 +4,9 @@ import "github.com/charmbracelet/lipgloss"
 
 // Global styles for the TUI.
 var (
-	appStyle   = lipgloss.NewStyle().Margin(1, 2)
+	appStyle = lipgloss.NewStyle().
+			Align(lipgloss.Center).AlignVertical(lipgloss.Top)
+
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#FF8C00")). // Orange
@@ -15,6 +17,10 @@ var (
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")). // Light Gray
 			MarginTop(1)                       // Add one line of top padding
+
+	inputFieldStyle = lipgloss.NewStyle().
+			BorderForeground().
+			BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(30)
 )
 
 // Style represents a reusable lipgloss style.
