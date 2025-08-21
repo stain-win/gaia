@@ -239,8 +239,9 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 	return nil
 }
 
-// AddSecret stores an encrypted secret in the DB with namespacing.
-func (d *Daemon) AddSecret(namespace, id, value string) error {
+// AddSecret stores an encrypted secret for a specific client and namespace.
+// This is an administrative function.
+func (d *Daemon) AddSecret(clientName, namespace, id, value string) error {
 	d.dbLock.RLock()
 	defer d.dbLock.RUnlock()
 
@@ -248,37 +249,52 @@ func (d *Daemon) AddSecret(namespace, id, value string) error {
 		return errors.New("daemon is in a locked state, cannot write secrets")
 	}
 
-	namespacedKey := fmt.Sprintf("%s/%s", namespace, id)
+	// Use a three-part key to structure the data as client -> namespace -> record
+	key := fmt.Sprintf("%s/%s/%s", clientName, namespace, id)
 
-	enc, err := encrypt.Encrypt(d.key, []byte(value))
+	encValue, err := encrypt.Encrypt(d.key, []byte(value))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to encrypt secret: %w", err)
 	}
+
 	return d.db.Update(func(tx *bbolt.Tx) error {
-		b, _ := tx.CreateBucketIfNotExists([]byte(bucketName))
-		if b == nil {
-			return errors.New("bucket not found")
+		b, err := tx.CreateBucketIfNotExists([]byte(bucketName))
+		if err != nil {
+			return fmt.Errorf("failed to create or get bucket: %w", err)
 		}
-		return b.Put([]byte(namespacedKey), []byte(enc))
+		return b.Put([]byte(key), []byte(encValue))
 	})
 }
 
-// GetSecret retrieves and decrypts a secret from the DB.
-func (d *Daemon) GetSecret(id string) (string, error) {
+// GetSecret retrieves and decrypts a secret, enforcing authorization.
+func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 	d.dbLock.RLock()
 	defer d.dbLock.RUnlock()
 
 	if d.db == nil {
 		return "", errors.New("database not open")
 	}
-	var enc []byte
+
+	// Authorization Logic: A client can access its own namespace or the common one.
+	if namespace != "common" && clientName != namespace {
+		return "", fmt.Errorf("permission denied: client '%s' is not authorized for namespace '%s'", clientName, namespace)
+	}
+
+	// For the 'common' namespace, the key is stored under a literal 'common' client name.
+	lookupClient := clientName
+	if namespace == "common" {
+		lookupClient = "common"
+	}
+	key := fmt.Sprintf("%s/%s/%s", lookupClient, namespace, id)
+
+	var encValue []byte
 	err := d.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
 		if b == nil {
 			return errors.New("bucket not found")
 		}
-		enc = b.Get([]byte(id))
-		if enc == nil {
+		encValue = b.Get([]byte(key))
+		if encValue == nil {
 			return errors.New("secret not found")
 		}
 		return nil
@@ -286,11 +302,12 @@ func (d *Daemon) GetSecret(id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dec, err := encrypt.Decrypt(d.key, string(enc))
+
+	decValue, err := encrypt.Decrypt(d.key, string(encValue))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to decrypt secret: %w", err)
 	}
-	return string(dec), nil
+	return string(decValue), nil
 }
 
 // openDB is an internal helper to open the BoltDB file.

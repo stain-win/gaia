@@ -9,7 +9,7 @@ import "google/protobuf/empty.proto";
 service GaiaClient {
   rpc GetSecret(GetSecretRequest) returns (Secret);
   rpc GetStatus(google.protobuf.Empty) returns (StatusResponse);
-  // rpc GetNamespaces(google.protobuf.Empty) returns (NamespaceResponse);
+   rpc GetNamespaces(google.protobuf.Empty) returns (NamespaceResponse);
 }
 
 message Secret {
@@ -18,14 +18,14 @@ message Secret {
 }
 
 message GetSecretRequest {
-  string id = 1;
+  string namespace = 1; // Namespace to which the secret belongs
+  string id = 2;
 }
 
 message StatusResponse {
   string status = 1;
 }
 
-// In the future, you can uncomment this when you need it.
-// message NamespaceResponse {
-//   repeated string namespaces = 1;
-// }
+ message NamespaceResponse {
+   repeated string namespaces = 1;
+ }

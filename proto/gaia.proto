@@ -6,6 +6,7 @@ option go_package = "github.com/stain-win/gaia/apps/gaia/proto";
 
 service GaiaAdmin {
   rpc AddSecret(AddSecretRequest) returns (AddSecretResponse);
+  rpc ListSecrets(ListSecretsRequest) returns (ListSecretsResponse);
   rpc RevokeCert(RevokeCertRequest) returns (RevokeCertResponse);
   rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
   rpc Stop(StopRequest) returns (StopResponse);
@@ -24,10 +25,21 @@ message AddSecretRequest {
   string namespace = 1;
   string id = 2;
   string value = 3;
+  string client_name = 4; // Add this field for the admin
 }
 
 message AddSecretResponse {
   bool success = 1;
+  string message = 2;
+}
+
+message ListSecretsRequest {
+  string client_name = 1;
+  string namespace = 2;
+}
+
+message ListSecretsResponse {
+  map<string, string> secrets = 1;
 }
 
 message RevokeCertRequest {
@@ -39,7 +51,8 @@ message RevokeCertResponse {
 }
 
 message GetSecretRequest {
-  string id = 1;
+  string namespace = 1; // Change from just 'id'
+  string id = 2;
 }
 
 message GetStatusRequest {}

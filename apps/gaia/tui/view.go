@@ -24,6 +24,8 @@ func (m model) View() string {
 		screenView = m.certForm.View()
 	case registerClient:
 		screenView = m.registerClientFormModel.View()
+	case listRecords:
+		screenView = m.viewListRecords()
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Center, logo, screenView)

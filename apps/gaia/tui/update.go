@@ -54,6 +54,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return updateCreateCerts(m, msg)
 	case registerClient:
 		return updateRegisterClient(m, msg)
+	case listRecords: // New case
+		return m.updateListRecords(msg)
 	}
 
 	return m, nil
@@ -89,7 +91,8 @@ func updateDataManagement(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "Add New Record":
 				return m, daemon.CheckDaemonStatus(m.config)
 			case "List All Records":
-				// TODO: Implement list functionality
+				m.activeScreen = listRecords // Navigate to the new screen
+				return m, nil
 			case "Back":
 				m.activeScreen = mainMenu
 			}

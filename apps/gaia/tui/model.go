@@ -16,6 +16,7 @@ const (
 	certManagement
 	createCerts
 	registerClient
+	listRecords // New screen
 )
 
 // A custom item type for our list.
@@ -47,6 +48,7 @@ type model struct {
 	namespaces              []string
 	statusMessage           string
 	config                  *config.Config
+	listRecords             listRecordsModel // New model state
 }
 
 // menuItems defines the items for the main menu.
@@ -96,6 +98,7 @@ func initialModel(config *config.Config) model {
 		certMenu:                certList,
 		addRecordFormModel:      newAddRecordFormModel(nil),
 		registerClientFormModel: newRegisterClientFormModel(),
+		listRecords:             newListRecordsModel(),
 		statusMessage:           "",
 		config:                  config,
 	}

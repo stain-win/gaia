@@ -43,5 +43,4 @@ go.work.sum
 /nx.bat
 /gaia.db
 /.github/copilot-instructions.md
-/apps/gaia/proto/*.pb.go
 /certs/
