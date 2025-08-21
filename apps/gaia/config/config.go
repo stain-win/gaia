@@ -13,6 +13,7 @@ import (
 type Config struct {
 	GRPCPort           string `yaml:"grpc_port"`
 	DBFile             string `yaml:"db_file"`
+	CertsDirectory     string `yaml:"certs_directory"`
 	CACertFile         string `yaml:"ca_cert_file"`
 	ServerCertFile     string `yaml:"server_cert_file"`
 	ServerKeyFile      string `yaml:"server_key_file"`
@@ -25,16 +26,42 @@ func NewDefaultConfig() *Config {
 	return &Config{
 		GRPCPort:           "50051",
 		DBFile:             "gaia.db",
-		CACertFile:         "./certs/ca.crt",
-		ServerCertFile:     "./certs/server.crt",
-		ServerKeyFile:      "./certs/server.key",
-		GaiaClientCertFile: "./certs/gaia_client.crt",
-		GaianClientKeyFile: "./certs/gaia_client.key",
+		CertsDirectory:     "./certs",
+		CACertFile:         "ca.crt",
+		ServerCertFile:     "server.crt",
+		ServerKeyFile:      "server.key",
+		GaiaClientCertFile: "gaia_client.crt",
+		GaianClientKeyFile: "gaia_client.key",
 	}
 }
 
-// GetConfigPath returns the OS-specific path for the config file.
-func GetConfigPath() (string, error) {
+// Load reads the configuration from the specified path or the default path if empty.
+func Load(path string) (*Config, error) {
+	cfg := NewDefaultConfig()
+
+	if path == "" {
+		var err error
+		path, err = getDefaultConfigPath()
+		if err != nil {
+			return nil, err // This would be an error like "home directory not found"
+		}
+	}
+
+	if _, err := os.Stat(path); err == nil {
+		if err := loadConfigFromFile(path, cfg); err != nil {
+			return nil, err
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	loadConfigFromEnv(cfg)
+
+	return cfg, nil
+}
+
+// getDefaultConfigPath returns the OS-specific path for the config file.
+func getDefaultConfigPath() (string, error) {
 	var path string
 	switch runtime.GOOS {
 	case "windows":
@@ -57,8 +84,34 @@ func GetConfigPath() (string, error) {
 	return path, nil
 }
 
+// loadConfigFromFile reads the configuration from the specified file path and unmarshals it into the Config struct.
+func loadConfigFromFile(path string, cfg *Config) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read config file '%s': %w", path, err)
+	}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return fmt.Errorf("failed to unmarshal config from file '%s': %w", path, err)
+	}
+	return nil
+}
+
+// loadConfigFromEnv populates the Config struct with values from environment variables.
+func loadConfigFromEnv(cfg *Config) {
+	if dbFile := os.Getenv("GAIA_DB_FILE"); dbFile != "" {
+		cfg.DBFile = dbFile
+	}
+	if grpcPort := os.Getenv("GAIA_GRPC_PORT"); grpcPort != "" {
+		cfg.GRPCPort = grpcPort
+	}
+}
+
 // WriteConfigToFile writes the given config to the specified path.
-func WriteConfigToFile(cfg *Config, path string) error {
+func WriteConfigToFile(cfg *Config) error {
+	path, err := getDefaultConfigPath()
+	if err != nil {
+		return fmt.Errorf("failed to get default config path: %w", err)
+	}
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config to YAML: %w", err)

@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -43,7 +44,7 @@ const (
 )
 
 // NewDaemon creates a new Daemon instance with default configuration.
-func NewDaemon() *Daemon {
+func NewDaemon(cfg *config.Config) *Daemon {
 	return &Daemon{
 		config:      config.NewDefaultConfig(),
 		status:      StatusStopped,
@@ -71,10 +72,8 @@ func (d *Daemon) Start(cfg *config.Config) error {
 		return errors.New("daemon already running")
 	}
 
-	// Update the daemon's config with the provided configuration.
 	d.config = cfg
 
-	// Step 1: Check if the initial configuration is done
 	if _, err := os.Stat(d.config.DBFile); os.IsNotExist(err) {
 		return fmt.Errorf("initial setup not complete, run 'gaia init' first")
 	}
@@ -130,7 +129,6 @@ func (d *Daemon) Start(cfg *config.Config) error {
 }
 
 // stopDaemon gracefully stops the gRPC server and closes the database.
-// This is now an internal method called by the gRPC Stop handler.
 func (d *Daemon) stopDaemon(ctx context.Context) error {
 	if d.status != StatusRunning {
 		return errors.New("daemon not running")
@@ -240,7 +238,6 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 }
 
 // AddSecret stores an encrypted secret for a specific client and namespace.
-// This is an administrative function.
 func (d *Daemon) AddSecret(clientName, namespace, id, value string) error {
 	d.dbLock.RLock()
 	defer d.dbLock.RUnlock()
@@ -322,8 +319,12 @@ func (d *Daemon) openDB() error {
 
 // loadTLSCredentials is an internal helper to set up mTLS.
 func (d *Daemon) loadTLSCredentials() (credentials.TransportCredentials, error) {
+	caCertPath := filepath.Join(d.config.CertsDirectory, d.config.CACertFile)
+	serverCertPath := filepath.Join(d.config.CertsDirectory, d.config.ServerCertFile)
+	serverKeyPath := filepath.Join(d.config.CertsDirectory, d.config.ServerKeyFile)
+
 	certPool := x509.NewCertPool()
-	caCert, err := os.ReadFile(d.config.CACertFile)
+	caCert, err := os.ReadFile(caCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("could not read CA certificate: %w", err)
 	}
@@ -331,7 +332,7 @@ func (d *Daemon) loadTLSCredentials() (credentials.TransportCredentials, error) 
 		return nil, errors.New("could not append CA certificate to pool")
 	}
 
-	serverCert, err := tls.LoadX509KeyPair(d.config.ServerCertFile, d.config.ServerKeyFile)
+	serverCert, err := tls.LoadX509KeyPair(serverCertPath, serverKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("could not load server key pair: %w", err)
 	}

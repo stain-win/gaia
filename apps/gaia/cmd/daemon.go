@@ -26,8 +26,21 @@ var (
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the Gaia daemon",
-	Long: `The start command launches the Gaia daemon process in the foreground,
-intended to be managed by a service manager like systemd or launchd.`,
+	Long: `The start command launches the Gaia daemon process.
+
+The daemon runs in the foreground and is designed to be managed by a service
+manager like systemd or launchd. It will start, open its database, and begin
+listening for secure gRPC connections from authorized clients.
+
+By default, the daemon starts in a locked state and must be explicitly unlocked
+with the 'gaia unlock' command before it will serve secrets. This ensures that
+even after a system reboot, secrets are not exposed until an operator
+intervenes.
+
+Configuration values can be overridden from the config file using flags.
+For example:
+  gaia start --db-file /var/lib/gaia/data.db
+  gaia start --grpc-port :60051`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Starting Gaia daemon. Press Ctrl+C to stop.")
 
@@ -50,9 +63,10 @@ intended to be managed by a service manager like systemd or launchd.`,
 			cfg.DBFile = dbFile
 		}
 		if certsDir != "" {
-			cfg.CACertFile = certsDir + "/ca.crt"
-			cfg.ServerCertFile = certsDir + "/server.crt"
-			cfg.ServerKeyFile = certsDir + "/server.key"
+			cfg.CertsDirectory = certsDir
+			cfg.CACertFile = "/ca.crt"
+			cfg.ServerCertFile = "/server.crt"
+			cfg.ServerKeyFile = "/server.key"
 		}
 
 		err := gaiaDaemon.Start(cfg)

@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
+	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/encrypt"
 )
 
@@ -148,6 +149,11 @@ var initCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Check if the database file already exists.
 		cfg := gaiaDaemon.GetConfig()
+		err := config.WriteConfigToFile(cfg)
+		if err != nil {
+			fmt.Printf("failed to initialize configuration: %w", err)
+			os.Exit(1)
+		}
 		if _, err := os.Stat(cfg.DBFile); err == nil {
 			fmt.Printf("Gaia is already initialized. Database file found at '%s'.\n", cfg.DBFile)
 			fmt.Println("To reinitialize, please delete the file first.")

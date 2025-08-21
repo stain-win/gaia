@@ -6,12 +6,16 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/daemon"
 	"github.com/stain-win/gaia/apps/gaia/tui"
 )
 
 // gaiaDaemon is the single, global daemon instance.
-var gaiaDaemon = daemon.NewDaemon()
+var (
+	cfgFile    string
+	gaiaDaemon *daemon.Daemon
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -19,6 +23,22 @@ var rootCmd = &cobra.Command{
 	Short: "Gaia is a secure runtime context daemon for web applications.",
 	Long: `Gaia is a daemon that securely stores and provides runtime context and
 credentials to web applications running on the same server.`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// 1. Load configuration from file and environment.
+		//    This is where you'd call your config package's loading function.
+		cfg, err := config.Load(cfgFile)
+		if err != nil {
+			return fmt.Errorf("failed to load configuration: %w", err)
+		}
+
+		// 2. (Optional) Override config with any other flags if needed.
+		//    For example, if you had a --db-path flag, you'd apply it here.
+
+		// 3. Initialize the daemon with the final, correct configuration.
+		gaiaDaemon = daemon.NewDaemon(cfg)
+
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// Default behavior: launch the interactive TUI if no command is given.
 		if len(args) == 0 {
