@@ -24,6 +24,8 @@ const (
 	GaiaAdmin_RevokeCert_FullMethodName  = "/gaia.GaiaAdmin/RevokeCert"
 	GaiaAdmin_GetStatus_FullMethodName   = "/gaia.GaiaAdmin/GetStatus"
 	GaiaAdmin_Stop_FullMethodName        = "/gaia.GaiaAdmin/Stop"
+	GaiaAdmin_Unlock_FullMethodName      = "/gaia.GaiaAdmin/Unlock"
+	GaiaAdmin_Lock_FullMethodName        = "/gaia.GaiaAdmin/Lock"
 )
 
 // GaiaAdminClient is the client API for GaiaAdmin service.
@@ -35,6 +37,8 @@ type GaiaAdminClient interface {
 	RevokeCert(ctx context.Context, in *RevokeCertRequest, opts ...grpc.CallOption) (*RevokeCertResponse, error)
 	GetStatus(ctx context.Context, in *GetStatusRequest, opts ...grpc.CallOption) (*GetStatusResponse, error)
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
+	Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc.CallOption) (*UnlockResponse, error)
+	Lock(ctx context.Context, in *LockRequest, opts ...grpc.CallOption) (*LockResponse, error)
 }
 
 type gaiaAdminClient struct {
@@ -95,6 +99,26 @@ func (c *gaiaAdminClient) Stop(ctx context.Context, in *StopRequest, opts ...grp
 	return out, nil
 }
 
+func (c *gaiaAdminClient) Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc.CallOption) (*UnlockResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UnlockResponse)
+	err := c.cc.Invoke(ctx, GaiaAdmin_Unlock_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gaiaAdminClient) Lock(ctx context.Context, in *LockRequest, opts ...grpc.CallOption) (*LockResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LockResponse)
+	err := c.cc.Invoke(ctx, GaiaAdmin_Lock_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GaiaAdminServer is the server API for GaiaAdmin service.
 // All implementations must embed UnimplementedGaiaAdminServer
 // for forward compatibility.
@@ -104,6 +128,8 @@ type GaiaAdminServer interface {
 	RevokeCert(context.Context, *RevokeCertRequest) (*RevokeCertResponse, error)
 	GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error)
 	Stop(context.Context, *StopRequest) (*StopResponse, error)
+	Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error)
+	Lock(context.Context, *LockRequest) (*LockResponse, error)
 	mustEmbedUnimplementedGaiaAdminServer()
 }
 
@@ -128,6 +154,12 @@ func (UnimplementedGaiaAdminServer) GetStatus(context.Context, *GetStatusRequest
 }
 func (UnimplementedGaiaAdminServer) Stop(context.Context, *StopRequest) (*StopResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
+}
+func (UnimplementedGaiaAdminServer) Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Unlock not implemented")
+}
+func (UnimplementedGaiaAdminServer) Lock(context.Context, *LockRequest) (*LockResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Lock not implemented")
 }
 func (UnimplementedGaiaAdminServer) mustEmbedUnimplementedGaiaAdminServer() {}
 func (UnimplementedGaiaAdminServer) testEmbeddedByValue()                   {}
@@ -240,6 +272,42 @@ func _GaiaAdmin_Stop_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GaiaAdmin_Unlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnlockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaAdminServer).Unlock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaAdmin_Unlock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaAdminServer).Unlock(ctx, req.(*UnlockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GaiaAdmin_Lock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaAdminServer).Lock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaAdmin_Lock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaAdminServer).Lock(ctx, req.(*LockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GaiaAdmin_ServiceDesc is the grpc.ServiceDesc for GaiaAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -266,6 +334,14 @@ var GaiaAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Stop",
 			Handler:    _GaiaAdmin_Stop_Handler,
+		},
+		{
+			MethodName: "Unlock",
+			Handler:    _GaiaAdmin_Unlock_Handler,
+		},
+		{
+			MethodName: "Lock",
+			Handler:    _GaiaAdmin_Lock_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

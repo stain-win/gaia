@@ -268,6 +268,10 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 	d.dbLock.RLock()
 	defer d.dbLock.RUnlock()
 
+	if d.isLocked {
+		return "", errors.New("daemon is locked")
+	}
+
 	if d.db == nil {
 		return "", errors.New("database not open")
 	}

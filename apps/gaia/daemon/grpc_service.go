@@ -80,3 +80,18 @@ func (s *gaiaClientServer) GetSecret(ctx context.Context, req *proto.GetSecretRe
 	}
 	return &proto.Secret{Id: req.Id, Value: value}, nil
 }
+
+// Lock handles the Lock RPC call.
+func (s *gaiaAdminServer) Lock(ctx context.Context, req *proto.LockRequest) (*proto.LockResponse, error) {
+	s.d.LockDB()
+	return &proto.LockResponse{Success: true}, nil
+}
+
+// Unlock handles the Unlock RPC call.
+func (s *gaiaAdminServer) Unlock(ctx context.Context, req *proto.UnlockRequest) (*proto.UnlockResponse, error) {
+	err := s.d.UnlockDB(req.Passphrase)
+	if err != nil {
+		return &proto.UnlockResponse{Success: false}, err
+	}
+	return &proto.UnlockResponse{Success: true}, nil
+}

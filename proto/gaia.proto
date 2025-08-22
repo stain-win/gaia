@@ -10,7 +10,10 @@ service GaiaAdmin {
   rpc RevokeCert(RevokeCertRequest) returns (RevokeCertResponse);
   rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
   rpc Stop(StopRequest) returns (StopResponse);
+  rpc Unlock(UnlockRequest) returns (UnlockResponse);
+  rpc Lock(LockRequest) returns (LockResponse);
 }
+
 
 service GaiaClient {
   rpc GetSecret(GetSecretRequest) returns (Secret);
@@ -64,5 +67,19 @@ message GetStatusResponse {
 message StopRequest {}
 
 message StopResponse {
+  bool success = 1;
+}
+
+message UnlockRequest {
+  string passphrase = 1;
+}
+
+message UnlockResponse {
+  bool success = 1;
+}
+
+message LockRequest {}
+
+message LockResponse {
   bool success = 1;
 }
