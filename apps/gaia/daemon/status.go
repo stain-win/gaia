@@ -16,7 +16,7 @@ import (
 )
 
 // DaemonStatusMsg is a custom message for checking daemon status
-type DaemonStatusMsg struct {
+type StatusMsg struct {
 	Status string
 	Err    error
 }
@@ -88,6 +88,6 @@ func getClientConn(ctx context.Context, cfg *config.Config) (*grpc.ClientConn, e
 func CheckDaemonStatus(cfg *config.Config) tea.Cmd {
 	return func() tea.Msg {
 		status, err := getDaemonStatus(cfg)
-		return DaemonStatusMsg{Status: status, Err: err}
+		return StatusMsg{Status: status, Err: err}
 	}
 }

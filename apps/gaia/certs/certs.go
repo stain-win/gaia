@@ -142,7 +142,12 @@ func saveCert(filename string, cert *x509.Certificate) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Printf("failed to close file: %v\n", err)
+		}
+	}(file)
 
 	return pem.Encode(file, &pem.Block{
 		Type:  "CERTIFICATE",
@@ -156,7 +161,12 @@ func saveKey(filename string, key *rsa.PrivateKey) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Printf("failed to close file: %v\n", err)
+		}
+	}(file)
 
 	return pem.Encode(file, &pem.Block{
 		Type:  "RSA PRIVATE KEY",

@@ -12,6 +12,7 @@ service GaiaAdmin {
   rpc Stop(StopRequest) returns (StopResponse);
   rpc Unlock(UnlockRequest) returns (UnlockResponse);
   rpc Lock(LockRequest) returns (LockResponse);
+  rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
 }
 
 
@@ -82,4 +83,13 @@ message LockRequest {}
 
 message LockResponse {
   bool success = 1;
+}
+
+message RegisterClientRequest {
+  string client_name = 1;
+}
+
+message RegisterClientResponse {
+  string certificate = 1; // PEM-encoded cert
+  string private_key = 2; // PEM-encoded key
 }

@@ -151,7 +151,7 @@ var initCmd = &cobra.Command{
 		cfg := gaiaDaemon.GetConfig()
 		err := config.WriteConfigToFile(cfg)
 		if err != nil {
-			fmt.Printf("failed to initialize configuration: %w", err)
+			fmt.Printf("failed to initialize configuration: %s", err)
 			os.Exit(1)
 		}
 		if _, err := os.Stat(cfg.DBFile); err == nil {

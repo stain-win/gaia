@@ -757,6 +757,102 @@ func (x *LockResponse) GetSuccess() bool {
 	return false
 }
 
+type RegisterClientRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientName    string                 `protobuf:"bytes,1,opt,name=client_name,json=clientName,proto3" json:"client_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterClientRequest) Reset() {
+	*x = RegisterClientRequest{}
+	mi := &file_gaia_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterClientRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterClientRequest) ProtoMessage() {}
+
+func (x *RegisterClientRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterClientRequest.ProtoReflect.Descriptor instead.
+func (*RegisterClientRequest) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *RegisterClientRequest) GetClientName() string {
+	if x != nil {
+		return x.ClientName
+	}
+	return ""
+}
+
+type RegisterClientResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Certificate   string                 `protobuf:"bytes,1,opt,name=certificate,proto3" json:"certificate,omitempty"`                 // PEM-encoded cert
+	PrivateKey    string                 `protobuf:"bytes,2,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"` // PEM-encoded key
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterClientResponse) Reset() {
+	*x = RegisterClientResponse{}
+	mi := &file_gaia_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterClientResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterClientResponse) ProtoMessage() {}
+
+func (x *RegisterClientResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterClientResponse.ProtoReflect.Descriptor instead.
+func (*RegisterClientResponse) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *RegisterClientResponse) GetCertificate() string {
+	if x != nil {
+		return x.Certificate
+	}
+	return ""
+}
+
+func (x *RegisterClientResponse) GetPrivateKey() string {
+	if x != nil {
+		return x.PrivateKey
+	}
+	return ""
+}
+
 var File_gaia_proto protoreflect.FileDescriptor
 
 const file_gaia_proto_rawDesc = "" +
@@ -805,7 +901,14 @@ const file_gaia_proto_rawDesc = "" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\"\r\n" +
 	"\vLockRequest\"(\n" +
 	"\fLockResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess2\x9f\x03\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"8\n" +
+	"\x15RegisterClientRequest\x12\x1f\n" +
+	"\vclient_name\x18\x01 \x01(\tR\n" +
+	"clientName\"[\n" +
+	"\x16RegisterClientResponse\x12 \n" +
+	"\vcertificate\x18\x01 \x01(\tR\vcertificate\x12\x1f\n" +
+	"\vprivate_key\x18\x02 \x01(\tR\n" +
+	"privateKey2\xec\x03\n" +
 	"\tGaiaAdmin\x12<\n" +
 	"\tAddSecret\x12\x16.gaia.AddSecretRequest\x1a\x17.gaia.AddSecretResponse\x12B\n" +
 	"\vListSecrets\x12\x18.gaia.ListSecretsRequest\x1a\x19.gaia.ListSecretsResponse\x12?\n" +
@@ -814,7 +917,8 @@ const file_gaia_proto_rawDesc = "" +
 	"\tGetStatus\x12\x16.gaia.GetStatusRequest\x1a\x17.gaia.GetStatusResponse\x12-\n" +
 	"\x04Stop\x12\x11.gaia.StopRequest\x1a\x12.gaia.StopResponse\x123\n" +
 	"\x06Unlock\x12\x13.gaia.UnlockRequest\x1a\x14.gaia.UnlockResponse\x12-\n" +
-	"\x04Lock\x12\x11.gaia.LockRequest\x1a\x12.gaia.LockResponse2?\n" +
+	"\x04Lock\x12\x11.gaia.LockRequest\x1a\x12.gaia.LockResponse\x12K\n" +
+	"\x0eRegisterClient\x12\x1b.gaia.RegisterClientRequest\x1a\x1c.gaia.RegisterClientResponse2?\n" +
 	"\n" +
 	"GaiaClient\x121\n" +
 	"\tGetSecret\x12\x16.gaia.GetSecretRequest\x1a\f.gaia.SecretB+Z)github.com/stain-win/gaia/apps/gaia/protob\x06proto3"
@@ -831,28 +935,30 @@ func file_gaia_proto_rawDescGZIP() []byte {
 	return file_gaia_proto_rawDescData
 }
 
-var file_gaia_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_gaia_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_gaia_proto_goTypes = []any{
-	(*Secret)(nil),              // 0: gaia.Secret
-	(*AddSecretRequest)(nil),    // 1: gaia.AddSecretRequest
-	(*AddSecretResponse)(nil),   // 2: gaia.AddSecretResponse
-	(*ListSecretsRequest)(nil),  // 3: gaia.ListSecretsRequest
-	(*ListSecretsResponse)(nil), // 4: gaia.ListSecretsResponse
-	(*RevokeCertRequest)(nil),   // 5: gaia.RevokeCertRequest
-	(*RevokeCertResponse)(nil),  // 6: gaia.RevokeCertResponse
-	(*GetSecretRequest)(nil),    // 7: gaia.GetSecretRequest
-	(*GetStatusRequest)(nil),    // 8: gaia.GetStatusRequest
-	(*GetStatusResponse)(nil),   // 9: gaia.GetStatusResponse
-	(*StopRequest)(nil),         // 10: gaia.StopRequest
-	(*StopResponse)(nil),        // 11: gaia.StopResponse
-	(*UnlockRequest)(nil),       // 12: gaia.UnlockRequest
-	(*UnlockResponse)(nil),      // 13: gaia.UnlockResponse
-	(*LockRequest)(nil),         // 14: gaia.LockRequest
-	(*LockResponse)(nil),        // 15: gaia.LockResponse
-	nil,                         // 16: gaia.ListSecretsResponse.SecretsEntry
+	(*Secret)(nil),                 // 0: gaia.Secret
+	(*AddSecretRequest)(nil),       // 1: gaia.AddSecretRequest
+	(*AddSecretResponse)(nil),      // 2: gaia.AddSecretResponse
+	(*ListSecretsRequest)(nil),     // 3: gaia.ListSecretsRequest
+	(*ListSecretsResponse)(nil),    // 4: gaia.ListSecretsResponse
+	(*RevokeCertRequest)(nil),      // 5: gaia.RevokeCertRequest
+	(*RevokeCertResponse)(nil),     // 6: gaia.RevokeCertResponse
+	(*GetSecretRequest)(nil),       // 7: gaia.GetSecretRequest
+	(*GetStatusRequest)(nil),       // 8: gaia.GetStatusRequest
+	(*GetStatusResponse)(nil),      // 9: gaia.GetStatusResponse
+	(*StopRequest)(nil),            // 10: gaia.StopRequest
+	(*StopResponse)(nil),           // 11: gaia.StopResponse
+	(*UnlockRequest)(nil),          // 12: gaia.UnlockRequest
+	(*UnlockResponse)(nil),         // 13: gaia.UnlockResponse
+	(*LockRequest)(nil),            // 14: gaia.LockRequest
+	(*LockResponse)(nil),           // 15: gaia.LockResponse
+	(*RegisterClientRequest)(nil),  // 16: gaia.RegisterClientRequest
+	(*RegisterClientResponse)(nil), // 17: gaia.RegisterClientResponse
+	nil,                            // 18: gaia.ListSecretsResponse.SecretsEntry
 }
 var file_gaia_proto_depIdxs = []int32{
-	16, // 0: gaia.ListSecretsResponse.secrets:type_name -> gaia.ListSecretsResponse.SecretsEntry
+	18, // 0: gaia.ListSecretsResponse.secrets:type_name -> gaia.ListSecretsResponse.SecretsEntry
 	1,  // 1: gaia.GaiaAdmin.AddSecret:input_type -> gaia.AddSecretRequest
 	3,  // 2: gaia.GaiaAdmin.ListSecrets:input_type -> gaia.ListSecretsRequest
 	5,  // 3: gaia.GaiaAdmin.RevokeCert:input_type -> gaia.RevokeCertRequest
@@ -860,17 +966,19 @@ var file_gaia_proto_depIdxs = []int32{
 	10, // 5: gaia.GaiaAdmin.Stop:input_type -> gaia.StopRequest
 	12, // 6: gaia.GaiaAdmin.Unlock:input_type -> gaia.UnlockRequest
 	14, // 7: gaia.GaiaAdmin.Lock:input_type -> gaia.LockRequest
-	7,  // 8: gaia.GaiaClient.GetSecret:input_type -> gaia.GetSecretRequest
-	2,  // 9: gaia.GaiaAdmin.AddSecret:output_type -> gaia.AddSecretResponse
-	4,  // 10: gaia.GaiaAdmin.ListSecrets:output_type -> gaia.ListSecretsResponse
-	6,  // 11: gaia.GaiaAdmin.RevokeCert:output_type -> gaia.RevokeCertResponse
-	9,  // 12: gaia.GaiaAdmin.GetStatus:output_type -> gaia.GetStatusResponse
-	11, // 13: gaia.GaiaAdmin.Stop:output_type -> gaia.StopResponse
-	13, // 14: gaia.GaiaAdmin.Unlock:output_type -> gaia.UnlockResponse
-	15, // 15: gaia.GaiaAdmin.Lock:output_type -> gaia.LockResponse
-	0,  // 16: gaia.GaiaClient.GetSecret:output_type -> gaia.Secret
-	9,  // [9:17] is the sub-list for method output_type
-	1,  // [1:9] is the sub-list for method input_type
+	16, // 8: gaia.GaiaAdmin.RegisterClient:input_type -> gaia.RegisterClientRequest
+	7,  // 9: gaia.GaiaClient.GetSecret:input_type -> gaia.GetSecretRequest
+	2,  // 10: gaia.GaiaAdmin.AddSecret:output_type -> gaia.AddSecretResponse
+	4,  // 11: gaia.GaiaAdmin.ListSecrets:output_type -> gaia.ListSecretsResponse
+	6,  // 12: gaia.GaiaAdmin.RevokeCert:output_type -> gaia.RevokeCertResponse
+	9,  // 13: gaia.GaiaAdmin.GetStatus:output_type -> gaia.GetStatusResponse
+	11, // 14: gaia.GaiaAdmin.Stop:output_type -> gaia.StopResponse
+	13, // 15: gaia.GaiaAdmin.Unlock:output_type -> gaia.UnlockResponse
+	15, // 16: gaia.GaiaAdmin.Lock:output_type -> gaia.LockResponse
+	17, // 17: gaia.GaiaAdmin.RegisterClient:output_type -> gaia.RegisterClientResponse
+	0,  // 18: gaia.GaiaClient.GetSecret:output_type -> gaia.Secret
+	10, // [10:19] is the sub-list for method output_type
+	1,  // [1:10] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
 	1,  // [1:1] is the sub-list for extension extendee
 	0,  // [0:1] is the sub-list for field type_name
@@ -887,7 +995,7 @@ func file_gaia_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gaia_proto_rawDesc), len(file_gaia_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
