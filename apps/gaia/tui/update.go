@@ -97,7 +97,7 @@ func updateDataManagement(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.activeScreen = mainMenu
 			}
 		}
-	case daemon.DaemonStatusMsg:
+	case daemon.StatusMsg:
 		if msg.Err != nil || msg.Status != "running" {
 			m.statusMessage = fmt.Sprintf("Error: Daemon not running (Status: %s)", msg.Status)
 			return m, nil

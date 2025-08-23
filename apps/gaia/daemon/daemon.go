@@ -3,8 +3,10 @@ package daemon
 import (
 	"context"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
@@ -28,6 +30,8 @@ type Daemon struct {
 	server      *grpc.Server
 	db          *bbolt.DB
 	key         []byte
+	caCert      *x509.Certificate
+	caKey       *rsa.PrivateKey
 	dbLock      sync.RWMutex
 	status      string
 	isLocked    bool
@@ -37,16 +41,16 @@ type Daemon struct {
 const (
 	saltKey        = "__salt__"
 	bucketName     = "secrets"
+	clientsBucket  = "clients"
 	StatusRunning  = "running"
 	StatusStopped  = "stopped"
-	StatusLocked   = "locked"
 	StatusStarting = "starting"
 )
 
 // NewDaemon creates a new Daemon instance with default configuration.
 func NewDaemon(cfg *config.Config) *Daemon {
 	return &Daemon{
-		config:      config.NewDefaultConfig(),
+		config:      cfg,
 		status:      StatusStopped,
 		isLocked:    true,
 		stopChannel: make(chan struct{}),
@@ -232,9 +236,38 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 		return fmt.Errorf("invalid passphrase: %w", err)
 	}
 
+	// Load CA certificate and key into memory.
+	if err := d.loadCACredentials(); err != nil {
+		d.db.Close()
+		d.db = nil
+		d.key = nil // Clear key on failure
+		return fmt.Errorf("failed to load CA credentials: %w", err)
+	}
+
 	d.isLocked = false
-	log.Println("Daemon is now unlocked for an administrative session.")
+	d.status = StatusRunning
+	log.Println("Daemon is now unlocked.")
 	return nil
+}
+
+// RegisterClient adds a new client name to the database.
+// This establishes an official record of a known client.
+func (d *Daemon) RegisterClient(clientName string) error {
+	d.dbLock.Lock()
+	defer d.dbLock.Unlock()
+
+	if d.isLocked || d.db == nil {
+		return errors.New("daemon is in a locked state, cannot register clients")
+	}
+
+	return d.db.Update(func(tx *bbolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists([]byte(clientsBucket))
+		if err != nil {
+			return fmt.Errorf("failed to create or get clients bucket: %w", err)
+		}
+		// Use the client name as both the key and value for simplicity.
+		return b.Put([]byte(clientName), []byte(clientName))
+	})
 }
 
 // AddSecret stores an encrypted secret for a specific client and namespace.
@@ -346,6 +379,42 @@ func (d *Daemon) loadTLSCredentials() (credentials.TransportCredentials, error) 
 		ClientCAs:    certPool,
 	})
 	return creds, nil
+}
+
+// loadCACredentials loads the CA certificate and private key from disk.
+func (d *Daemon) loadCACredentials() error {
+	// Assuming the CA key is stored in the same directory as the certs.
+	// In a real-world scenario, the key might be protected differently.
+	caKeyPath := d.config.CertsDirectory + "/ca.key"
+	caCertPath := d.config.CertsDirectory + "/ca.crt"
+
+	keyBytes, err := os.ReadFile(caKeyPath)
+	if err != nil {
+		return err
+	}
+	keyBlock, _ := pem.Decode(keyBytes)
+	if keyBlock == nil {
+		return errors.New("failed to decode CA private key PEM")
+	}
+	d.caKey, err = x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+	if err != nil {
+		return err
+	}
+
+	certBytes, err := os.ReadFile(caCertPath)
+	if err != nil {
+		return err
+	}
+	certBlock, _ := pem.Decode(certBytes)
+	if certBlock == nil {
+		return errors.New("failed to decode CA certificate PEM")
+	}
+	d.caCert, err = x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Restart stops and then starts the daemon.

@@ -1,6 +1,7 @@
 package certs
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -62,6 +63,46 @@ func GenerateTLSCertificates(outputDir, caName, serverName, clientName string) e
 	fmt.Printf("Generated client certificate and key: %s, %s\n", clientCertFile, clientKeyFile)
 
 	return nil
+}
+
+func GenerateClientCertificateData(clientName string, caCert *x509.Certificate, caKey *rsa.PrivateKey) (certPEM, keyPEM []byte, err error) {
+	// Generate a new private key for the client.
+	clientKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate client key: %w", err)
+	}
+
+	// Create the certificate template for the client.
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		Subject: pkix.Name{
+			CommonName: clientName, // This is the client's identity
+		},
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().AddDate(1, 0, 0), // Valid for 1 year
+		KeyUsage:    x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}, // Specifies this is a client cert
+	}
+
+	// Create the certificate by signing the template with the CA's private key.
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, caCert, &clientKey.PublicKey, caKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create client certificate: %w", err)
+	}
+
+	// Encode the certificate to PEM format in memory.
+	certBuf := new(bytes.Buffer)
+	if err := pem.Encode(certBuf, &pem.Block{Type: "CERTIFICATE", Bytes: certBytes}); err != nil {
+		return nil, nil, fmt.Errorf("failed to encode certificate to PEM: %w", err)
+	}
+
+	// Encode the private key to PEM format in memory.
+	keyBuf := new(bytes.Buffer)
+	if err := pem.Encode(keyBuf, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientKey)}); err != nil {
+		return nil, nil, fmt.Errorf("failed to encode private key to PEM: %w", err)
+	}
+
+	return certBuf.Bytes(), keyBuf.Bytes(), nil
 }
 
 // generateCA creates a self-signed Root Certificate Authority.

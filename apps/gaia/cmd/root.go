@@ -76,4 +76,5 @@ func init() {
 	rootCmd.AddCommand(restartCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(certsCmd)
+	rootCmd.AddCommand(clientsCmd)
 }

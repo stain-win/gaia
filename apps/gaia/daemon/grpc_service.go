@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/stain-win/gaia/apps/gaia/certs"
 	"github.com/stain-win/gaia/apps/gaia/proto"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
@@ -94,4 +95,26 @@ func (s *gaiaAdminServer) Unlock(ctx context.Context, req *proto.UnlockRequest) 
 		return &proto.UnlockResponse{Success: false}, err
 	}
 	return &proto.UnlockResponse{Success: true}, nil
+}
+
+func (s *gaiaAdminServer) RegisterClient(ctx context.Context, req *proto.RegisterClientRequest) (*proto.RegisterClientResponse, error) {
+	if s.d.isLocked {
+		return nil, errors.New("daemon is in a locked state, cannot register new clients")
+	}
+	// 1. Generate the client certificate and key in memory.
+	certPEM, keyPEM, err := certs.GenerateClientCertificateData(req.ClientName, s.d.caCert, s.d.caKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate client certificate: %w", err)
+	}
+
+	// 2. Register the client name in the database.
+	if err := s.d.RegisterClient(req.ClientName); err != nil {
+		return nil, fmt.Errorf("failed to register client in database: %w", err)
+	}
+
+	// 3. Return the certificate and key to the admin.
+	return &proto.RegisterClientResponse{
+		Certificate: string(certPEM),
+		PrivateKey:  string(keyPEM),
+	}, nil
 }
