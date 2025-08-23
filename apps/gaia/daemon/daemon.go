@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -296,6 +297,28 @@ func (d *Daemon) AddSecret(clientName, namespace, id, value string) error {
 	})
 }
 
+// DeleteSecret removes a specific secret from the database.
+func (d *Daemon) DeleteSecret(clientName, namespace, id string) error {
+	d.dbLock.Lock()
+	defer d.dbLock.Unlock()
+
+	if d.isLocked || d.db == nil {
+		return errors.New("daemon is in a locked state, cannot delete secrets")
+	}
+
+	key := fmt.Sprintf("%s/%s/%s", clientName, namespace, id)
+
+	return d.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(bucketName))
+		if b == nil {
+			// If the bucket doesn't exist, the secret can't exist either.
+			return nil
+		}
+		// b.Delete does not return an error if the key does not exist.
+		return b.Delete([]byte(key))
+	})
+}
+
 // GetSecret retrieves and decrypts a secret, enforcing authorization.
 func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 	d.dbLock.RLock()
@@ -437,4 +460,117 @@ func (d *Daemon) GetConfig() *config.Config {
 		return config.NewDefaultConfig()
 	}
 	return d.config
+}
+
+func (d *Daemon) ListClients() ([]string, error) {
+	d.dbLock.RLock()
+	defer d.dbLock.RUnlock()
+
+	if d.isLocked || d.db == nil {
+		return nil, errors.New("daemon is in a locked state, cannot list clients")
+	}
+
+	var clients []string
+	err := d.db.View(func(tx *bbolt.Tx) error {
+		// Assume bucket exists, as it's created on client registration.
+		b := tx.Bucket([]byte(clientsBucket))
+		if b == nil {
+			// If the bucket doesn't exist for some reason, return an empty list.
+			return nil
+		}
+
+		c := b.Cursor()
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			clients = append(clients, string(k))
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to list clients from database: %w", err)
+	}
+
+	return clients, nil
+}
+
+// RevokeClient removes a client's registration and all of its associated secrets.
+func (d *Daemon) RevokeClient(clientName string) error {
+	d.dbLock.Lock()
+	defer d.dbLock.Unlock()
+
+	if d.isLocked || d.db == nil {
+		return errors.New("daemon is in a locked state, cannot revoke clients")
+	}
+
+	return d.db.Update(func(tx *bbolt.Tx) error {
+		// 1. Delete the client from the clients bucket.
+		clientsB := tx.Bucket([]byte(clientsBucket))
+		if clientsB != nil {
+			if err := clientsB.Delete([]byte(clientName)); err != nil {
+				return fmt.Errorf("failed to delete client from registry: %w", err)
+			}
+		}
+
+		// 2. Delete all secrets associated with the client.
+		secretsB := tx.Bucket([]byte(bucketName))
+		if secretsB == nil {
+			return nil // No secrets bucket, so nothing to delete.
+		}
+
+		prefix := []byte(clientName + "/")
+		c := secretsB.Cursor()
+		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+			if err := c.Delete(); err != nil {
+				// Log the error but continue trying to delete others.
+				log.Printf("error deleting secret %s for revoked client %s: %v", string(k), clientName, err)
+			}
+		}
+
+		return nil
+	})
+}
+
+// ListNamespaces retrieves all unique namespaces associated with a given client.
+func (d *Daemon) ListNamespaces(clientName string) ([]string, error) {
+	d.dbLock.RLock()
+	defer d.dbLock.RUnlock()
+
+	if d.isLocked || d.db == nil {
+		return nil, errors.New("daemon is in a locked state, cannot list namespaces")
+	}
+
+	// Use a map to store unique namespace names.
+	namespaceSet := make(map[string]struct{})
+	prefix := []byte(clientName + "/")
+
+	err := d.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(bucketName))
+		if b == nil {
+			return nil // No secrets, so no namespaces.
+		}
+
+		c := b.Cursor()
+		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+			// The key format is clientName/namespace/id
+			// We need to extract the 'namespace' part.
+			trimmedKey := bytes.TrimPrefix(k, prefix)
+			parts := bytes.SplitN(trimmedKey, []byte("/"), 2)
+			if len(parts) > 0 {
+				namespaceSet[string(parts[0])] = struct{}{}
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces for client '%s': %w", clientName, err)
+	}
+
+	// Convert the set of namespaces to a slice.
+	namespaces := make([]string, 0, len(namespaceSet))
+	for ns := range namespaceSet {
+		namespaces = append(namespaces, ns)
+	}
+
+	return namespaces, nil
 }

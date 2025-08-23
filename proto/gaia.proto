@@ -6,6 +6,7 @@ option go_package = "github.com/stain-win/gaia/apps/gaia/proto";
 
 service GaiaAdmin {
   rpc AddSecret(AddSecretRequest) returns (AddSecretResponse);
+  rpc DeleteSecret(DeleteSecretRequest) returns (DeleteSecretResponse);
   rpc ListSecrets(ListSecretsRequest) returns (ListSecretsResponse);
   rpc RevokeCert(RevokeCertRequest) returns (RevokeCertResponse);
   rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
@@ -13,6 +14,9 @@ service GaiaAdmin {
   rpc Unlock(UnlockRequest) returns (UnlockResponse);
   rpc Lock(LockRequest) returns (LockResponse);
   rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
+  rpc ListClients(ListClientsRequest) returns (ListClientsResponse);
+  rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse);
+  rpc RevokeClient(RevokeClientRequest) returns (RevokeClientResponse);
 }
 
 
@@ -92,4 +96,35 @@ message RegisterClientRequest {
 message RegisterClientResponse {
   string certificate = 1; // PEM-encoded cert
   string private_key = 2; // PEM-encoded key
+}
+
+message ListClientsRequest {}
+
+message ListClientsResponse {
+  repeated string client_names = 1;
+}
+
+message ListNamespacesRequest {
+  string client_name = 1;
+}
+message ListNamespacesResponse {
+  repeated string namespaces = 1;
+}
+
+message RevokeClientRequest {
+  string client_name = 1;
+}
+
+message RevokeClientResponse {
+  bool success = 1;
+}
+
+message DeleteSecretRequest {
+  string client_name = 1;
+  string namespace = 2;
+  string id = 3;
+}
+
+message DeleteSecretResponse {
+  bool success = 1;
 }

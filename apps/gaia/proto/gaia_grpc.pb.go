@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	GaiaAdmin_AddSecret_FullMethodName      = "/gaia.GaiaAdmin/AddSecret"
+	GaiaAdmin_DeleteSecret_FullMethodName   = "/gaia.GaiaAdmin/DeleteSecret"
 	GaiaAdmin_ListSecrets_FullMethodName    = "/gaia.GaiaAdmin/ListSecrets"
 	GaiaAdmin_RevokeCert_FullMethodName     = "/gaia.GaiaAdmin/RevokeCert"
 	GaiaAdmin_GetStatus_FullMethodName      = "/gaia.GaiaAdmin/GetStatus"
@@ -27,6 +28,9 @@ const (
 	GaiaAdmin_Unlock_FullMethodName         = "/gaia.GaiaAdmin/Unlock"
 	GaiaAdmin_Lock_FullMethodName           = "/gaia.GaiaAdmin/Lock"
 	GaiaAdmin_RegisterClient_FullMethodName = "/gaia.GaiaAdmin/RegisterClient"
+	GaiaAdmin_ListClients_FullMethodName    = "/gaia.GaiaAdmin/ListClients"
+	GaiaAdmin_ListNamespaces_FullMethodName = "/gaia.GaiaAdmin/ListNamespaces"
+	GaiaAdmin_RevokeClient_FullMethodName   = "/gaia.GaiaAdmin/RevokeClient"
 )
 
 // GaiaAdminClient is the client API for GaiaAdmin service.
@@ -34,6 +38,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GaiaAdminClient interface {
 	AddSecret(ctx context.Context, in *AddSecretRequest, opts ...grpc.CallOption) (*AddSecretResponse, error)
+	DeleteSecret(ctx context.Context, in *DeleteSecretRequest, opts ...grpc.CallOption) (*DeleteSecretResponse, error)
 	ListSecrets(ctx context.Context, in *ListSecretsRequest, opts ...grpc.CallOption) (*ListSecretsResponse, error)
 	RevokeCert(ctx context.Context, in *RevokeCertRequest, opts ...grpc.CallOption) (*RevokeCertResponse, error)
 	GetStatus(ctx context.Context, in *GetStatusRequest, opts ...grpc.CallOption) (*GetStatusResponse, error)
@@ -41,6 +46,9 @@ type GaiaAdminClient interface {
 	Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc.CallOption) (*UnlockResponse, error)
 	Lock(ctx context.Context, in *LockRequest, opts ...grpc.CallOption) (*LockResponse, error)
 	RegisterClient(ctx context.Context, in *RegisterClientRequest, opts ...grpc.CallOption) (*RegisterClientResponse, error)
+	ListClients(ctx context.Context, in *ListClientsRequest, opts ...grpc.CallOption) (*ListClientsResponse, error)
+	ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error)
+	RevokeClient(ctx context.Context, in *RevokeClientRequest, opts ...grpc.CallOption) (*RevokeClientResponse, error)
 }
 
 type gaiaAdminClient struct {
@@ -55,6 +63,16 @@ func (c *gaiaAdminClient) AddSecret(ctx context.Context, in *AddSecretRequest, o
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AddSecretResponse)
 	err := c.cc.Invoke(ctx, GaiaAdmin_AddSecret_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gaiaAdminClient) DeleteSecret(ctx context.Context, in *DeleteSecretRequest, opts ...grpc.CallOption) (*DeleteSecretResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSecretResponse)
+	err := c.cc.Invoke(ctx, GaiaAdmin_DeleteSecret_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -131,11 +149,42 @@ func (c *gaiaAdminClient) RegisterClient(ctx context.Context, in *RegisterClient
 	return out, nil
 }
 
+func (c *gaiaAdminClient) ListClients(ctx context.Context, in *ListClientsRequest, opts ...grpc.CallOption) (*ListClientsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListClientsResponse)
+	err := c.cc.Invoke(ctx, GaiaAdmin_ListClients_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gaiaAdminClient) ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNamespacesResponse)
+	err := c.cc.Invoke(ctx, GaiaAdmin_ListNamespaces_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gaiaAdminClient) RevokeClient(ctx context.Context, in *RevokeClientRequest, opts ...grpc.CallOption) (*RevokeClientResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeClientResponse)
+	err := c.cc.Invoke(ctx, GaiaAdmin_RevokeClient_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GaiaAdminServer is the server API for GaiaAdmin service.
 // All implementations must embed UnimplementedGaiaAdminServer
 // for forward compatibility.
 type GaiaAdminServer interface {
 	AddSecret(context.Context, *AddSecretRequest) (*AddSecretResponse, error)
+	DeleteSecret(context.Context, *DeleteSecretRequest) (*DeleteSecretResponse, error)
 	ListSecrets(context.Context, *ListSecretsRequest) (*ListSecretsResponse, error)
 	RevokeCert(context.Context, *RevokeCertRequest) (*RevokeCertResponse, error)
 	GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error)
@@ -143,6 +192,9 @@ type GaiaAdminServer interface {
 	Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error)
 	Lock(context.Context, *LockRequest) (*LockResponse, error)
 	RegisterClient(context.Context, *RegisterClientRequest) (*RegisterClientResponse, error)
+	ListClients(context.Context, *ListClientsRequest) (*ListClientsResponse, error)
+	ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error)
+	RevokeClient(context.Context, *RevokeClientRequest) (*RevokeClientResponse, error)
 	mustEmbedUnimplementedGaiaAdminServer()
 }
 
@@ -155,6 +207,9 @@ type UnimplementedGaiaAdminServer struct{}
 
 func (UnimplementedGaiaAdminServer) AddSecret(context.Context, *AddSecretRequest) (*AddSecretResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddSecret not implemented")
+}
+func (UnimplementedGaiaAdminServer) DeleteSecret(context.Context, *DeleteSecretRequest) (*DeleteSecretResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSecret not implemented")
 }
 func (UnimplementedGaiaAdminServer) ListSecrets(context.Context, *ListSecretsRequest) (*ListSecretsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListSecrets not implemented")
@@ -176,6 +231,15 @@ func (UnimplementedGaiaAdminServer) Lock(context.Context, *LockRequest) (*LockRe
 }
 func (UnimplementedGaiaAdminServer) RegisterClient(context.Context, *RegisterClientRequest) (*RegisterClientResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterClient not implemented")
+}
+func (UnimplementedGaiaAdminServer) ListClients(context.Context, *ListClientsRequest) (*ListClientsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListClients not implemented")
+}
+func (UnimplementedGaiaAdminServer) ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListNamespaces not implemented")
+}
+func (UnimplementedGaiaAdminServer) RevokeClient(context.Context, *RevokeClientRequest) (*RevokeClientResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevokeClient not implemented")
 }
 func (UnimplementedGaiaAdminServer) mustEmbedUnimplementedGaiaAdminServer() {}
 func (UnimplementedGaiaAdminServer) testEmbeddedByValue()                   {}
@@ -212,6 +276,24 @@ func _GaiaAdmin_AddSecret_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(GaiaAdminServer).AddSecret(ctx, req.(*AddSecretRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GaiaAdmin_DeleteSecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSecretRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaAdminServer).DeleteSecret(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaAdmin_DeleteSecret_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaAdminServer).DeleteSecret(ctx, req.(*DeleteSecretRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -342,6 +424,60 @@ func _GaiaAdmin_RegisterClient_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GaiaAdmin_ListClients_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListClientsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaAdminServer).ListClients(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaAdmin_ListClients_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaAdminServer).ListClients(ctx, req.(*ListClientsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GaiaAdmin_ListNamespaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNamespacesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaAdminServer).ListNamespaces(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaAdmin_ListNamespaces_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaAdminServer).ListNamespaces(ctx, req.(*ListNamespacesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GaiaAdmin_RevokeClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeClientRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaAdminServer).RevokeClient(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaAdmin_RevokeClient_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaAdminServer).RevokeClient(ctx, req.(*RevokeClientRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GaiaAdmin_ServiceDesc is the grpc.ServiceDesc for GaiaAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -352,6 +488,10 @@ var GaiaAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddSecret",
 			Handler:    _GaiaAdmin_AddSecret_Handler,
+		},
+		{
+			MethodName: "DeleteSecret",
+			Handler:    _GaiaAdmin_DeleteSecret_Handler,
 		},
 		{
 			MethodName: "ListSecrets",
@@ -380,6 +520,18 @@ var GaiaAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterClient",
 			Handler:    _GaiaAdmin_RegisterClient_Handler,
+		},
+		{
+			MethodName: "ListClients",
+			Handler:    _GaiaAdmin_ListClients_Handler,
+		},
+		{
+			MethodName: "ListNamespaces",
+			Handler:    _GaiaAdmin_ListNamespaces_Handler,
+		},
+		{
+			MethodName: "RevokeClient",
+			Handler:    _GaiaAdmin_RevokeClient_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

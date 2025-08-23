@@ -45,7 +45,7 @@ func NewClientServer(d *Daemon) proto.GaiaClientServer {
 }
 
 // AddSecret handles the AddSecret RPC call.
-func (s *gaiaAdminServer) AddSecret(ctx context.Context, req *proto.AddSecretRequest) (*proto.AddSecretResponse, error) {
+func (s *gaiaAdminServer) AddSecret(_ context.Context, req *proto.AddSecretRequest) (*proto.AddSecretResponse, error) {
 	if s.d.isLocked {
 		return nil, errors.New("daemon is in a locked state, cannot add secrets")
 	}
@@ -57,14 +57,27 @@ func (s *gaiaAdminServer) AddSecret(ctx context.Context, req *proto.AddSecretReq
 	return &proto.AddSecretResponse{Success: true, Message: "Secret added successfully"}, nil
 }
 
+// DeleteSecret handles the gRPC request to delete a secret.
+func (s *gaiaAdminServer) DeleteSecret(_ context.Context, req *proto.DeleteSecretRequest) (*proto.DeleteSecretResponse, error) {
+	if s.d.isLocked {
+		return nil, errors.New("daemon is in a locked state, cannot delete secrets")
+	}
+
+	if err := s.d.DeleteSecret(req.ClientName, req.Namespace, req.Id); err != nil {
+		return nil, fmt.Errorf("failed to delete secret for client '%s': %w", req.ClientName, err)
+	}
+
+	return &proto.DeleteSecretResponse{Success: true}, nil
+}
+
 // RevokeCert handles the RevokeCert RPC call.
-func (s *gaiaAdminServer) RevokeCert(ctx context.Context, req *proto.RevokeCertRequest) (*proto.RevokeCertResponse, error) {
+func (s *gaiaAdminServer) RevokeCert(_ context.Context, _ *proto.RevokeCertRequest) (*proto.RevokeCertResponse, error) {
 	// TODO: Implement certificate revocation logic here.
 	return &proto.RevokeCertResponse{Success: false}, errors.New("not implemented")
 }
 
 // GetStatus handles the GetStatus RPC call.
-func (s *gaiaAdminServer) GetStatus(ctx context.Context, req *proto.GetStatusRequest) (*proto.GetStatusResponse, error) {
+func (s *gaiaAdminServer) GetStatus(_ context.Context, _ *proto.GetStatusRequest) (*proto.GetStatusResponse, error) {
 	return &proto.GetStatusResponse{Status: s.d.Status()}, nil
 }
 
@@ -83,13 +96,13 @@ func (s *gaiaClientServer) GetSecret(ctx context.Context, req *proto.GetSecretRe
 }
 
 // Lock handles the Lock RPC call.
-func (s *gaiaAdminServer) Lock(ctx context.Context, req *proto.LockRequest) (*proto.LockResponse, error) {
+func (s *gaiaAdminServer) Lock(_ context.Context, _ *proto.LockRequest) (*proto.LockResponse, error) {
 	s.d.LockDB()
 	return &proto.LockResponse{Success: true}, nil
 }
 
 // Unlock handles the Unlock RPC call.
-func (s *gaiaAdminServer) Unlock(ctx context.Context, req *proto.UnlockRequest) (*proto.UnlockResponse, error) {
+func (s *gaiaAdminServer) Unlock(_ context.Context, req *proto.UnlockRequest) (*proto.UnlockResponse, error) {
 	err := s.d.UnlockDB(req.Passphrase)
 	if err != nil {
 		return &proto.UnlockResponse{Success: false}, err
@@ -97,24 +110,61 @@ func (s *gaiaAdminServer) Unlock(ctx context.Context, req *proto.UnlockRequest) 
 	return &proto.UnlockResponse{Success: true}, nil
 }
 
-func (s *gaiaAdminServer) RegisterClient(ctx context.Context, req *proto.RegisterClientRequest) (*proto.RegisterClientResponse, error) {
+func (s *gaiaAdminServer) RegisterClient(_ context.Context, req *proto.RegisterClientRequest) (*proto.RegisterClientResponse, error) {
 	if s.d.isLocked {
 		return nil, errors.New("daemon is in a locked state, cannot register new clients")
 	}
-	// 1. Generate the client certificate and key in memory.
+
 	certPEM, keyPEM, err := certs.GenerateClientCertificateData(req.ClientName, s.d.caCert, s.d.caKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate client certificate: %w", err)
 	}
 
-	// 2. Register the client name in the database.
 	if err := s.d.RegisterClient(req.ClientName); err != nil {
 		return nil, fmt.Errorf("failed to register client in database: %w", err)
 	}
 
-	// 3. Return the certificate and key to the admin.
 	return &proto.RegisterClientResponse{
 		Certificate: string(certPEM),
 		PrivateKey:  string(keyPEM),
 	}, nil
+}
+
+func (s *gaiaAdminServer) ListClients(_ context.Context, _ *proto.ListClientsRequest) (*proto.ListClientsResponse, error) {
+	if s.d.isLocked {
+		return nil, errors.New("daemon is in a locked state, cannot list clients")
+	}
+
+	clientNames, err := s.d.ListClients()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client list: %w", err)
+	}
+
+	return &proto.ListClientsResponse{ClientNames: clientNames}, nil
+}
+
+// RevokeClient handles the gRPC request to revoke a client.
+func (s *gaiaAdminServer) RevokeClient(_ context.Context, req *proto.RevokeClientRequest) (*proto.RevokeClientResponse, error) {
+	if s.d.isLocked {
+		return nil, errors.New("daemon is in a locked state, cannot revoke clients")
+	}
+
+	if err := s.d.RevokeClient(req.ClientName); err != nil {
+		return nil, fmt.Errorf("failed to revoke client '%s': %w", req.ClientName, err)
+	}
+
+	return &proto.RevokeClientResponse{Success: true}, nil
+}
+
+func (s *gaiaAdminServer) ListNamespaces(_ context.Context, req *proto.ListNamespacesRequest) (*proto.ListNamespacesResponse, error) {
+	if s.d.isLocked {
+		return nil, errors.New("daemon is in a locked state, cannot list namespaces")
+	}
+
+	namespaces, err := s.d.ListNamespaces(req.ClientName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get namespace list for client '%s': %w", req.ClientName, err)
+	}
+
+	return &proto.ListNamespacesResponse{Namespaces: namespaces}, nil
 }
