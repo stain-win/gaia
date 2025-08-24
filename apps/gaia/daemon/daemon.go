@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -19,7 +20,7 @@ import (
 
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/encrypt"
-	logger "github.com/stain-win/gaia/apps/gaia/log"
+	"github.com/stain-win/gaia/apps/gaia/gaialog"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 	"go.etcd.io/bbolt"
 	"google.golang.org/grpc"
@@ -197,7 +198,7 @@ func (d *Daemon) LockDB() {
 	}
 	d.key = nil
 	d.isLocked = true
-	log.Println("Daemon is now in a locked state.")
+	gaialog.Get().Info("Daemon is now in a locked state.")
 }
 
 // UnlockDB opens the DB and loads the key into memory for an administrative session.
@@ -248,7 +249,7 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 
 	d.isLocked = false
 	d.status = StatusRunning
-	log.Println("Daemon is now unlocked.")
+	gaialog.Get().Info("Daemon is now in a locked state.")
 	return nil
 }
 
@@ -262,7 +263,7 @@ func (d *Daemon) RegisterClient(clientName string) error {
 		return errors.New("daemon is in a locked state, cannot register clients")
 	}
 
-	return d.db.Update(func(tx *bbolt.Tx) error {
+	err := d.db.Update(func(tx *bbolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists([]byte(clientsBucket))
 		if err != nil {
 			return fmt.Errorf("failed to create or get clients bucket: %w", err)
@@ -270,6 +271,11 @@ func (d *Daemon) RegisterClient(clientName string) error {
 		// Use the client name as both the key and value for simplicity.
 		return b.Put([]byte(clientName), []byte(clientName))
 	})
+
+	if err == nil {
+		gaialog.Get().Info("client registered", slog.String("client_name", clientName))
+	}
+	return err
 }
 
 // AddSecret stores an encrypted secret for a specific client and namespace.
@@ -289,13 +295,22 @@ func (d *Daemon) AddSecret(clientName, namespace, id, value string) error {
 		return fmt.Errorf("failed to encrypt secret: %w", err)
 	}
 
-	return d.db.Update(func(tx *bbolt.Tx) error {
+	err = d.db.Update(func(tx *bbolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists([]byte(bucketName))
 		if err != nil {
 			return fmt.Errorf("failed to create or get bucket: %w", err)
 		}
 		return b.Put([]byte(key), []byte(encValue))
 	})
+
+	if err == nil {
+		gaialog.Get().Info("secret added/updated",
+			slog.String("client_name", clientName),
+			slog.String("namespace", namespace),
+			slog.String("id", id),
+		)
+	}
+	return err
 }
 
 // DeleteSecret removes a specific secret from the database.
@@ -309,7 +324,7 @@ func (d *Daemon) DeleteSecret(clientName, namespace, id string) error {
 
 	key := fmt.Sprintf("%s/%s/%s", clientName, namespace, id)
 
-	return d.db.Update(func(tx *bbolt.Tx) error {
+	err := d.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
 		if b == nil {
 			// If the bucket doesn't exist, the secret can't exist either.
@@ -318,6 +333,15 @@ func (d *Daemon) DeleteSecret(clientName, namespace, id string) error {
 		// b.Delete does not return an error if the key does not exist.
 		return b.Delete([]byte(key))
 	})
+
+	if err == nil {
+		gaialog.Get().Info("secret deleted",
+			slog.String("client_name", clientName),
+			slog.String("namespace", namespace),
+			slog.String("id", id),
+		)
+	}
+	return err
 }
 
 // GetSecret retrieves and decrypts a secret, enforcing authorization.
@@ -363,7 +387,7 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 
 	decValue, err := encrypt.Decrypt(d.key, string(encValue))
 	if err != nil {
-		logger.Get().Error("secret failed to decrypt",
+		gaialog.Get().Error("secret failed to decrypt",
 			"client", clientName,
 			"namespace", namespace,
 			"id", id,
@@ -371,10 +395,10 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 		return "", fmt.Errorf("failed to decrypt secret: %w", err)
 	}
 
-	logger.Get().Info("secret retrieved successfully",
-		"client", clientName,
-		"namespace", namespace,
-		"id", id,
+	gaialog.Get().Info("secret accessed",
+		slog.String("client_name", clientName),
+		slog.String("namespace", namespace),
+		slog.String("id", id),
 	)
 	return string(decValue), nil
 }

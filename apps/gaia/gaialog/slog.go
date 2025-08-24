@@ -1,4 +1,4 @@
-package log
+package gaialog
 
 import (
 	"io"
