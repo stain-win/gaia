@@ -19,6 +19,7 @@ import (
 
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/encrypt"
+	logger "github.com/stain-win/gaia/apps/gaia/log"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 	"go.etcd.io/bbolt"
 	"google.golang.org/grpc"
@@ -65,7 +66,7 @@ type gaiaClientServer struct {
 }
 
 // Stop is the gRPC method for stopping the daemon.
-func (s *gaiaAdminServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.StopResponse, error) {
+func (s *gaiaAdminServer) Stop(_ context.Context, _ *pb.StopRequest) (*pb.StopResponse, error) {
 	log.Println("Received stop request via gRPC. Shutting down...")
 	close(s.d.stopChannel)
 	return &pb.StopResponse{Success: true}, nil
@@ -134,7 +135,7 @@ func (d *Daemon) Start(cfg *config.Config) error {
 }
 
 // stopDaemon gracefully stops the gRPC server and closes the database.
-func (d *Daemon) stopDaemon(ctx context.Context) error {
+func (d *Daemon) stopDaemon(_ context.Context) error {
 	if d.status != StatusRunning {
 		return errors.New("daemon not running")
 	}
@@ -362,8 +363,19 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 
 	decValue, err := encrypt.Decrypt(d.key, string(encValue))
 	if err != nil {
+		logger.Get().Error("secret failed to decrypt",
+			"client", clientName,
+			"namespace", namespace,
+			"id", id,
+		)
 		return "", fmt.Errorf("failed to decrypt secret: %w", err)
 	}
+
+	logger.Get().Info("secret retrieved successfully",
+		"client", clientName,
+		"namespace", namespace,
+		"id", id,
+	)
 	return string(decValue), nil
 }
 

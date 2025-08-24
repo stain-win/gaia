@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/daemon"
+	"github.com/stain-win/gaia/apps/gaia/log"
 	"github.com/stain-win/gaia/apps/gaia/tui"
 )
 
@@ -30,6 +31,9 @@ credentials to web applications running on the same server.`,
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
+
+		// Initialize the logger
+		log.Init(log.LevelInfo, "gaia_audit.log", true)
 
 		// 2. (Optional) Override config with any other flags if needed.
 		//    For example, if you had a --db-path flag, you'd apply it here.

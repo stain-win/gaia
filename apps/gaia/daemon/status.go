@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-// DaemonStatusMsg is a custom message for checking daemon status
+// StatusMsg is a custom message for checking daemon status
 type StatusMsg struct {
 	Status string
 	Err    error
@@ -45,7 +45,7 @@ func getDaemonStatus(cfg *config.Config) (string, error) {
 
 // getClientConn establishes a secure gRPC connection to the daemon.
 // This method now correctly takes a context and config parameter.
-func getClientConn(ctx context.Context, cfg *config.Config) (*grpc.ClientConn, error) {
+func getClientConn(_ context.Context, cfg *config.Config) (*grpc.ClientConn, error) {
 	// Use the configuration values instead of hardcoded paths.
 	daemonAddress := fmt.Sprintf("localhost:%s", cfg.GRPCPort)
 	caCertFile := cfg.CACertFile
