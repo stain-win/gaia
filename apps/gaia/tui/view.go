@@ -4,7 +4,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m model) View() string {
+func (m *model) View() string {
 	logo := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#6A5ACD")).
 		Align(lipgloss.Center).

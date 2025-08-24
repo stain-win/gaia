@@ -74,7 +74,7 @@ var certMenuItems = []list.Item{
 }
 
 // initialModel creates the starting state of the TUI.
-func initialModel(config *config.Config) model {
+func initialModel(config *config.Config) *model {
 	mainList := list.New(menuItems, list.NewDefaultDelegate(), 0, 0)
 	mainList.Title = titleStyle.
 		Render("Main Menu")
@@ -112,5 +112,5 @@ func initialModel(config *config.Config) model {
 		),
 	)
 
-	return m
+	return &m
 }

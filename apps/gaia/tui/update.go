@@ -11,11 +11,11 @@ import (
 	"github.com/stain-win/gaia/apps/gaia/daemon"
 )
 
-func (m model) Init() tea.Cmd {
+func (m *model) Init() tea.Cmd {
 	return nil
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Global handling for messages that apply to all screens
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -62,7 +62,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateMainMenu handles all updates for the main menu screen.
-func updateMainMenu(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func updateMainMenu(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
 		selected := m.mainMenu.SelectedItem().(menuItem)
@@ -81,7 +81,7 @@ func updateMainMenu(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateDataManagement handles updates for the data management screen.
-func updateDataManagement(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func updateDataManagement(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -115,7 +115,7 @@ func updateDataManagement(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateCertManagement handles updates for the certificate management screen.
-func updateCertManagement(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func updateCertManagement(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
 		selected := m.certMenu.SelectedItem().(menuItem)
@@ -137,7 +137,7 @@ func updateCertManagement(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateAddRecord handles updates for the 'Add Record' form screen.
-func updateAddRecord(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func updateAddRecord(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	if _, ok := msg.(BackMsg); ok {
 		m.activeScreen = dataManagement
 		return m, nil
@@ -154,7 +154,7 @@ func updateAddRecord(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateCreateCerts handles updates for the 'Create Certificates' form screen.
-func updateCreateCerts(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func updateCreateCerts(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	updatedForm, cmd := m.certForm.Update(msg)
 	m.certForm = updatedForm.(*huh.Form)
 
@@ -177,7 +177,7 @@ func updateCreateCerts(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateRegisterClient handles updates for the 'Register Client' form screen.
-func updateRegisterClient(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func updateRegisterClient(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	if _, ok := msg.(BackMsg); ok {
 		m.activeScreen = certManagement
 		return m, nil
