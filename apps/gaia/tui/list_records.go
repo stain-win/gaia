@@ -1,195 +1,240 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/list"
-	bubblesTable "github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/stain-win/gaia/apps/gaia/tui/table"
+	"github.com/stain-win/gaia/apps/gaia/config"
+	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
 
-// listRecordsModel holds the state for the screen that lists all records.
-type listRecordsModel struct {
-	namespaces list.Model
-	secrets    table.Model
-	help       help.Model
-	keys       keyMap
-	activePane int // 0 for namespaces, 1 for secrets
-	width      int
-	height     int
+// Define styles for the inspector panes
+var (
+	paneStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			Padding(1)
+
+	focusedPaneStyle = paneStyle.
+				BorderForeground(lipgloss.Color("69"))
+)
+
+type inspectorPane int
+
+const (
+	clientsPane inspectorPane = iota
+	secretsPane
+)
+
+// inspectorModel holds the state for our new three-pane view.
+type inspectorModel struct {
+	config *config.Config
+	width  int
+	height int
+
+	focusedPane inspectorPane
+	clientsList list.Model
+	secretsList list.Model
+	viewport    viewport.Model
+
+	// Data
+	allData        map[string][]*pb.Namespace // clientName -> namespaces
+	selectedClient string
 }
 
-type namespaceItem struct {
-	name string
-	desc string
-}
+func newInspectorModel(cfg *config.Config) *inspectorModel {
+	clientsList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	clientsList.Title = titleStyle.Render("Clients")
+	clientsList.SetShowHelp(false)
+	clientsList.SetShowFilter(false)
 
-func (n namespaceItem) FilterValue() string { return n.name }
-func (n namespaceItem) Title() string       { return n.name }
-func (n namespaceItem) Description() string { return n.desc }
+	secretsList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	secretsList.Title = titleStyle.Render("Secrets")
+	secretsList.SetShowHelp(false)
+	secretsList.SetShowFilter(false)
 
-// keyMap defines the keybindings for the list records screen.
-type keyMap struct {
-	Tab    key.Binding
-	Esc    key.Binding
-	Quit   key.Binding
-	Up     key.Binding
-	Down   key.Binding
-	Enter  key.Binding
-	Add    key.Binding
-	Delete key.Binding
-}
+	vp := viewport.New(0, 0)
+	vp.Style = paneStyle
 
-func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Tab, k.Esc, k.Add, k.Delete, k.Enter}
-}
-
-func (k keyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{
-		{k.Up, k.Down, k.Tab, k.Esc},
-		{k.Add, k.Delete, k.Enter, k.Quit},
+	return &inspectorModel{
+		config:      cfg,
+		clientsList: clientsList,
+		secretsList: secretsList,
+		viewport:    vp,
+		focusedPane: clientsPane,
+		allData:     make(map[string][]*pb.Namespace),
 	}
 }
 
-var keys = keyMap{
-	Tab:    key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch pane")),
-	Esc:    key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
-	Quit:   key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
-	Up:     key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "move up")),
-	Down:   key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "move down")),
-	Enter:  key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select/edit")),
-	Add:    key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add record")),
-	Delete: key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete record")),
+// Init fetches the initial data.
+func (m *inspectorModel) Init() tea.Cmd {
+	return fetchAllClientsCmd(m.config)
 }
 
-// newListRecordsModel initializes the model for the list records screen.
-func newListRecordsModel() listRecordsModel {
-	// For now, we'll use mock data. This will be replaced by a gRPC call.
-	namespaceItems := []list.Item{
-		namespaceItem{"common", "Common namespace for shared secrets"},
-		namespaceItem{"client-app-a", "Namespace for client application A"},
-		namespaceItem{"client-app-b", "Namespace for client application B"},
-	}
-
-	nsList := list.New(namespaceItems, list.NewDefaultDelegate(), 0, 0)
-	nsList.SetShowHelp(false)
-	//nsList.SetShowTitle(false)
-	//nsList.SetShowStatusBar(false)
-	nsList.SetShowPagination(false)
-
-	// Define the columns for our secrets table.
-	columns := []bubblesTable.Column{
-		{Title: "Key", Width: 20},
-		{Title: "Value", Width: 40},
-	}
-
-	// Mock rows for the 'common' namespace.
-	rows := []bubblesTable.Row{
-		{"api_key_service_x", "****************"},
-		{"database_url", "postgres://..."},
-		{"stripe_api_key", "sk_test_..."},
-	}
-
-	secretsTable := table.New(
-		bubblesTable.WithColumns(columns),
-		bubblesTable.WithRows(rows),
-		bubblesTable.WithFocused(true),
-		bubblesTable.WithHeight(10),
-	)
-
-	return listRecordsModel{
-		namespaces: nsList,
-		secrets:    secretsTable,
-		help:       help.New(),
-		keys:       keys,
-		activePane: 0,
-	}
-}
-
-// updateListRecords handles messages for the list records screen.
-func (m *model) updateListRecords(msg tea.Msg) (tea.Model, tea.Cmd) {
+// Update handles messages for the inspector.
+func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.listRecords.width = msg.Width
-		m.listRecords.height = msg.Height
-		m.listRecords.help.Width = msg.Width
+		m.width = msg.Width
+		m.height = msg.Height
+		// Recalculate pane sizes
+		h, v := listViewStyle.GetFrameSize()
+		paneWidth := (msg.Width - h) / 3
+		paneHeight := v - 3 // Adjust for title/footer
+
+		m.clientsList.SetSize(paneWidth, paneHeight)
+		m.secretsList.SetSize(paneWidth, paneHeight)
+
+		m.viewport.Width = paneWidth
+		m.viewport.Height = paneHeight
+
+	case allClientsLoadedMsg:
+		if msg.err != nil {
+			// Handle error
+			return m, nil
+		}
+		var items []list.Item
+		for _, client := range msg.clients {
+			items = append(items, namespaceItem(client))
+		}
+		m.clientsList.SetItems(items)
+		// Fetch secrets for the first client automatically
+		if len(msg.clients) > 0 {
+			m.selectedClient = msg.clients[0]
+			return m, fetchSecretsForClientCmd(m.config, m.selectedClient)
+		}
+
+	case secretsForClientLoadedMsg:
+		if msg.err != nil {
+			// Handle error
+			return m, nil
+		}
+		m.allData[msg.clientName] = msg.namespaces
+		m.updateSecretsList()
 
 	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, m.listRecords.keys.Tab):
-			m.listRecords.activePane = (m.listRecords.activePane + 1) % 2
-		case key.Matches(msg, m.listRecords.keys.Esc):
-			m.activeScreen = dataManagement
+		// Switch focus between panes
+		if msg.String() == "tab" {
+			m.focusedPane = (m.focusedPane + 1) % 2
 			return m, nil
+		}
+
+		// Handle selection in the clients list
+		if m.focusedPane == clientsPane {
+			if m.clientsList.SelectedItem() != nil {
+				newClient := string(m.clientsList.SelectedItem().(namespaceItem))
+				if newClient != m.selectedClient {
+					m.selectedClient = newClient
+					// Check if we already have data, otherwise fetch it
+					if _, ok := m.allData[m.selectedClient]; !ok {
+						return m, fetchSecretsForClientCmd(m.config, m.selectedClient)
+					}
+					m.updateSecretsList()
+				}
+			}
 		}
 	}
 
-	if m.listRecords.activePane == 0 {
-		m.listRecords.namespaces, cmd = m.listRecords.namespaces.Update(msg)
+	// Delegate updates to the focused component
+	if m.focusedPane == clientsPane {
+		m.clientsList, cmd = m.clientsList.Update(msg)
 		cmds = append(cmds, cmd)
 	} else {
-		m.listRecords.secrets, cmd = m.listRecords.secrets.Update(msg)
+		m.secretsList, cmd = m.secretsList.Update(msg)
 		cmds = append(cmds, cmd)
+	}
+
+	// Update the viewport content when the secrets list selection changes
+	if m.secretsList.SelectedItem() != nil {
+		if secret, ok := m.secretsList.SelectedItem().(secretItem); ok {
+
+			key := secret.key
+			value := secret.value
+			secret := fmt.Sprintf("Key: %s\n\nValue:\n%s", key, value)
+			m.viewport.SetContent(secret)
+		}
+	} else {
+		m.viewport.SetContent("")
 	}
 
 	return m, tea.Batch(cmds...)
 }
 
-// viewListRecords renders the list records screen.
-func (m *model) viewListRecords() string {
-	// Define styles for active and inactive panes
-	inactivePaneStyle := lipgloss.NewStyle().
-		Border(lipgloss.ThickBorder(), false, false, false, false).
-		BorderTop(true).
-		BorderForeground(lipgloss.Color("240")).
-		Padding(1, 2)
+// View renders the three-pane layout.
+func (m *inspectorModel) View() string {
+	var clientsPaneView, secretsPaneView, sidePaneView, valuePaneView string
 
-	activePaneStyle := inactivePaneStyle.
-		Border(lipgloss.ThickBorder(), false, false, false, false).
-		BorderTop(true).
-		BorderForeground(lipgloss.Color("226"))
+	clientsPaneStyle := paneStyle.Width(m.clientsList.Width()).Height(m.clientsList.Height())
+	secretsPaneStyle := paneStyle.Width(m.secretsList.Width()).Height(m.secretsList.Height())
 
-	// Calculate pane widths and heights
-	helpHeight := lipgloss.Height(m.listRecords.help.View(m.listRecords.keys))
-	verticalMargin := lipgloss.Height(activePaneStyle.Render(""))
-	paneHeight := m.height - helpHeight - verticalMargin - 4 // Adjust for logo and margins
-
-	namespaceWidth := m.listRecords.width / 2
-	tableWidth := m.listRecords.width - namespaceWidth - 8 // Adjust for padding/margins
-
-	m.listRecords.namespaces.SetHeight(paneHeight)
-	m.listRecords.secrets.SetHeight(paneHeight)
-	m.listRecords.secrets.SetWidth(tableWidth)
-
-	var nsStyle, tblStyle lipgloss.Style
-	if m.listRecords.activePane == 0 {
-		nsStyle = activePaneStyle
-		//tblStyle = inactivePaneStyle
+	if m.focusedPane == clientsPane {
+		clientsPaneStyle = focusedPaneStyle.Width(m.clientsList.Width()).Height(m.clientsList.Height())
 	} else {
-		nsStyle = inactivePaneStyle
-		//tblStyle = activePaneStyle
+		secretsPaneStyle = focusedPaneStyle.Width(m.secretsList.Width()).Height(m.secretsList.Height())
 	}
 
-	// Render panes with titles
-	nsView := lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.NewStyle().Bold(true).Padding(0, 1).Render("Namespaces"),
-		m.listRecords.namespaces.View(),
-	)
-	tblView := lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.NewStyle().Bold(true).Padding(0, 1).Render("Secrets"),
-		m.listRecords.secrets.View(),
-	)
+	clientsPaneView = clientsPaneStyle.Render(m.clientsList.View())
+	secretsPaneView = secretsPaneStyle.Render(m.secretsList.View())
+	sidePaneView = lipgloss.JoinVertical(lipgloss.Left, clientsPaneView, secretsPaneView)
+	valuePaneView = m.viewport.View()
 
-	panes := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		nsStyle.Width(namespaceWidth).Render(nsView),
-		tblStyle.Width(tableWidth).Render(tblView),
+	return lipgloss.NewStyle().Height(m.height).Render(
+		lipgloss.JoinHorizontal(lipgloss.Top, sidePaneView, valuePaneView),
 	)
-
-	return lipgloss.JoinVertical(lipgloss.Left, panes, m.listRecords.help.View(m.listRecords.keys))
 }
+
+// updateSecretsList populates the secrets list based on the selected client.
+func (m *inspectorModel) updateSecretsList() {
+	var items []list.Item
+	namespaces := m.allData[m.selectedClient]
+	for _, ns := range namespaces {
+		for _, secret := range ns.Secrets {
+			items = append(items, secretItem{
+				namespace: ns.Name,
+				key:       secret.Id,
+				value:     secret.Value,
+			})
+		}
+	}
+	m.secretsList.SetItems(items)
+}
+
+func (m *inspectorModel) SetSize(w, h int) {
+	m.width = w
+	m.height = h
+
+	paneWidth := (w / 3) - 2
+
+	const paneVerticalPadding = 2 // 1 for top padding, 1 for bottom
+	listHeight := h/2 - paneVerticalPadding
+
+	m.clientsList.SetSize(paneWidth, min(listHeight, 10))
+	m.secretsList.SetSize(paneWidth, h-(m.clientsList.Height()+paneVerticalPadding+1))
+	m.viewport.Width = paneWidth * 2
+	m.viewport.Height = listHeight
+}
+
+// secretItem represents an item in the secrets list.
+type secretItem struct {
+	namespace, key, value string
+}
+
+func (i secretItem) Title() string {
+	return fmt.Sprintf("%s", i.namespace)
+}
+func (i secretItem) Description() string {
+	return "namespace"
+}
+func (i secretItem) FilterValue() string { return i.key }
+
+// namespaceItem is a custom list.Item for the clients' pane.
+type namespaceItem string
+
+func (n namespaceItem) Title() string       { return string(n) }
+func (n namespaceItem) Description() string { return "Client" }
+func (n namespaceItem) FilterValue() string { return string(n) }

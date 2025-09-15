@@ -145,10 +145,10 @@ var statusCmd = &cobra.Command{
 	Short: "Show the status of the Gaia daemon",
 	Long:  `The status command returns the current operational status of the Gaia daemon.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		cfg := gaiaDaemon.GetConfig()
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.GRPCClientTimeout)
 		defer cancel()
 
-		cfg := gaiaDaemon.GetConfig()
 		conn, err := getClientConn(ctx, cfg)
 		if err != nil {
 			fmt.Printf("Gaia daemon status: %s\n", daemon.StatusStopped)

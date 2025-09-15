@@ -3,7 +3,9 @@ package tui
 import (
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -12,57 +14,79 @@ import (
 )
 
 func (m *model) Init() tea.Cmd {
-	return nil
+	return tea.Batch(
+		checkStatusCmd(m.config),
+		tea.Tick(m.config.GaiaTuiTickInterval, func(t time.Time) tea.Msg {
+			return t
+		}),
+	)
 }
 
+// Update is called when a message is received.
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Global handling for messages that apply to all screens
 	switch msg := msg.(type) {
+	case time.Time:
+		return m, checkStatusCmd(m.config)
 	case tea.WindowSizeMsg:
 		h, v := lipgloss.NewStyle().Margin(8, 2).GetFrameSize()
-		m.mainMenu.SetSize(msg.Width-h, msg.Height-v)
-		m.dataMenu.SetSize(msg.Width-h, msg.Height-v)
-		m.certMenu.SetSize(msg.Width-h, msg.Height-v)
+		m.mainMenu.SetSize(msg.Width-h, min(len(m.mainMenu.Items())*5, msg.Height-v))
+		m.dataMenu.SetSize(msg.Width-h, min(len(m.dataMenu.Items())*5, msg.Height-v))
+		m.certMenu.SetSize(msg.Width-h, min(len(m.certMenu.Items())*5, msg.Height-v))
+
 		m.width = msg.Width
 		m.height = msg.Height
+
+		if m.inspector != nil {
+			m.inspector.SetSize(msg.Width-h, msg.Height-v)
+		}
 		return m, nil
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
+		switch {
+		case key.Matches(msg, keys.Quit):
 			m.quitting = true
 			return m, tea.Quit
-		case "esc":
+		case key.Matches(msg, keys.Back):
 			if m.activeScreen != mainMenu {
 				m.activeScreen = mainMenu
 				return m, nil
 			}
 		}
+	case statusUpdatedMsg:
+		if msg.err != nil {
+			m.daemonStatus = fmt.Sprintf("%s - %s", msg.status, "could not connect to daemon")
+		} else {
+			m.daemonStatus = msg.status
+		}
+		return m, nil
 	}
 
 	// Screen-specific updates
 	switch m.activeScreen {
 	case mainMenu:
-		return updateMainMenu(m, msg)
+		return m.updateMainMenu(msg)
 	case dataManagement:
-		return updateDataManagement(m, msg)
+		return m.updateDataManagement(msg)
 	case certManagement:
-		return updateCertManagement(m, msg)
+		return m.updateCertManagement(msg)
 	case addRecord:
-		return updateAddRecord(m, msg)
+		return m.updateAddRecord(msg)
 	case createCerts:
-		return updateCreateCerts(m, msg)
+		return m.updateCreateCerts(msg)
 	case registerClient:
-		return updateRegisterClient(m, msg)
-	case listRecords: // New case
-		return m.updateListRecords(msg)
+		return m.updateRegisterClient(msg)
+	case listRecords:
+		var cmd tea.Cmd
+		m.inspector, cmd = m.inspector.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil
 }
 
 // updateMainMenu handles all updates for the main menu screen.
-func updateMainMenu(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
 		selected := m.mainMenu.SelectedItem().(menuItem)
@@ -81,41 +105,89 @@ func updateMainMenu(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateDataManagement handles updates for the data management screen.
-func updateDataManagement(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) updateDataManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.String() == "enter" {
+		if key.Matches(msg, keys.Back) {
+			m.activeScreen = mainMenu
+			return m, nil
+		}
+		if key.Matches(msg, keys.Enter) {
 			selected := m.dataMenu.SelectedItem().(menuItem)
 			switch selected.title {
 			case "Add New Record":
-				return m, daemon.CheckDaemonStatus(m.config)
+				m.statusMessage = "Loading clients..."
+				// Fire the command to fetch the list of clients from the daemon.
+				return m, fetchClientsCmd(m.config)
+
 			case "List All Records":
-				m.activeScreen = listRecords // Navigate to the new screen
-				return m, nil
+				m.activeScreen = listRecords
+				return m, m.inspector.Init()
+
 			case "Back":
 				m.activeScreen = mainMenu
 			}
 		}
 	case daemon.StatusMsg:
 		if msg.Err != nil || msg.Status != "running" {
-			m.statusMessage = fmt.Sprintf("Error: Daemon not running (Status: %s)", msg.Status)
+			m.daemonStatus = fmt.Sprintf("Error: Daemon not running (Status: %s)", msg.Status)
 			return m, nil
 		}
-		m.statusMessage = "Daemon running. Fetching namespaces..."
+		m.daemonStatus = "Daemon running. Fetching namespaces..."
 		return m, mockListNamespaces()
-	case NamespacesReadyMsg:
-		m.namespaces = msg
-		m.addRecordFormModel = newAddRecordFormModel(m.namespaces)
+
+	case clientsLoadedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("Error loading clients: %v", msg.err)
+			return m, nil
+		}
+		m.clients = msg.clients
+		m.addRecordFormModel = newAddRecordFormModel(m.clients, m.namespaces)
 		m.activeScreen = addRecord
+		m.statusMessage = "Enter new record details."
 		return m, m.addRecordFormModel.Init()
 	}
 	m.dataMenu, cmd = m.dataMenu.Update(msg)
 	return m, cmd
 }
 
+func (m *model) updateAddRecord(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case AddRecordMsg:
+		m.statusMessage = "Adding record..."
+		// Fire the command to add the secret via gRPC.
+		return m, addRecordToDaemonCmd(m.config, msg.ClientName, msg.Namespace, msg.Key, msg.Value)
+	// This new case handles the result of the addRecordCmd.
+	case recordAddedMsg:
+		if msg.err != nil {
+
+			m.statusMessage = fmt.Sprintf("Error adding record: %v", msg.err)
+		} else {
+			m.statusMessage = "Record added successfully!"
+		}
+		// Go back to the data management menu.
+		m.activeScreen = dataManagement
+		return m, nil
+
+	case tea.KeyMsg:
+		// Handle the escape key specifically to exit the form.
+		if key.Matches(msg, keys.Back) { // Using the 'Back' keybinding
+			m.activeScreen = dataManagement
+			return m, nil
+		}
+	}
+
+	var updatedForm tea.Model
+	updatedForm, cmd = m.addRecordFormModel.Update(msg)
+	m.addRecordFormModel = updatedForm.(*addRecordFormModel)
+
+	return m, cmd
+}
+
 // updateCertManagement handles updates for the certificate management screen.
-func updateCertManagement(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) updateCertManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
 		selected := m.certMenu.SelectedItem().(menuItem)
@@ -136,25 +208,8 @@ func updateCertManagement(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// updateAddRecord handles updates for the 'Add Record' form screen.
-func updateAddRecord(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
-	if _, ok := msg.(BackMsg); ok {
-		m.activeScreen = dataManagement
-		return m, nil
-	}
-	if addMsg, ok := msg.(AddRecordMsg); ok {
-		m.activeScreen = dataManagement
-		m.statusMessage = "Adding new record..."
-		return m, addRecordToDaemon(addMsg.Namespace, addMsg.Key, addMsg.Value)
-	}
-
-	updatedModel, cmd := m.addRecordFormModel.Update(msg)
-	m.addRecordFormModel = updatedModel.(*addRecordFormModel)
-	return m, cmd
-}
-
 // updateCreateCerts handles updates for the 'Create Certificates' form screen.
-func updateCreateCerts(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) updateCreateCerts(msg tea.Msg) (tea.Model, tea.Cmd) {
 	updatedForm, cmd := m.certForm.Update(msg)
 	m.certForm = updatedForm.(*huh.Form)
 
@@ -177,7 +232,7 @@ func updateCreateCerts(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateRegisterClient handles updates for the 'Register Client' form screen.
-func updateRegisterClient(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) updateRegisterClient(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if _, ok := msg.(BackMsg); ok {
 		m.activeScreen = certManagement
 		return m, nil
