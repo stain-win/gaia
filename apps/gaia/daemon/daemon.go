@@ -26,6 +26,7 @@ import (
 	"go.etcd.io/bbolt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 )
 
 // Daemon represents the state of the Gaia daemon.
@@ -43,8 +44,9 @@ type Daemon struct {
 }
 
 const (
-	saltKey        = "__salt__"
-	keyHashKey     = "__key_hash__"
+	metaPrefix     = "gaia:internal:cmfk1rbd000000m74bic9evy3"
+	saltKey        = metaPrefix + "__salt__"
+	keyHashKey     = metaPrefix + "__key_hash__"
 	bucketName     = "secrets"
 	clientsBucket  = "clients"
 	StatusRunning  = "running"
@@ -103,7 +105,18 @@ func (d *Daemon) Start(cfg *config.Config) error {
 	}
 	d.dbLock.Unlock()
 
-	d.server = grpc.NewServer(grpc.Creds(creds))
+	serverOpts := []grpc.ServerOption{
+		grpc.Creds(creds),
+		grpc.MaxConcurrentStreams(100),
+		grpc.MaxRecvMsgSize(10 * 1024 * 1024), // 10 MB
+		grpc.MaxSendMsgSize(10 * 1024 * 1024), // 10 MB
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             5 * time.Minute,
+			PermitWithoutStream: true,
+		}),
+	}
+
+	d.server = grpc.NewServer(serverOpts...)
 	pb.RegisterGaiaAdminServer(d.server, &gaiaAdminServer{d: d})
 	pb.RegisterGaiaClientServer(d.server, &gaiaClientServer{daemon: d})
 

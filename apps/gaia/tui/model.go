@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -43,10 +44,12 @@ type model struct {
 	serverName              string
 	clientName              string
 	outputPath              string
+	help                    help.Model
 	width                   int
 	height                  int
+	clients                 []string
 	namespaces              []string
-	statusMessage           string
+	daemonStatus            string
 	config                  *config.Config
 	listRecords             listRecordsModel // New model state
 }
@@ -61,7 +64,7 @@ var menuItems = []list.Item{
 // dataMenuItems defines the items for the data management menu.
 var dataMenuItems = []list.Item{
 	menuItem{"Add New Record", "Add a new secret record to Gaia"},
-	menuItem{"List All Records", "View all records currently in the database"},
+	menuItem{"List All Records", "View records in the database"},
 	menuItem{"Back", "Return to the main menu (b)"},
 }
 
@@ -79,11 +82,17 @@ func initialModel(config *config.Config) *model {
 	mainList.Title = titleStyle.
 		Render("Main Menu")
 
+	mainList.SetShowStatusBar(false)
+	mainList.SetFilteringEnabled(false)
+
 	dataList := list.New(dataMenuItems, list.NewDefaultDelegate(), 0, 0)
 	dataList.Title = lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("#FF8C00")).
 		Render("Data Management")
+
+	dataList.SetShowStatusBar(false)
+	dataList.SetFilteringEnabled(false)
 
 	certList := list.New(certMenuItems, list.NewDefaultDelegate(), 0, 0)
 	certList.Title = lipgloss.NewStyle().
@@ -91,15 +100,19 @@ func initialModel(config *config.Config) *model {
 		Foreground(lipgloss.Color("#FF8C00")).
 		Render("Certificate Management")
 
+	certList.SetShowStatusBar(false)
+	certList.SetFilteringEnabled(false)
+
 	m := model{
 		activeScreen:            mainMenu,
 		mainMenu:                mainList,
 		dataMenu:                dataList,
 		certMenu:                certList,
-		addRecordFormModel:      newAddRecordFormModel(nil),
+		help:                    help.New(),
+		addRecordFormModel:      newAddRecordFormModel(nil, nil),
 		registerClientFormModel: newRegisterClientFormModel(),
 		listRecords:             newListRecordsModel(),
-		statusMessage:           "",
+		daemonStatus:            "",
 		config:                  config,
 	}
 

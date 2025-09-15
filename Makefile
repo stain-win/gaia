@@ -1,6 +1,7 @@
 # Set the current directory for the application
 APP_DIR := apps/gaia
 LIBS_DIR := libs
+BUILD_DIR := build
 
 # Protobuf directories and files
 PROTO_DIR := proto
@@ -60,3 +61,7 @@ clean:
 	rm -f $(GO_BIN_DIR)/$(GAIA_BIN_NAME)
 	rm -rf $(GO_BIN_DIR)/cross-build
 	rm -rf $(APP_DIR)/proto/*.pb.go
+
+debug_build:
+	@echo "Building Gaia with debug flags..."
+	cd $(BUILD_DIR) && ./build_gaia

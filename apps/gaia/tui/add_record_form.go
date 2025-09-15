@@ -11,9 +11,10 @@ import (
 
 // AddRecordMsg is a message that signals the main TUI that a record has been added.
 type AddRecordMsg struct {
-	Namespace string
-	Key       string
-	Value     string
+	ClientName string
+	Namespace  string
+	Key        string
+	Value      string
 }
 
 // addRecordFormModel represents the state of the form for adding a new secret.
@@ -29,20 +30,29 @@ type addRecordFormModel struct {
 	Msg       string
 }
 
-func newAddRecordFormModel(namespaces []string) *addRecordFormModel {
-	var namespace, key, value string
+func newAddRecordFormModel(clients []string, namespaces []string) *addRecordFormModel {
+	var clientName, namespace, key, value string
 
-	options := make([]huh.Option[string], len(namespaces))
+	clientOptions := make([]huh.Option[string], len(clients))
+	for i, c := range clients {
+		clientOptions[i] = huh.NewOption(c, c)
+	}
+	namespaceOptions := make([]huh.Option[string], len(namespaces))
 	for i, ns := range namespaces {
-		options[i] = huh.NewOption(ns, ns)
+		namespaceOptions[i] = huh.NewOption(ns, ns)
 	}
 
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
+				Key("clientName").
+				Title(lipgloss.NewStyle().Bold(true).Render("Client")).
+				Options(clientOptions...).
+				Value(&clientName),
+			huh.NewSelect[string]().
 				Key("namespace").
 				Title(lipgloss.NewStyle().Bold(true).Render("Namespace")).
-				Options(options...).
+				Options(namespaceOptions...).
 				Value(&namespace),
 			huh.NewInput().
 				Key("key").
@@ -84,9 +94,10 @@ func (m *addRecordFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// When the form is submitted, send a message to the main TUI.
 		return m, func() tea.Msg {
 			return AddRecordMsg{
-				Namespace: strings.TrimSpace(m.form.GetString("namespace")),
-				Key:       strings.TrimSpace(m.form.GetString("key")),
-				Value:     strings.TrimSpace(m.form.GetString("value")),
+				ClientName: strings.TrimSpace(m.form.GetString("clientName")),
+				Namespace:  strings.TrimSpace(m.form.GetString("namespace")),
+				Key:        strings.TrimSpace(m.form.GetString("key")),
+				Value:      strings.TrimSpace(m.form.GetString("value")),
 			}
 		}
 	}

@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"os"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -12,17 +13,25 @@ import (
 )
 
 func (m *model) Init() tea.Cmd {
-	return nil
+	return tea.Batch(
+		checkStatusCmd(m.config),
+		tea.Tick(m.config.GaiaTuiTickInterval, func(t time.Time) tea.Msg {
+			return t
+		}),
+	)
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Global handling for messages that apply to all screens
 	switch msg := msg.(type) {
+	case time.Time:
+		return m, checkStatusCmd(m.config)
 	case tea.WindowSizeMsg:
 		h, v := lipgloss.NewStyle().Margin(8, 2).GetFrameSize()
-		m.mainMenu.SetSize(msg.Width-h, msg.Height-v)
-		m.dataMenu.SetSize(msg.Width-h, msg.Height-v)
-		m.certMenu.SetSize(msg.Width-h, msg.Height-v)
+		m.mainMenu.SetSize(msg.Width-h, min(len(m.mainMenu.Items())*5, msg.Height-v))
+		m.dataMenu.SetSize(msg.Width-h, min(len(m.dataMenu.Items())*5, msg.Height-v))
+		m.certMenu.SetSize(msg.Width-h, min(len(m.certMenu.Items())*5, msg.Height-v))
+
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
@@ -38,6 +47,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		}
+	case statusUpdatedMsg:
+		if msg.err != nil {
+			m.daemonStatus = fmt.Sprintf("%s - %s", msg.status, "could not connect to daemon")
+		} else {
+			m.daemonStatus = msg.status
+		}
+		return m, nil
 	}
 
 	// Screen-specific updates
@@ -89,7 +105,8 @@ func updateDataManagement(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			selected := m.dataMenu.SelectedItem().(menuItem)
 			switch selected.title {
 			case "Add New Record":
-				return m, daemon.CheckDaemonStatus(m.config)
+				m.daemonStatus = "Loading clients..."
+				return m, fetchClientsCmd(m.config)
 			case "List All Records":
 				m.activeScreen = listRecords // Navigate to the new screen
 				return m, nil
@@ -99,14 +116,26 @@ func updateDataManagement(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case daemon.StatusMsg:
 		if msg.Err != nil || msg.Status != "running" {
-			m.statusMessage = fmt.Sprintf("Error: Daemon not running (Status: %s)", msg.Status)
+			m.daemonStatus = fmt.Sprintf("Error: Daemon not running (Status: %s)", msg.Status)
 			return m, nil
 		}
-		m.statusMessage = "Daemon running. Fetching namespaces..."
+		m.daemonStatus = "Daemon running. Fetching namespaces..."
 		return m, mockListNamespaces()
+
+	case clientsLoadedMsg:
+		if msg.err != nil {
+			m.daemonStatus = fmt.Sprintf("Error loading clients: %v", msg.err)
+			return m, nil
+		}
+		m.clients = msg.clients
+		m.addRecordFormModel = newAddRecordFormModel(m.clients, m.namespaces)
+		m.activeScreen = addRecord
+		m.daemonStatus = "Enter new record details."
+		return m, m.addRecordFormModel.Init()
+
 	case NamespacesReadyMsg:
 		m.namespaces = msg
-		m.addRecordFormModel = newAddRecordFormModel(m.namespaces)
+		m.addRecordFormModel = newAddRecordFormModel(m.clients, m.namespaces)
 		m.activeScreen = addRecord
 		return m, m.addRecordFormModel.Init()
 	}
@@ -138,13 +167,34 @@ func updateCertManagement(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // updateAddRecord handles updates for the 'Add Record' form screen.
 func updateAddRecord(m *model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case AddRecordMsg:
+		m.activeScreen = dataManagement
+		m.daemonStatus = "Adding new record..."
+		// Call the command to make the actual RPC call.
+		return m, addRecordToDaemonCmd(m.config, msg.ClientName, msg.Namespace, msg.Key, msg.Value)
+	case recordAddResultMsg:
+		// Handle the result of the RPC call.
+		m.activeScreen = dataManagement
+		if msg.err != nil {
+			m.daemonStatus = fmt.Sprintf("Error adding record: %v", msg.err)
+		} else {
+			m.daemonStatus = "Record added successfully!"
+		}
+		return m, nil
+	case BackMsg:
+		m.activeScreen = dataManagement
+		return m, nil
+	}
+
 	if _, ok := msg.(BackMsg); ok {
 		m.activeScreen = dataManagement
 		return m, nil
 	}
 	if addMsg, ok := msg.(AddRecordMsg); ok {
 		m.activeScreen = dataManagement
-		m.statusMessage = "Adding new record..."
+		m.daemonStatus = "Adding new record..."
 		return m, addRecordToDaemon(addMsg.Namespace, addMsg.Key, addMsg.Value)
 	}
 

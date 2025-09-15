@@ -1,7 +1,11 @@
 package tui
 
 import (
+	"context"
 	"time"
+
+	"github.com/stain-win/gaia/apps/gaia/config"
+	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
 import tea "github.com/charmbracelet/bubbletea"
 
@@ -17,6 +21,21 @@ type NamespacesReadyMsg []string
 type SecretsFetchedMsg struct {
 	Namespace string
 	Secrets   map[string]string
+}
+
+type recordAddResultMsg struct {
+	err error
+}
+
+// clientsLoadedMsg is sent when the list of clients has been fetched.
+type clientsLoadedMsg struct {
+	clients []string
+	err     error
+}
+
+type statusUpdatedMsg struct {
+	status string
+	err    error
 }
 
 // A mock function to simulate fetching namespaces from the daemon.
@@ -50,5 +69,66 @@ func FetchSecretsForNamespace(namespace string) tea.Cmd {
 			mockSecrets["app_specific_key"] = "****************"
 		}
 		return SecretsFetchedMsg{Namespace: namespace, Secrets: mockSecrets}
+	}
+}
+
+// fetchClientsCmd is a command that fetches the list of registered clients.
+func fetchClientsCmd(cfg *config.Config) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return clientsLoadedMsg{err: err}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		res, err := client.ListClients(ctx, &pb.ListClientsRequest{})
+		if err != nil {
+			return clientsLoadedMsg{err: err}
+		}
+		return clientsLoadedMsg{clients: res.ClientNames}
+	}
+}
+
+// addRecordToDaemonCmd makes the gRPC call to add a new secret.
+func addRecordToDaemonCmd(cfg *config.Config, clientName, namespace, key, value string) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return recordAddResultMsg{err: err}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.GRPCClientTimeout)
+		defer cancel()
+
+		_, err = client.AddSecret(ctx, &pb.AddSecretRequest{
+			ClientName: clientName,
+			Namespace:  namespace,
+			Id:         key,
+			Value:      value,
+		})
+		return recordAddResultMsg{err: err}
+	}
+}
+
+func checkStatusCmd(cfg *config.Config) tea.Cmd {
+	return func() tea.Msg {
+		status, err := GetDaemonStatus(cfg)
+		if err != nil {
+			return statusUpdatedMsg{
+				status: "offline",
+				err:    err,
+			}
+		}
+
+		return statusUpdatedMsg{
+			status: status,
+			err:    nil,
+		}
 	}
 }

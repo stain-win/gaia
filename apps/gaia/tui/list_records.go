@@ -15,7 +15,7 @@ type listRecordsModel struct {
 	namespaces list.Model
 	secrets    table.Model
 	help       help.Model
-	keys       keyMap
+	keys       recordsKeyMap
 	activePane int // 0 for namespaces, 1 for secrets
 	width      int
 	height     int
@@ -30,8 +30,8 @@ func (n namespaceItem) FilterValue() string { return n.name }
 func (n namespaceItem) Title() string       { return n.name }
 func (n namespaceItem) Description() string { return n.desc }
 
-// keyMap defines the keybindings for the list records screen.
-type keyMap struct {
+// recordsKeyMap defines the keybindings for the list records screen.
+type recordsKeyMap struct {
 	Tab    key.Binding
 	Esc    key.Binding
 	Quit   key.Binding
@@ -42,18 +42,18 @@ type keyMap struct {
 	Delete key.Binding
 }
 
-func (k keyMap) ShortHelp() []key.Binding {
+func (k recordsKeyMap) ShortHelp() []key.Binding {
 	return []key.Binding{k.Tab, k.Esc, k.Add, k.Delete, k.Enter}
 }
 
-func (k keyMap) FullHelp() [][]key.Binding {
+func (k recordsKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Tab, k.Esc},
 		{k.Add, k.Delete, k.Enter, k.Quit},
 	}
 }
 
-var keys = keyMap{
+var keys = recordsKeyMap{
 	Tab:    key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch pane")),
 	Esc:    key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 	Quit:   key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
