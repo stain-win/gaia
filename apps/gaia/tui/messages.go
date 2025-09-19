@@ -33,9 +33,27 @@ type clientsLoadedMsg struct {
 	err     error
 }
 
+// recordAddedMsg is sent when the AddSecret RPC is complete.
+type recordAddedMsg struct {
+	err error
+}
+
 type statusUpdatedMsg struct {
 	status string
 	err    error
+}
+
+// allClientsLoadedMsg is sent when ListClients RPC is complete.
+type allClientsLoadedMsg struct {
+	clients []string
+	err     error
+}
+
+// secretsForClientLoadedMsg is sent when ListSecrets RPC is complete.
+type secretsForClientLoadedMsg struct {
+	clientName string
+	namespaces []*pb.Namespace
+	err        error
 }
 
 // A mock function to simulate fetching namespaces from the daemon.
@@ -89,7 +107,9 @@ func fetchClientsCmd(cfg *config.Config) tea.Cmd {
 		if err != nil {
 			return clientsLoadedMsg{err: err}
 		}
-		return clientsLoadedMsg{clients: res.ClientNames}
+		// "common" is a special client, always add it to the list for selection.
+		clients := append(res.ClientNames, "common")
+		return clientsLoadedMsg{clients: clients}
 	}
 }
 
@@ -130,5 +150,49 @@ func checkStatusCmd(cfg *config.Config) tea.Cmd {
 			status: status,
 			err:    nil,
 		}
+	}
+}
+
+// fetchAllClientsCmd makes the gRPC call to get all client names.
+func fetchAllClientsCmd(cfg *config.Config) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return allClientsLoadedMsg{err: err}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		res, err := client.ListClients(ctx, &pb.ListClientsRequest{})
+		if err != nil {
+			return allClientsLoadedMsg{err: err}
+		}
+		return allClientsLoadedMsg{clients: res.ClientNames}
+	}
+}
+
+// fetchSecretsForClientCmd makes the gRPC call to get all secrets for a client.
+func fetchSecretsForClientCmd(cfg *config.Config, clientName string) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return secretsForClientLoadedMsg{clientName: clientName, err: err}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		res, err := client.ListSecrets(ctx, &pb.ListSecretsRequest{ClientName: clientName})
+		if err != nil {
+			return secretsForClientLoadedMsg{clientName: clientName, err: err}
+		}
+		return secretsForClientLoadedMsg{clientName: clientName, namespaces: res.Namespaces}
 	}
 }

@@ -73,6 +73,58 @@ func (x *Secret) GetValue() string {
 	return ""
 }
 
+type Namespace struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Secrets       []*Secret              `protobuf:"bytes,2,rep,name=secrets,proto3" json:"secrets,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Namespace) Reset() {
+	*x = Namespace{}
+	mi := &file_gaia_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Namespace) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Namespace) ProtoMessage() {}
+
+func (x *Namespace) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Namespace.ProtoReflect.Descriptor instead.
+func (*Namespace) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Namespace) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Namespace) GetSecrets() []*Secret {
+	if x != nil {
+		return x.Secrets
+	}
+	return nil
+}
+
 type AddSecretRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
@@ -85,7 +137,7 @@ type AddSecretRequest struct {
 
 func (x *AddSecretRequest) Reset() {
 	*x = AddSecretRequest{}
-	mi := &file_gaia_proto_msgTypes[1]
+	mi := &file_gaia_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -97,7 +149,7 @@ func (x *AddSecretRequest) String() string {
 func (*AddSecretRequest) ProtoMessage() {}
 
 func (x *AddSecretRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[1]
+	mi := &file_gaia_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -110,7 +162,7 @@ func (x *AddSecretRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddSecretRequest.ProtoReflect.Descriptor instead.
 func (*AddSecretRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{1}
+	return file_gaia_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *AddSecretRequest) GetNamespace() string {
@@ -151,7 +203,7 @@ type AddSecretResponse struct {
 
 func (x *AddSecretResponse) Reset() {
 	*x = AddSecretResponse{}
-	mi := &file_gaia_proto_msgTypes[2]
+	mi := &file_gaia_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -163,7 +215,7 @@ func (x *AddSecretResponse) String() string {
 func (*AddSecretResponse) ProtoMessage() {}
 
 func (x *AddSecretResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[2]
+	mi := &file_gaia_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -176,7 +228,7 @@ func (x *AddSecretResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddSecretResponse.ProtoReflect.Descriptor instead.
 func (*AddSecretResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{2}
+	return file_gaia_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *AddSecretResponse) GetSuccess() bool {
@@ -193,102 +245,6 @@ func (x *AddSecretResponse) GetMessage() string {
 	return ""
 }
 
-type ListSecretsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClientName    string                 `protobuf:"bytes,1,opt,name=client_name,json=clientName,proto3" json:"client_name,omitempty"`
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListSecretsRequest) Reset() {
-	*x = ListSecretsRequest{}
-	mi := &file_gaia_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListSecretsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListSecretsRequest) ProtoMessage() {}
-
-func (x *ListSecretsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListSecretsRequest.ProtoReflect.Descriptor instead.
-func (*ListSecretsRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *ListSecretsRequest) GetClientName() string {
-	if x != nil {
-		return x.ClientName
-	}
-	return ""
-}
-
-func (x *ListSecretsRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-type ListSecretsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Secrets       map[string]string      `protobuf:"bytes,1,rep,name=secrets,proto3" json:"secrets,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListSecretsResponse) Reset() {
-	*x = ListSecretsResponse{}
-	mi := &file_gaia_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListSecretsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListSecretsResponse) ProtoMessage() {}
-
-func (x *ListSecretsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListSecretsResponse.ProtoReflect.Descriptor instead.
-func (*ListSecretsResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *ListSecretsResponse) GetSecrets() map[string]string {
-	if x != nil {
-		return x.Secrets
-	}
-	return nil
-}
-
 type RevokeCertRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CertId        string                 `protobuf:"bytes,1,opt,name=cert_id,json=certId,proto3" json:"cert_id,omitempty"`
@@ -298,7 +254,7 @@ type RevokeCertRequest struct {
 
 func (x *RevokeCertRequest) Reset() {
 	*x = RevokeCertRequest{}
-	mi := &file_gaia_proto_msgTypes[5]
+	mi := &file_gaia_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -310,7 +266,7 @@ func (x *RevokeCertRequest) String() string {
 func (*RevokeCertRequest) ProtoMessage() {}
 
 func (x *RevokeCertRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[5]
+	mi := &file_gaia_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -323,7 +279,7 @@ func (x *RevokeCertRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeCertRequest.ProtoReflect.Descriptor instead.
 func (*RevokeCertRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{5}
+	return file_gaia_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RevokeCertRequest) GetCertId() string {
@@ -342,7 +298,7 @@ type RevokeCertResponse struct {
 
 func (x *RevokeCertResponse) Reset() {
 	*x = RevokeCertResponse{}
-	mi := &file_gaia_proto_msgTypes[6]
+	mi := &file_gaia_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -354,7 +310,7 @@ func (x *RevokeCertResponse) String() string {
 func (*RevokeCertResponse) ProtoMessage() {}
 
 func (x *RevokeCertResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[6]
+	mi := &file_gaia_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -367,7 +323,7 @@ func (x *RevokeCertResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeCertResponse.ProtoReflect.Descriptor instead.
 func (*RevokeCertResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{6}
+	return file_gaia_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RevokeCertResponse) GetSuccess() bool {
@@ -387,7 +343,7 @@ type GetSecretRequest struct {
 
 func (x *GetSecretRequest) Reset() {
 	*x = GetSecretRequest{}
-	mi := &file_gaia_proto_msgTypes[7]
+	mi := &file_gaia_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -399,7 +355,7 @@ func (x *GetSecretRequest) String() string {
 func (*GetSecretRequest) ProtoMessage() {}
 
 func (x *GetSecretRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[7]
+	mi := &file_gaia_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -412,7 +368,7 @@ func (x *GetSecretRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSecretRequest.ProtoReflect.Descriptor instead.
 func (*GetSecretRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{7}
+	return file_gaia_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetSecretRequest) GetNamespace() string {
@@ -437,7 +393,7 @@ type GetStatusRequest struct {
 
 func (x *GetStatusRequest) Reset() {
 	*x = GetStatusRequest{}
-	mi := &file_gaia_proto_msgTypes[8]
+	mi := &file_gaia_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -449,7 +405,7 @@ func (x *GetStatusRequest) String() string {
 func (*GetStatusRequest) ProtoMessage() {}
 
 func (x *GetStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[8]
+	mi := &file_gaia_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -462,7 +418,7 @@ func (x *GetStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetStatusRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{8}
+	return file_gaia_proto_rawDescGZIP(), []int{7}
 }
 
 type GetStatusResponse struct {
@@ -474,7 +430,7 @@ type GetStatusResponse struct {
 
 func (x *GetStatusResponse) Reset() {
 	*x = GetStatusResponse{}
-	mi := &file_gaia_proto_msgTypes[9]
+	mi := &file_gaia_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -486,7 +442,7 @@ func (x *GetStatusResponse) String() string {
 func (*GetStatusResponse) ProtoMessage() {}
 
 func (x *GetStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[9]
+	mi := &file_gaia_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -499,7 +455,7 @@ func (x *GetStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetStatusResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{9}
+	return file_gaia_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetStatusResponse) GetStatus() string {
@@ -517,7 +473,7 @@ type StopRequest struct {
 
 func (x *StopRequest) Reset() {
 	*x = StopRequest{}
-	mi := &file_gaia_proto_msgTypes[10]
+	mi := &file_gaia_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -529,7 +485,7 @@ func (x *StopRequest) String() string {
 func (*StopRequest) ProtoMessage() {}
 
 func (x *StopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[10]
+	mi := &file_gaia_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -542,7 +498,7 @@ func (x *StopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopRequest.ProtoReflect.Descriptor instead.
 func (*StopRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{10}
+	return file_gaia_proto_rawDescGZIP(), []int{9}
 }
 
 type StopResponse struct {
@@ -554,7 +510,7 @@ type StopResponse struct {
 
 func (x *StopResponse) Reset() {
 	*x = StopResponse{}
-	mi := &file_gaia_proto_msgTypes[11]
+	mi := &file_gaia_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -566,7 +522,7 @@ func (x *StopResponse) String() string {
 func (*StopResponse) ProtoMessage() {}
 
 func (x *StopResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[11]
+	mi := &file_gaia_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -579,7 +535,7 @@ func (x *StopResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopResponse.ProtoReflect.Descriptor instead.
 func (*StopResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{11}
+	return file_gaia_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *StopResponse) GetSuccess() bool {
@@ -598,7 +554,7 @@ type UnlockRequest struct {
 
 func (x *UnlockRequest) Reset() {
 	*x = UnlockRequest{}
-	mi := &file_gaia_proto_msgTypes[12]
+	mi := &file_gaia_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -610,7 +566,7 @@ func (x *UnlockRequest) String() string {
 func (*UnlockRequest) ProtoMessage() {}
 
 func (x *UnlockRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[12]
+	mi := &file_gaia_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -623,7 +579,7 @@ func (x *UnlockRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnlockRequest.ProtoReflect.Descriptor instead.
 func (*UnlockRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{12}
+	return file_gaia_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *UnlockRequest) GetPassphrase() string {
@@ -642,7 +598,7 @@ type UnlockResponse struct {
 
 func (x *UnlockResponse) Reset() {
 	*x = UnlockResponse{}
-	mi := &file_gaia_proto_msgTypes[13]
+	mi := &file_gaia_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -654,7 +610,7 @@ func (x *UnlockResponse) String() string {
 func (*UnlockResponse) ProtoMessage() {}
 
 func (x *UnlockResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[13]
+	mi := &file_gaia_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -667,7 +623,7 @@ func (x *UnlockResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnlockResponse.ProtoReflect.Descriptor instead.
 func (*UnlockResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{13}
+	return file_gaia_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UnlockResponse) GetSuccess() bool {
@@ -685,7 +641,7 @@ type LockRequest struct {
 
 func (x *LockRequest) Reset() {
 	*x = LockRequest{}
-	mi := &file_gaia_proto_msgTypes[14]
+	mi := &file_gaia_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -697,7 +653,7 @@ func (x *LockRequest) String() string {
 func (*LockRequest) ProtoMessage() {}
 
 func (x *LockRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[14]
+	mi := &file_gaia_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -710,7 +666,7 @@ func (x *LockRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LockRequest.ProtoReflect.Descriptor instead.
 func (*LockRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{14}
+	return file_gaia_proto_rawDescGZIP(), []int{13}
 }
 
 type LockResponse struct {
@@ -722,7 +678,7 @@ type LockResponse struct {
 
 func (x *LockResponse) Reset() {
 	*x = LockResponse{}
-	mi := &file_gaia_proto_msgTypes[15]
+	mi := &file_gaia_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -734,7 +690,7 @@ func (x *LockResponse) String() string {
 func (*LockResponse) ProtoMessage() {}
 
 func (x *LockResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[15]
+	mi := &file_gaia_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -747,7 +703,7 @@ func (x *LockResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LockResponse.ProtoReflect.Descriptor instead.
 func (*LockResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{15}
+	return file_gaia_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *LockResponse) GetSuccess() bool {
@@ -766,7 +722,7 @@ type RegisterClientRequest struct {
 
 func (x *RegisterClientRequest) Reset() {
 	*x = RegisterClientRequest{}
-	mi := &file_gaia_proto_msgTypes[16]
+	mi := &file_gaia_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -778,7 +734,7 @@ func (x *RegisterClientRequest) String() string {
 func (*RegisterClientRequest) ProtoMessage() {}
 
 func (x *RegisterClientRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[16]
+	mi := &file_gaia_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -791,7 +747,7 @@ func (x *RegisterClientRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterClientRequest.ProtoReflect.Descriptor instead.
 func (*RegisterClientRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{16}
+	return file_gaia_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *RegisterClientRequest) GetClientName() string {
@@ -811,7 +767,7 @@ type RegisterClientResponse struct {
 
 func (x *RegisterClientResponse) Reset() {
 	*x = RegisterClientResponse{}
-	mi := &file_gaia_proto_msgTypes[17]
+	mi := &file_gaia_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -823,7 +779,7 @@ func (x *RegisterClientResponse) String() string {
 func (*RegisterClientResponse) ProtoMessage() {}
 
 func (x *RegisterClientResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[17]
+	mi := &file_gaia_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -836,7 +792,7 @@ func (x *RegisterClientResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterClientResponse.ProtoReflect.Descriptor instead.
 func (*RegisterClientResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{17}
+	return file_gaia_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RegisterClientResponse) GetCertificate() string {
@@ -861,7 +817,7 @@ type ListClientsRequest struct {
 
 func (x *ListClientsRequest) Reset() {
 	*x = ListClientsRequest{}
-	mi := &file_gaia_proto_msgTypes[18]
+	mi := &file_gaia_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -873,7 +829,7 @@ func (x *ListClientsRequest) String() string {
 func (*ListClientsRequest) ProtoMessage() {}
 
 func (x *ListClientsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[18]
+	mi := &file_gaia_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -886,7 +842,7 @@ func (x *ListClientsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListClientsRequest.ProtoReflect.Descriptor instead.
 func (*ListClientsRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{18}
+	return file_gaia_proto_rawDescGZIP(), []int{17}
 }
 
 type ListClientsResponse struct {
@@ -898,7 +854,7 @@ type ListClientsResponse struct {
 
 func (x *ListClientsResponse) Reset() {
 	*x = ListClientsResponse{}
-	mi := &file_gaia_proto_msgTypes[19]
+	mi := &file_gaia_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -910,7 +866,7 @@ func (x *ListClientsResponse) String() string {
 func (*ListClientsResponse) ProtoMessage() {}
 
 func (x *ListClientsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[19]
+	mi := &file_gaia_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -923,7 +879,7 @@ func (x *ListClientsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListClientsResponse.ProtoReflect.Descriptor instead.
 func (*ListClientsResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{19}
+	return file_gaia_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListClientsResponse) GetClientNames() []string {
@@ -942,7 +898,7 @@ type ListNamespacesRequest struct {
 
 func (x *ListNamespacesRequest) Reset() {
 	*x = ListNamespacesRequest{}
-	mi := &file_gaia_proto_msgTypes[20]
+	mi := &file_gaia_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -954,7 +910,7 @@ func (x *ListNamespacesRequest) String() string {
 func (*ListNamespacesRequest) ProtoMessage() {}
 
 func (x *ListNamespacesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[20]
+	mi := &file_gaia_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -967,7 +923,7 @@ func (x *ListNamespacesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNamespacesRequest.ProtoReflect.Descriptor instead.
 func (*ListNamespacesRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{20}
+	return file_gaia_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListNamespacesRequest) GetClientName() string {
@@ -986,7 +942,7 @@ type ListNamespacesResponse struct {
 
 func (x *ListNamespacesResponse) Reset() {
 	*x = ListNamespacesResponse{}
-	mi := &file_gaia_proto_msgTypes[21]
+	mi := &file_gaia_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -998,7 +954,7 @@ func (x *ListNamespacesResponse) String() string {
 func (*ListNamespacesResponse) ProtoMessage() {}
 
 func (x *ListNamespacesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[21]
+	mi := &file_gaia_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1011,7 +967,7 @@ func (x *ListNamespacesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNamespacesResponse.ProtoReflect.Descriptor instead.
 func (*ListNamespacesResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{21}
+	return file_gaia_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListNamespacesResponse) GetNamespaces() []string {
@@ -1030,7 +986,7 @@ type RevokeClientRequest struct {
 
 func (x *RevokeClientRequest) Reset() {
 	*x = RevokeClientRequest{}
-	mi := &file_gaia_proto_msgTypes[22]
+	mi := &file_gaia_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1042,7 +998,7 @@ func (x *RevokeClientRequest) String() string {
 func (*RevokeClientRequest) ProtoMessage() {}
 
 func (x *RevokeClientRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[22]
+	mi := &file_gaia_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1055,7 +1011,7 @@ func (x *RevokeClientRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeClientRequest.ProtoReflect.Descriptor instead.
 func (*RevokeClientRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{22}
+	return file_gaia_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *RevokeClientRequest) GetClientName() string {
@@ -1074,7 +1030,7 @@ type RevokeClientResponse struct {
 
 func (x *RevokeClientResponse) Reset() {
 	*x = RevokeClientResponse{}
-	mi := &file_gaia_proto_msgTypes[23]
+	mi := &file_gaia_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1086,7 +1042,7 @@ func (x *RevokeClientResponse) String() string {
 func (*RevokeClientResponse) ProtoMessage() {}
 
 func (x *RevokeClientResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[23]
+	mi := &file_gaia_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1099,7 +1055,7 @@ func (x *RevokeClientResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeClientResponse.ProtoReflect.Descriptor instead.
 func (*RevokeClientResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{23}
+	return file_gaia_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *RevokeClientResponse) GetSuccess() bool {
@@ -1120,7 +1076,7 @@ type DeleteSecretRequest struct {
 
 func (x *DeleteSecretRequest) Reset() {
 	*x = DeleteSecretRequest{}
-	mi := &file_gaia_proto_msgTypes[24]
+	mi := &file_gaia_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1132,7 +1088,7 @@ func (x *DeleteSecretRequest) String() string {
 func (*DeleteSecretRequest) ProtoMessage() {}
 
 func (x *DeleteSecretRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[24]
+	mi := &file_gaia_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1145,7 +1101,7 @@ func (x *DeleteSecretRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSecretRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSecretRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{24}
+	return file_gaia_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DeleteSecretRequest) GetClientName() string {
@@ -1178,7 +1134,7 @@ type DeleteSecretResponse struct {
 
 func (x *DeleteSecretResponse) Reset() {
 	*x = DeleteSecretResponse{}
-	mi := &file_gaia_proto_msgTypes[25]
+	mi := &file_gaia_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1190,7 +1146,7 @@ func (x *DeleteSecretResponse) String() string {
 func (*DeleteSecretResponse) ProtoMessage() {}
 
 func (x *DeleteSecretResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[25]
+	mi := &file_gaia_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1203,7 +1159,7 @@ func (x *DeleteSecretResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSecretResponse.ProtoReflect.Descriptor instead.
 func (*DeleteSecretResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{25}
+	return file_gaia_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *DeleteSecretResponse) GetSuccess() bool {
@@ -1222,7 +1178,7 @@ type ImportSecretsConfig struct {
 
 func (x *ImportSecretsConfig) Reset() {
 	*x = ImportSecretsConfig{}
-	mi := &file_gaia_proto_msgTypes[26]
+	mi := &file_gaia_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1234,7 +1190,7 @@ func (x *ImportSecretsConfig) String() string {
 func (*ImportSecretsConfig) ProtoMessage() {}
 
 func (x *ImportSecretsConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[26]
+	mi := &file_gaia_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1247,7 +1203,7 @@ func (x *ImportSecretsConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportSecretsConfig.ProtoReflect.Descriptor instead.
 func (*ImportSecretsConfig) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{26}
+	return file_gaia_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ImportSecretsConfig) GetOverwrite() bool {
@@ -1269,7 +1225,7 @@ type ImportSecretItem struct {
 
 func (x *ImportSecretItem) Reset() {
 	*x = ImportSecretItem{}
-	mi := &file_gaia_proto_msgTypes[27]
+	mi := &file_gaia_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1281,7 +1237,7 @@ func (x *ImportSecretItem) String() string {
 func (*ImportSecretItem) ProtoMessage() {}
 
 func (x *ImportSecretItem) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[27]
+	mi := &file_gaia_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1294,7 +1250,7 @@ func (x *ImportSecretItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportSecretItem.ProtoReflect.Descriptor instead.
 func (*ImportSecretItem) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{27}
+	return file_gaia_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ImportSecretItem) GetClientName() string {
@@ -1339,7 +1295,7 @@ type ImportSecretsRequest struct {
 
 func (x *ImportSecretsRequest) Reset() {
 	*x = ImportSecretsRequest{}
-	mi := &file_gaia_proto_msgTypes[28]
+	mi := &file_gaia_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1351,7 +1307,7 @@ func (x *ImportSecretsRequest) String() string {
 func (*ImportSecretsRequest) ProtoMessage() {}
 
 func (x *ImportSecretsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[28]
+	mi := &file_gaia_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1364,7 +1320,7 @@ func (x *ImportSecretsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportSecretsRequest.ProtoReflect.Descriptor instead.
 func (*ImportSecretsRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{28}
+	return file_gaia_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ImportSecretsRequest) GetPayload() isImportSecretsRequest_Payload {
@@ -1418,7 +1374,7 @@ type ImportSecretsResponse struct {
 
 func (x *ImportSecretsResponse) Reset() {
 	*x = ImportSecretsResponse{}
-	mi := &file_gaia_proto_msgTypes[29]
+	mi := &file_gaia_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1430,7 +1386,7 @@ func (x *ImportSecretsResponse) String() string {
 func (*ImportSecretsResponse) ProtoMessage() {}
 
 func (x *ImportSecretsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_proto_msgTypes[29]
+	mi := &file_gaia_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1443,7 +1399,7 @@ func (x *ImportSecretsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportSecretsResponse.ProtoReflect.Descriptor instead.
 func (*ImportSecretsResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_proto_rawDescGZIP(), []int{29}
+	return file_gaia_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ImportSecretsResponse) GetSecretsImported() int32 {
@@ -1460,6 +1416,94 @@ func (x *ImportSecretsResponse) GetMessage() string {
 	return ""
 }
 
+type ListSecretsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Namespaces    []*Namespace           `protobuf:"bytes,1,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSecretsResponse) Reset() {
+	*x = ListSecretsResponse{}
+	mi := &file_gaia_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSecretsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSecretsResponse) ProtoMessage() {}
+
+func (x *ListSecretsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSecretsResponse.ProtoReflect.Descriptor instead.
+func (*ListSecretsResponse) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ListSecretsResponse) GetNamespaces() []*Namespace {
+	if x != nil {
+		return x.Namespaces
+	}
+	return nil
+}
+
+type ListSecretsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientName    string                 `protobuf:"bytes,1,opt,name=client_name,json=clientName,proto3" json:"client_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSecretsRequest) Reset() {
+	*x = ListSecretsRequest{}
+	mi := &file_gaia_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSecretsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSecretsRequest) ProtoMessage() {}
+
+func (x *ListSecretsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSecretsRequest.ProtoReflect.Descriptor instead.
+func (*ListSecretsRequest) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *ListSecretsRequest) GetClientName() string {
+	if x != nil {
+		return x.ClientName
+	}
+	return ""
+}
+
 var File_gaia_proto protoreflect.FileDescriptor
 
 const file_gaia_proto_rawDesc = "" +
@@ -1468,7 +1512,10 @@ const file_gaia_proto_rawDesc = "" +
 	"gaia.proto\x12\x04gaia\".\n" +
 	"\x06Secret\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"w\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"G\n" +
+	"\tNamespace\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12&\n" +
+	"\asecrets\x18\x02 \x03(\v2\f.gaia.SecretR\asecrets\"w\n" +
 	"\x10AddSecretRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x0e\n" +
 	"\x02id\x18\x02 \x01(\tR\x02id\x12\x14\n" +
@@ -1477,16 +1524,7 @@ const file_gaia_proto_rawDesc = "" +
 	"clientName\"G\n" +
 	"\x11AddSecretResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"S\n" +
-	"\x12ListSecretsRequest\x12\x1f\n" +
-	"\vclient_name\x18\x01 \x01(\tR\n" +
-	"clientName\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\x93\x01\n" +
-	"\x13ListSecretsResponse\x12@\n" +
-	"\asecrets\x18\x01 \x03(\v2&.gaia.ListSecretsResponse.SecretsEntryR\asecrets\x1a:\n" +
-	"\fSecretsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\",\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\",\n" +
 	"\x11RevokeCertRequest\x12\x17\n" +
 	"\acert_id\x18\x01 \x01(\tR\x06certId\".\n" +
 	"\x12RevokeCertResponse\x12\x18\n" +
@@ -1552,7 +1590,14 @@ const file_gaia_proto_rawDesc = "" +
 	"\apayload\"\\\n" +
 	"\x15ImportSecretsResponse\x12)\n" +
 	"\x10secrets_imported\x18\x01 \x01(\x05R\x0fsecretsImported\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2\xd7\x06\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"F\n" +
+	"\x13ListSecretsResponse\x12/\n" +
+	"\n" +
+	"namespaces\x18\x01 \x03(\v2\x0f.gaia.NamespaceR\n" +
+	"namespaces\"5\n" +
+	"\x12ListSecretsRequest\x12\x1f\n" +
+	"\vclient_name\x18\x01 \x01(\tR\n" +
+	"clientName2\xd7\x06\n" +
 	"\tGaiaAdmin\x12<\n" +
 	"\tAddSecret\x12\x16.gaia.AddSecretRequest\x1a\x17.gaia.AddSecretResponse\x12E\n" +
 	"\fDeleteSecret\x12\x19.gaia.DeleteSecretRequest\x1a\x1a.gaia.DeleteSecretResponse\x12B\n" +
@@ -1587,74 +1632,75 @@ func file_gaia_proto_rawDescGZIP() []byte {
 var file_gaia_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_gaia_proto_goTypes = []any{
 	(*Secret)(nil),                 // 0: gaia.Secret
-	(*AddSecretRequest)(nil),       // 1: gaia.AddSecretRequest
-	(*AddSecretResponse)(nil),      // 2: gaia.AddSecretResponse
-	(*ListSecretsRequest)(nil),     // 3: gaia.ListSecretsRequest
-	(*ListSecretsResponse)(nil),    // 4: gaia.ListSecretsResponse
-	(*RevokeCertRequest)(nil),      // 5: gaia.RevokeCertRequest
-	(*RevokeCertResponse)(nil),     // 6: gaia.RevokeCertResponse
-	(*GetSecretRequest)(nil),       // 7: gaia.GetSecretRequest
-	(*GetStatusRequest)(nil),       // 8: gaia.GetStatusRequest
-	(*GetStatusResponse)(nil),      // 9: gaia.GetStatusResponse
-	(*StopRequest)(nil),            // 10: gaia.StopRequest
-	(*StopResponse)(nil),           // 11: gaia.StopResponse
-	(*UnlockRequest)(nil),          // 12: gaia.UnlockRequest
-	(*UnlockResponse)(nil),         // 13: gaia.UnlockResponse
-	(*LockRequest)(nil),            // 14: gaia.LockRequest
-	(*LockResponse)(nil),           // 15: gaia.LockResponse
-	(*RegisterClientRequest)(nil),  // 16: gaia.RegisterClientRequest
-	(*RegisterClientResponse)(nil), // 17: gaia.RegisterClientResponse
-	(*ListClientsRequest)(nil),     // 18: gaia.ListClientsRequest
-	(*ListClientsResponse)(nil),    // 19: gaia.ListClientsResponse
-	(*ListNamespacesRequest)(nil),  // 20: gaia.ListNamespacesRequest
-	(*ListNamespacesResponse)(nil), // 21: gaia.ListNamespacesResponse
-	(*RevokeClientRequest)(nil),    // 22: gaia.RevokeClientRequest
-	(*RevokeClientResponse)(nil),   // 23: gaia.RevokeClientResponse
-	(*DeleteSecretRequest)(nil),    // 24: gaia.DeleteSecretRequest
-	(*DeleteSecretResponse)(nil),   // 25: gaia.DeleteSecretResponse
-	(*ImportSecretsConfig)(nil),    // 26: gaia.ImportSecretsConfig
-	(*ImportSecretItem)(nil),       // 27: gaia.ImportSecretItem
-	(*ImportSecretsRequest)(nil),   // 28: gaia.ImportSecretsRequest
-	(*ImportSecretsResponse)(nil),  // 29: gaia.ImportSecretsResponse
-	nil,                            // 30: gaia.ListSecretsResponse.SecretsEntry
+	(*Namespace)(nil),              // 1: gaia.Namespace
+	(*AddSecretRequest)(nil),       // 2: gaia.AddSecretRequest
+	(*AddSecretResponse)(nil),      // 3: gaia.AddSecretResponse
+	(*RevokeCertRequest)(nil),      // 4: gaia.RevokeCertRequest
+	(*RevokeCertResponse)(nil),     // 5: gaia.RevokeCertResponse
+	(*GetSecretRequest)(nil),       // 6: gaia.GetSecretRequest
+	(*GetStatusRequest)(nil),       // 7: gaia.GetStatusRequest
+	(*GetStatusResponse)(nil),      // 8: gaia.GetStatusResponse
+	(*StopRequest)(nil),            // 9: gaia.StopRequest
+	(*StopResponse)(nil),           // 10: gaia.StopResponse
+	(*UnlockRequest)(nil),          // 11: gaia.UnlockRequest
+	(*UnlockResponse)(nil),         // 12: gaia.UnlockResponse
+	(*LockRequest)(nil),            // 13: gaia.LockRequest
+	(*LockResponse)(nil),           // 14: gaia.LockResponse
+	(*RegisterClientRequest)(nil),  // 15: gaia.RegisterClientRequest
+	(*RegisterClientResponse)(nil), // 16: gaia.RegisterClientResponse
+	(*ListClientsRequest)(nil),     // 17: gaia.ListClientsRequest
+	(*ListClientsResponse)(nil),    // 18: gaia.ListClientsResponse
+	(*ListNamespacesRequest)(nil),  // 19: gaia.ListNamespacesRequest
+	(*ListNamespacesResponse)(nil), // 20: gaia.ListNamespacesResponse
+	(*RevokeClientRequest)(nil),    // 21: gaia.RevokeClientRequest
+	(*RevokeClientResponse)(nil),   // 22: gaia.RevokeClientResponse
+	(*DeleteSecretRequest)(nil),    // 23: gaia.DeleteSecretRequest
+	(*DeleteSecretResponse)(nil),   // 24: gaia.DeleteSecretResponse
+	(*ImportSecretsConfig)(nil),    // 25: gaia.ImportSecretsConfig
+	(*ImportSecretItem)(nil),       // 26: gaia.ImportSecretItem
+	(*ImportSecretsRequest)(nil),   // 27: gaia.ImportSecretsRequest
+	(*ImportSecretsResponse)(nil),  // 28: gaia.ImportSecretsResponse
+	(*ListSecretsResponse)(nil),    // 29: gaia.ListSecretsResponse
+	(*ListSecretsRequest)(nil),     // 30: gaia.ListSecretsRequest
 }
 var file_gaia_proto_depIdxs = []int32{
-	30, // 0: gaia.ListSecretsResponse.secrets:type_name -> gaia.ListSecretsResponse.SecretsEntry
-	26, // 1: gaia.ImportSecretsRequest.config:type_name -> gaia.ImportSecretsConfig
-	27, // 2: gaia.ImportSecretsRequest.item:type_name -> gaia.ImportSecretItem
-	1,  // 3: gaia.GaiaAdmin.AddSecret:input_type -> gaia.AddSecretRequest
-	24, // 4: gaia.GaiaAdmin.DeleteSecret:input_type -> gaia.DeleteSecretRequest
-	3,  // 5: gaia.GaiaAdmin.ListSecrets:input_type -> gaia.ListSecretsRequest
-	5,  // 6: gaia.GaiaAdmin.RevokeCert:input_type -> gaia.RevokeCertRequest
-	8,  // 7: gaia.GaiaAdmin.GetStatus:input_type -> gaia.GetStatusRequest
-	10, // 8: gaia.GaiaAdmin.Stop:input_type -> gaia.StopRequest
-	12, // 9: gaia.GaiaAdmin.Unlock:input_type -> gaia.UnlockRequest
-	14, // 10: gaia.GaiaAdmin.Lock:input_type -> gaia.LockRequest
-	16, // 11: gaia.GaiaAdmin.RegisterClient:input_type -> gaia.RegisterClientRequest
-	18, // 12: gaia.GaiaAdmin.ListClients:input_type -> gaia.ListClientsRequest
-	20, // 13: gaia.GaiaAdmin.ListNamespaces:input_type -> gaia.ListNamespacesRequest
-	22, // 14: gaia.GaiaAdmin.RevokeClient:input_type -> gaia.RevokeClientRequest
-	28, // 15: gaia.GaiaAdmin.ImportSecrets:input_type -> gaia.ImportSecretsRequest
-	7,  // 16: gaia.GaiaClient.GetSecret:input_type -> gaia.GetSecretRequest
-	2,  // 17: gaia.GaiaAdmin.AddSecret:output_type -> gaia.AddSecretResponse
-	25, // 18: gaia.GaiaAdmin.DeleteSecret:output_type -> gaia.DeleteSecretResponse
-	4,  // 19: gaia.GaiaAdmin.ListSecrets:output_type -> gaia.ListSecretsResponse
-	6,  // 20: gaia.GaiaAdmin.RevokeCert:output_type -> gaia.RevokeCertResponse
-	9,  // 21: gaia.GaiaAdmin.GetStatus:output_type -> gaia.GetStatusResponse
-	11, // 22: gaia.GaiaAdmin.Stop:output_type -> gaia.StopResponse
-	13, // 23: gaia.GaiaAdmin.Unlock:output_type -> gaia.UnlockResponse
-	15, // 24: gaia.GaiaAdmin.Lock:output_type -> gaia.LockResponse
-	17, // 25: gaia.GaiaAdmin.RegisterClient:output_type -> gaia.RegisterClientResponse
-	19, // 26: gaia.GaiaAdmin.ListClients:output_type -> gaia.ListClientsResponse
-	21, // 27: gaia.GaiaAdmin.ListNamespaces:output_type -> gaia.ListNamespacesResponse
-	23, // 28: gaia.GaiaAdmin.RevokeClient:output_type -> gaia.RevokeClientResponse
-	29, // 29: gaia.GaiaAdmin.ImportSecrets:output_type -> gaia.ImportSecretsResponse
-	0,  // 30: gaia.GaiaClient.GetSecret:output_type -> gaia.Secret
-	17, // [17:31] is the sub-list for method output_type
-	3,  // [3:17] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	0,  // 0: gaia.Namespace.secrets:type_name -> gaia.Secret
+	25, // 1: gaia.ImportSecretsRequest.config:type_name -> gaia.ImportSecretsConfig
+	26, // 2: gaia.ImportSecretsRequest.item:type_name -> gaia.ImportSecretItem
+	1,  // 3: gaia.ListSecretsResponse.namespaces:type_name -> gaia.Namespace
+	2,  // 4: gaia.GaiaAdmin.AddSecret:input_type -> gaia.AddSecretRequest
+	23, // 5: gaia.GaiaAdmin.DeleteSecret:input_type -> gaia.DeleteSecretRequest
+	30, // 6: gaia.GaiaAdmin.ListSecrets:input_type -> gaia.ListSecretsRequest
+	4,  // 7: gaia.GaiaAdmin.RevokeCert:input_type -> gaia.RevokeCertRequest
+	7,  // 8: gaia.GaiaAdmin.GetStatus:input_type -> gaia.GetStatusRequest
+	9,  // 9: gaia.GaiaAdmin.Stop:input_type -> gaia.StopRequest
+	11, // 10: gaia.GaiaAdmin.Unlock:input_type -> gaia.UnlockRequest
+	13, // 11: gaia.GaiaAdmin.Lock:input_type -> gaia.LockRequest
+	15, // 12: gaia.GaiaAdmin.RegisterClient:input_type -> gaia.RegisterClientRequest
+	17, // 13: gaia.GaiaAdmin.ListClients:input_type -> gaia.ListClientsRequest
+	19, // 14: gaia.GaiaAdmin.ListNamespaces:input_type -> gaia.ListNamespacesRequest
+	21, // 15: gaia.GaiaAdmin.RevokeClient:input_type -> gaia.RevokeClientRequest
+	27, // 16: gaia.GaiaAdmin.ImportSecrets:input_type -> gaia.ImportSecretsRequest
+	6,  // 17: gaia.GaiaClient.GetSecret:input_type -> gaia.GetSecretRequest
+	3,  // 18: gaia.GaiaAdmin.AddSecret:output_type -> gaia.AddSecretResponse
+	24, // 19: gaia.GaiaAdmin.DeleteSecret:output_type -> gaia.DeleteSecretResponse
+	29, // 20: gaia.GaiaAdmin.ListSecrets:output_type -> gaia.ListSecretsResponse
+	5,  // 21: gaia.GaiaAdmin.RevokeCert:output_type -> gaia.RevokeCertResponse
+	8,  // 22: gaia.GaiaAdmin.GetStatus:output_type -> gaia.GetStatusResponse
+	10, // 23: gaia.GaiaAdmin.Stop:output_type -> gaia.StopResponse
+	12, // 24: gaia.GaiaAdmin.Unlock:output_type -> gaia.UnlockResponse
+	14, // 25: gaia.GaiaAdmin.Lock:output_type -> gaia.LockResponse
+	16, // 26: gaia.GaiaAdmin.RegisterClient:output_type -> gaia.RegisterClientResponse
+	18, // 27: gaia.GaiaAdmin.ListClients:output_type -> gaia.ListClientsResponse
+	20, // 28: gaia.GaiaAdmin.ListNamespaces:output_type -> gaia.ListNamespacesResponse
+	22, // 29: gaia.GaiaAdmin.RevokeClient:output_type -> gaia.RevokeClientResponse
+	28, // 30: gaia.GaiaAdmin.ImportSecrets:output_type -> gaia.ImportSecretsResponse
+	0,  // 31: gaia.GaiaClient.GetSecret:output_type -> gaia.Secret
+	18, // [18:32] is the sub-list for method output_type
+	4,  // [4:18] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_gaia_proto_init() }
@@ -1662,7 +1708,7 @@ func file_gaia_proto_init() {
 	if File_gaia_proto != nil {
 		return
 	}
-	file_gaia_proto_msgTypes[28].OneofWrappers = []any{
+	file_gaia_proto_msgTypes[27].OneofWrappers = []any{
 		(*ImportSecretsRequest_Config)(nil),
 		(*ImportSecretsRequest_Item)(nil),
 	}

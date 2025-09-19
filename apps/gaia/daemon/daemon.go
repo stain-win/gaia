@@ -16,6 +16,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,14 +45,15 @@ type Daemon struct {
 }
 
 const (
-	metaPrefix     = "gaia:internal:cmfk1rbd000000m74bic9evy3"
-	saltKey        = metaPrefix + "__salt__"
-	keyHashKey     = metaPrefix + "__key_hash__"
-	bucketName     = "secrets"
-	clientsBucket  = "clients"
-	StatusRunning  = "running"
-	StatusStopped  = "stopped"
-	StatusStarting = "starting"
+	metaPrefix      = "gaia:internal:cmfk1rbd000000m74bic9evy3"
+	saltKey         = metaPrefix + "__salt__"
+	keyHashKey      = metaPrefix + "__key_hash__"
+	secretsBucket   = "secrets"
+	clientsBucket   = "clients"
+	StatusRunning   = "running"
+	StatusStopped   = "stopped"
+	StatusStarting  = "starting"
+	commonNamespace = "common"
 )
 
 // NewDaemon creates a new Daemon instance with default configuration.
@@ -192,14 +194,25 @@ func (d *Daemon) InitializeDB(passphrase string) error {
 		return err
 	}
 	err = db.Update(func(tx *bbolt.Tx) error {
-		b, _ := tx.CreateBucketIfNotExists([]byte(bucketName))
-		if b == nil {
+		secretsB, _ := tx.CreateBucketIfNotExists([]byte(secretsBucket))
+		if secretsB == nil {
 			return errors.New("bucket not found")
 		}
-		if err := b.Put([]byte(saltKey), salt); err != nil {
+		if err := secretsB.Put([]byte(saltKey), salt); err != nil {
 			return err
 		}
-		return b.Put([]byte(keyHashKey), keyHash[:])
+		if err := secretsB.Put([]byte(keyHashKey), keyHash[:]); err != nil {
+			return fmt.Errorf("failed to store key hash: %w", err)
+		}
+		clientsB, err := tx.CreateBucketIfNotExists([]byte(clientsBucket))
+		if err != nil {
+			return fmt.Errorf("failed to create clients bucket: %w", err)
+		}
+		if err := clientsB.Put([]byte(commonNamespace), []byte(commonNamespace)); err != nil {
+			return fmt.Errorf("failed to register common client: %w", err)
+		}
+
+		return nil
 	})
 	if err != nil {
 		db.Close()
@@ -242,7 +255,7 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 
 	var salt, storedHash []byte
 	err = d.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte(bucketName))
+		b := tx.Bucket([]byte(secretsBucket))
 		if b == nil {
 			return errors.New("bucket not found")
 		}
@@ -332,7 +345,7 @@ func (d *Daemon) AddSecret(clientName, namespace, id, value string) error {
 	}
 
 	err = d.db.Update(func(tx *bbolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists([]byte(bucketName))
+		b, err := tx.CreateBucketIfNotExists([]byte(secretsBucket))
 		if err != nil {
 			return fmt.Errorf("failed to create or get bucket: %w", err)
 		}
@@ -361,7 +374,7 @@ func (d *Daemon) DeleteSecret(clientName, namespace, id string) error {
 	key := fmt.Sprintf("%s/%s/%s", clientName, namespace, id)
 
 	err := d.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte(bucketName))
+		b := tx.Bucket([]byte(secretsBucket))
 		if b == nil {
 			// If the bucket doesn't exist, the secret can't exist either.
 			return nil
@@ -393,21 +406,24 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 		return "", errors.New("database not open")
 	}
 
+	var lookupClient string
+
 	// Authorization Logic: A client can access its own namespace or the common one.
 	if namespace != "common" && clientName != namespace {
 		return "", fmt.Errorf("permission denied: client '%s' is not authorized for namespace '%s'", clientName, namespace)
+	} else {
+		// 2. Otherwise, the client's name must match the namespace they are requesting.
+		if clientName != namespace {
+			return "", fmt.Errorf("permission denied: client '%s' not authorized for namespace '%s'", clientName, namespace)
+		}
+		lookupClient = clientName
 	}
 
-	// For the 'common' namespace, the key is stored under a literal 'common' client name.
-	lookupClient := clientName
-	if namespace == "common" {
-		lookupClient = "common"
-	}
 	key := fmt.Sprintf("%s/%s/%s", lookupClient, namespace, id)
 
 	var encValue []byte
 	err := d.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte(bucketName))
+		b := tx.Bucket([]byte(secretsBucket))
 		if b == nil {
 			return errors.New("bucket not found")
 		}
@@ -578,7 +594,7 @@ func (d *Daemon) RevokeClient(clientName string) error {
 				return fmt.Errorf("failed to delete client from registry: %w", err)
 			}
 		}
-		secretsB := tx.Bucket([]byte(bucketName))
+		secretsB := tx.Bucket([]byte(secretsBucket))
 		if secretsB == nil {
 			return nil // No secrets bucket, so nothing to delete.
 		}
@@ -608,7 +624,7 @@ func (d *Daemon) ListNamespaces(clientName string) ([]string, error) {
 	prefix := []byte(clientName + "/")
 
 	err := d.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte(bucketName))
+		b := tx.Bucket([]byte(secretsBucket))
 		if b == nil {
 			return nil // No secrets, so no namespaces.
 		}
@@ -650,7 +666,7 @@ func (d *Daemon) ImportSecrets(secrets []*pb.ImportSecretItem, overwrite bool) (
 
 	var importedCount int
 	err := d.db.Update(func(tx *bbolt.Tx) error {
-		secretsB, err := tx.CreateBucketIfNotExists([]byte(bucketName))
+		secretsB, err := tx.CreateBucketIfNotExists([]byte(secretsBucket))
 		if err != nil {
 			return fmt.Errorf("failed to get secrets bucket: %w", err)
 		}
@@ -685,4 +701,51 @@ func (d *Daemon) ImportSecrets(secrets []*pb.ImportSecretItem, overwrite bool) (
 	gaialog.Get().Info("bulk secrets imported", slog.Int("count", importedCount))
 	log.Printf("Bulk secrets imported successfully, imported %d secrets", importedCount)
 	return importedCount, nil
+}
+
+// ListSecrets retrieves all namespaces and their secrets for a given client.
+func (d *Daemon) ListSecrets(clientName string) (map[string]map[string]string, error) {
+	d.dbLock.RLock()
+	defer d.dbLock.RUnlock()
+
+	if d.isLocked {
+		return nil, errors.New("daemon is in a locked state")
+	}
+
+	allSecrets := make(map[string]map[string]string)
+	prefix := []byte(clientName + "/")
+
+	err := d.db.View(func(tx *bbolt.Tx) error {
+		c := tx.Bucket([]byte(secretsBucket)).Cursor()
+
+		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
+			parts := strings.SplitN(string(k), "/", 3)
+			if len(parts) != 3 {
+				continue // Skip malformed keys
+			}
+			// parts[0] is clientName, parts[1] is namespace, parts[2] is key
+
+			namespace := parts[1]
+			secretKey := parts[2]
+
+			decryptedValue, err := encrypt.Decrypt(d.key, string(v))
+			if err != nil {
+				// Log the error but continue, so one bad secret doesn't fail the whole list
+				gaialog.Get().Warn("failed to decrypt secret, skipping", "key", string(k), "error", err)
+				continue
+			}
+
+			if _, ok := allSecrets[namespace]; !ok {
+				allSecrets[namespace] = make(map[string]string)
+			}
+			allSecrets[namespace][secretKey] = string(decryptedValue)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secrets: %w", err)
+	}
+
+	return allSecrets, nil
 }

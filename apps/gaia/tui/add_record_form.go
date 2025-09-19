@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,15 +18,9 @@ type AddRecordMsg struct {
 
 // addRecordFormModel represents the state of the form for adding a new secret.
 type addRecordFormModel struct {
-	form      *huh.Form
-	namespace string
-	key       string
-	value     string
-	width     int
-	height    int
-	ready     bool
-	err       error
-	Msg       string
+	form   *huh.Form
+	width  int
+	height int
 }
 
 func newAddRecordFormModel(clients []string, namespaces []string) *addRecordFormModel {
@@ -37,10 +30,6 @@ func newAddRecordFormModel(clients []string, namespaces []string) *addRecordForm
 	for i, c := range clients {
 		clientOptions[i] = huh.NewOption(c, c)
 	}
-	namespaceOptions := make([]huh.Option[string], len(namespaces))
-	for i, ns := range namespaces {
-		namespaceOptions[i] = huh.NewOption(ns, ns)
-	}
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -49,10 +38,11 @@ func newAddRecordFormModel(clients []string, namespaces []string) *addRecordForm
 				Title(lipgloss.NewStyle().Bold(true).Render("Client")).
 				Options(clientOptions...).
 				Value(&clientName),
-			huh.NewSelect[string]().
+			huh.NewInput().
 				Key("namespace").
 				Title(lipgloss.NewStyle().Bold(true).Render("Namespace")).
-				Options(namespaceOptions...).
+				Prompt(lipgloss.NewStyle().Foreground(lipgloss.Color("#00BFFF")).Render(">")).
+				Placeholder("e.g., 'production' or 'staging'").
 				Value(&namespace),
 			huh.NewInput().
 				Key("key").
@@ -70,12 +60,7 @@ func newAddRecordFormModel(clients []string, namespaces []string) *addRecordForm
 	).WithWidth(40)
 
 	return &addRecordFormModel{
-		form:      form,
-		namespace: namespace,
-		key:       key,
-		value:     value,
-		ready:     true,
-		Msg:       "",
+		form: form,
 	}
 }
 
@@ -88,7 +73,9 @@ func (m *addRecordFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var updatedForm tea.Model
 
 	updatedForm, cmd = m.form.Update(msg)
-	m.form = updatedForm.(*huh.Form)
+	if f, ok := updatedForm.(*huh.Form); ok {
+		m.form = f
+	}
 
 	if m.form.State == huh.StateCompleted {
 		// When the form is submitted, send a message to the main TUI.
@@ -112,11 +99,5 @@ func (m *addRecordFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *addRecordFormModel) View() string {
-	if !m.ready {
-		return "Loading..."
-	}
-	if m.err != nil {
-		return fmt.Sprintf("Error: %v", m.err)
-	}
 	return m.form.View()
 }

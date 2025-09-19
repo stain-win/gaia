@@ -51,7 +51,9 @@ type model struct {
 	namespaces              []string
 	daemonStatus            string
 	config                  *config.Config
-	listRecords             listRecordsModel // New model state
+	//listRecords             listRecordsModel // New model state
+	inspector     *inspectorModel
+	statusMessage string
 }
 
 // menuItems defines the items for the main menu.
@@ -111,9 +113,9 @@ func initialModel(config *config.Config) *model {
 		help:                    help.New(),
 		addRecordFormModel:      newAddRecordFormModel(nil, nil),
 		registerClientFormModel: newRegisterClientFormModel(),
-		listRecords:             newListRecordsModel(),
 		daemonStatus:            "",
 		config:                  config,
+		inspector:               newInspectorModel(config),
 	}
 
 	m.certForm = huh.NewForm(

@@ -215,3 +215,27 @@ func (s *gaiaAdminServer) ImportSecrets(stream pb.GaiaAdmin_ImportSecretsServer)
 		Message:         "Secrets imported successfully.",
 	})
 }
+
+// Add this handler to your apps/gaia/daemon/grpc_service.go file
+
+func (s *gaiaAdminServer) ListSecrets(ctx context.Context, req *pb.ListSecretsRequest) (*pb.ListSecretsResponse, error) {
+	if s.d.isLocked {
+		return nil, errors.New("daemon is in a locked state")
+	}
+
+	allData, err := s.d.ListSecrets(req.ClientName)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespaces []*pb.Namespace
+	for nsName, secretsMap := range allData {
+		ns := &pb.Namespace{Name: nsName}
+		for key, value := range secretsMap {
+			ns.Secrets = append(ns.Secrets, &pb.Secret{Id: key, Value: value})
+		}
+		namespaces = append(namespaces, ns)
+	}
+
+	return &pb.ListSecretsResponse{Namespaces: namespaces}, nil
+}

@@ -31,7 +31,7 @@ func (m *model) View() string {
 	case registerClient:
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.registerClientFormModel.View())
 	case listRecords:
-		screenView = m.viewListRecords()
+		screenView = m.inspector.View()
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, screenView)
