@@ -18,9 +18,10 @@ type AddRecordMsg struct {
 
 // addRecordFormModel represents the state of the form for adding a new secret.
 type addRecordFormModel struct {
-	form   *huh.Form
-	width  int
-	height int
+	form    *huh.Form
+	width   int
+	height  int
+	success bool // true if record was saved
 }
 
 func newAddRecordFormModel(clients []string, namespaces []string) *addRecordFormModel {
@@ -60,7 +61,8 @@ func newAddRecordFormModel(clients []string, namespaces []string) *addRecordForm
 	).WithWidth(40)
 
 	return &addRecordFormModel{
-		form: form,
+		form:    form,
+		success: false,
 	}
 }
 
@@ -69,6 +71,14 @@ func (m *addRecordFormModel) Init() tea.Cmd {
 }
 
 func (m *addRecordFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.success {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && (keyMsg.Type == tea.KeyEnter || keyMsg.String() == "enter") {
+			m.resetForm()
+			return m, m.form.Init()
+		}
+		return m, nil
+	}
+
 	var cmd tea.Cmd
 	var updatedForm tea.Model
 
@@ -78,7 +88,7 @@ func (m *addRecordFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.form.State == huh.StateCompleted {
-		// When the form is submitted, send a message to the main TUI.
+		m.success = true
 		return m, func() tea.Msg {
 			return AddRecordMsg{
 				ClientName: strings.TrimSpace(m.form.GetString("clientName")),
@@ -99,5 +109,16 @@ func (m *addRecordFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *addRecordFormModel) View() string {
+	if m.success {
+		return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00FF00")).Render(
+			"Record successfully added!\n\nPress Enter to add another record.")
+	}
 	return m.form.View()
+}
+
+func (m *addRecordFormModel) resetForm() {
+	clients := []string{}
+	namespaces := []string{}
+	m.form = newAddRecordFormModel(clients, namespaces).form
+	m.success = false
 }

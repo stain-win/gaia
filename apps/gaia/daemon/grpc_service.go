@@ -15,12 +15,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// gaiaAdminServer implements the GaiaAdmin gRPC service.
-type gaiaAdminServer struct {
-	pb.UnimplementedGaiaAdminServer
-	d *Daemon
-}
-
 func getClientIdentity(ctx context.Context) (string, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
@@ -84,12 +78,6 @@ func (s *gaiaAdminServer) DeleteSecret(_ context.Context, req *pb.DeleteSecretRe
 	return &pb.DeleteSecretResponse{Success: true}, nil
 }
 
-// RevokeCert handles the RevokeCert RPC call.
-func (s *gaiaAdminServer) RevokeCert(_ context.Context, _ *pb.RevokeCertRequest) (*pb.RevokeCertResponse, error) {
-	// TODO: Implement certificate revocation logic here.
-	return &pb.RevokeCertResponse{Success: false}, errors.New("not implemented")
-}
-
 // GetStatus handles the GetStatus RPC call.
 func (s *gaiaAdminServer) GetStatus(_ context.Context, _ *pb.GetStatusRequest) (*pb.GetStatusResponse, error) {
 	return &pb.GetStatusResponse{Status: s.d.Status()}, nil
@@ -129,7 +117,7 @@ func (s *gaiaAdminServer) RegisterClient(_ context.Context, req *pb.RegisterClie
 		return nil, errors.New("daemon is in a locked state, cannot register new clients")
 	}
 
-	certPEM, keyPEM, err := certs.GenerateClientCertificateData(req.ClientName, s.d.caCert, s.d.caKey)
+	certPEM, keyPEM, err := certs.GenerateClientCertificateData(req.ClientName, s.d.caCert, s.d.caKey, s.d.config.CertExpiryDays)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate client certificate: %w", err)
 	}
@@ -153,12 +141,20 @@ func (s *gaiaAdminServer) ListClients(_ context.Context, _ *pb.ListClientsReques
 		return nil, errors.New("daemon is in a locked state, cannot list clients")
 	}
 
-	clientNames, err := s.d.ListClients()
+	clients, err := s.d.ListClients()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client list: %w", err)
 	}
 
-	return &pb.ListClientsResponse{ClientNames: clientNames}, nil
+	pbClients := make([]*pb.Client, len(clients))
+	for i, c := range clients {
+		pbClients[i] = &pb.Client{
+			Name:        c.Name,
+			TimeCreated: c.TimeCreated,
+		}
+	}
+
+	return &pb.ListClientsResponse{Clients: pbClients}, nil
 }
 
 // RevokeClient handles the gRPC request to revoke a client.
@@ -236,8 +232,6 @@ func (s *gaiaAdminServer) ImportSecrets(stream pb.GaiaAdmin_ImportSecretsServer)
 		Message:         "Secrets imported successfully.",
 	})
 }
-
-// Add this handler to your apps/gaia/daemon/grpc_service.go file
 
 func (s *gaiaAdminServer) ListSecrets(ctx context.Context, req *pb.ListSecretsRequest) (*pb.ListSecretsResponse, error) {
 	if s.d.isLocked {

@@ -47,11 +47,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, keys.Quit):
 			m.quitting = true
 			return m, tea.Quit
-		case key.Matches(msg, keys.Back):
-			if m.activeScreen != mainMenu {
-				m.activeScreen = mainMenu
-				return m, nil
-			}
 		}
 	case statusUpdatedMsg:
 		if msg.err != nil {
@@ -59,6 +54,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.daemonStatus = msg.status
 		}
+		return m, nil
+	case backToDataManagementMsg:
+		m.activeScreen = dataManagement
 		return m, nil
 	}
 
@@ -142,7 +140,10 @@ func (m *model) updateDataManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMessage = fmt.Sprintf("Error loading clients: %v", msg.err)
 			return m, nil
 		}
-		m.clients = msg.clients
+		m.clients = make([]string, len(msg.clients))
+		for i, c := range msg.clients {
+			m.clients[i] = c.Name
+		}
 		m.addRecordFormModel = newAddRecordFormModel(m.clients, m.namespaces)
 		m.activeScreen = addRecord
 		m.statusMessage = "Enter new record details."
@@ -214,17 +215,29 @@ func (m *model) updateCreateCerts(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.certForm = updatedForm.(*huh.Form)
 
 	if m.certForm.State == huh.StateCompleted {
-		err := certs.GenerateTLSCertificates(
-			m.certForm.GetString("outputPath"),
-			m.certForm.GetString("caName"),
-			m.certForm.GetString("serverName"),
-			m.certForm.GetString("clientName"),
-		)
+		outPath := m.certForm.GetString("outputPath")
+		caName := m.certForm.GetString("caName")
+		serverName := m.certForm.GetString("serverName")
+		clientName := m.certForm.GetString("clientName")
+
+		cfg := *m.config
+		cfg.CertsDirectory = outPath
+
+		var err error
+		if err = certs.GenerateCA(&cfg, caName); err != nil {
+			err = fmt.Errorf("generating CA failed: %w", err)
+		} else if err = certs.GenerateServerCertificate(&cfg, serverName); err != nil {
+			err = fmt.Errorf("generating server certificate failed: %w", err)
+		} else if err = certs.GenerateClientCertificate(&cfg, clientName); err != nil {
+			err = fmt.Errorf("generating client certificate failed: %w", err)
+		}
+
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Error generating certificates: %v\n", err)
 		} else {
 			fmt.Println("Certificates generated successfully!")
 		}
+
 		m.activeScreen = certManagement
 		return m, tea.ClearScreen
 	}

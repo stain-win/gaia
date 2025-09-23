@@ -23,6 +23,7 @@ type Config struct {
 	GaianClientKeyFile  string        `yaml:"gaia_client_key_file"`
 	GRPCClientTimeout   time.Duration `yaml:"grpc_client_timeout"`
 	GaiaTuiTickInterval time.Duration `yaml:"gaia_tui_tick_interval"`
+	CertExpiryDays      int           `yaml:"cert_expiry_days"`
 }
 
 // NewDefaultConfig returns a Config with default values.
@@ -39,6 +40,7 @@ func NewDefaultConfig() *Config {
 		GaianClientKeyFile:  "gaia_client.key",
 		GRPCClientTimeout:   5 * time.Second,
 		GaiaTuiTickInterval: 2 * time.Second,
+		CertExpiryDays:      365, // Default to 365 days
 	}
 }
 
