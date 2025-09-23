@@ -145,10 +145,16 @@ func (m *initModel) View() string {
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize Gaia secure storage",
-	Long:  `The init command guides you through the process of setting up Gaia's encrypted database and master passphrase.`,
+	Long: `The init command guides you through the process of setting up Gaia's encrypted database and master passphrase.
+	Default db name can be overridden from the config file using flags.
+	For example:
+	  gaia init --db-file /var/lib/gaia/gaia-prod.db
+`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Check if the database file already exists.
 		cfg := gaiaDaemon.GetConfig()
+		if dbFile != "" {
+			cfg.DBFile = dbFile
+		}
 		err := config.WriteConfigToFile(cfg)
 		if err != nil {
 			fmt.Printf("failed to initialize configuration: %s", err)
@@ -190,4 +196,8 @@ var initCmd = &cobra.Command{
 			fmt.Printf("Master passphrase set: '%s'\n", passphrase)
 		}
 	},
+}
+
+func init() {
+	initCmd.Flags().StringVarP(&dbFile, "db-file", "d", "", "The path to the BoltDB file")
 }

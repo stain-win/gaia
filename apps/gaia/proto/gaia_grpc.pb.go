@@ -22,7 +22,6 @@ const (
 	GaiaAdmin_AddSecret_FullMethodName      = "/gaia.GaiaAdmin/AddSecret"
 	GaiaAdmin_DeleteSecret_FullMethodName   = "/gaia.GaiaAdmin/DeleteSecret"
 	GaiaAdmin_ListSecrets_FullMethodName    = "/gaia.GaiaAdmin/ListSecrets"
-	GaiaAdmin_RevokeCert_FullMethodName     = "/gaia.GaiaAdmin/RevokeCert"
 	GaiaAdmin_GetStatus_FullMethodName      = "/gaia.GaiaAdmin/GetStatus"
 	GaiaAdmin_Stop_FullMethodName           = "/gaia.GaiaAdmin/Stop"
 	GaiaAdmin_Unlock_FullMethodName         = "/gaia.GaiaAdmin/Unlock"
@@ -41,7 +40,6 @@ type GaiaAdminClient interface {
 	AddSecret(ctx context.Context, in *AddSecretRequest, opts ...grpc.CallOption) (*AddSecretResponse, error)
 	DeleteSecret(ctx context.Context, in *DeleteSecretRequest, opts ...grpc.CallOption) (*DeleteSecretResponse, error)
 	ListSecrets(ctx context.Context, in *ListSecretsRequest, opts ...grpc.CallOption) (*ListSecretsResponse, error)
-	RevokeCert(ctx context.Context, in *RevokeCertRequest, opts ...grpc.CallOption) (*RevokeCertResponse, error)
 	GetStatus(ctx context.Context, in *GetStatusRequest, opts ...grpc.CallOption) (*GetStatusResponse, error)
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 	Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc.CallOption) (*UnlockResponse, error)
@@ -85,16 +83,6 @@ func (c *gaiaAdminClient) ListSecrets(ctx context.Context, in *ListSecretsReques
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListSecretsResponse)
 	err := c.cc.Invoke(ctx, GaiaAdmin_ListSecrets_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *gaiaAdminClient) RevokeCert(ctx context.Context, in *RevokeCertRequest, opts ...grpc.CallOption) (*RevokeCertResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RevokeCertResponse)
-	err := c.cc.Invoke(ctx, GaiaAdmin_RevokeCert_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +189,6 @@ type GaiaAdminServer interface {
 	AddSecret(context.Context, *AddSecretRequest) (*AddSecretResponse, error)
 	DeleteSecret(context.Context, *DeleteSecretRequest) (*DeleteSecretResponse, error)
 	ListSecrets(context.Context, *ListSecretsRequest) (*ListSecretsResponse, error)
-	RevokeCert(context.Context, *RevokeCertRequest) (*RevokeCertResponse, error)
 	GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error)
 	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error)
@@ -229,9 +216,6 @@ func (UnimplementedGaiaAdminServer) DeleteSecret(context.Context, *DeleteSecretR
 }
 func (UnimplementedGaiaAdminServer) ListSecrets(context.Context, *ListSecretsRequest) (*ListSecretsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListSecrets not implemented")
-}
-func (UnimplementedGaiaAdminServer) RevokeCert(context.Context, *RevokeCertRequest) (*RevokeCertResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RevokeCert not implemented")
 }
 func (UnimplementedGaiaAdminServer) GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetStatus not implemented")
@@ -331,24 +315,6 @@ func _GaiaAdmin_ListSecrets_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(GaiaAdminServer).ListSecrets(ctx, req.(*ListSecretsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _GaiaAdmin_RevokeCert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RevokeCertRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GaiaAdminServer).RevokeCert(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: GaiaAdmin_RevokeCert_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GaiaAdminServer).RevokeCert(ctx, req.(*RevokeCertRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -522,10 +488,6 @@ var GaiaAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListSecrets",
 			Handler:    _GaiaAdmin_ListSecrets_Handler,
-		},
-		{
-			MethodName: "RevokeCert",
-			Handler:    _GaiaAdmin_RevokeCert_Handler,
 		},
 		{
 			MethodName: "GetStatus",

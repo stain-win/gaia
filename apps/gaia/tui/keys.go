@@ -40,7 +40,6 @@ var keys = keyMap{
 		key.WithKeys("enter"),
 		key.WithHelp("enter", "select"),
 	),
-	// Corrected 'Back' keybinding: Only 'esc' triggers back navigation.
 	Back: key.NewBinding(
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "back"),

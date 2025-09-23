@@ -23,13 +23,15 @@ type SecretsFetchedMsg struct {
 	Secrets   map[string]string
 }
 
+type backToDataManagementMsg struct{}
+
 type recordAddResultMsg struct {
 	err error
 }
 
 // clientsLoadedMsg is sent when the list of clients has been fetched.
 type clientsLoadedMsg struct {
-	clients []string
+	clients []*pb.Client
 	err     error
 }
 
@@ -45,7 +47,7 @@ type statusUpdatedMsg struct {
 
 // allClientsLoadedMsg is sent when ListClients RPC is complete.
 type allClientsLoadedMsg struct {
-	clients []string
+	clients []*pb.Client
 	err     error
 }
 
@@ -108,8 +110,8 @@ func fetchClientsCmd(cfg *config.Config) tea.Cmd {
 			return clientsLoadedMsg{err: err}
 		}
 		// "common" is a special client, always add it to the list for selection.
-		clients := append(res.ClientNames, "common")
-		return clientsLoadedMsg{clients: clients}
+		//clients := append(res.Clients, "common")
+		return clientsLoadedMsg{clients: res.Clients}
 	}
 }
 
@@ -171,7 +173,7 @@ func fetchAllClientsCmd(cfg *config.Config) tea.Cmd {
 		if err != nil {
 			return allClientsLoadedMsg{err: err}
 		}
-		return allClientsLoadedMsg{clients: res.ClientNames}
+		return allClientsLoadedMsg{clients: res.Clients}
 	}
 }
 

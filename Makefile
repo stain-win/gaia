@@ -22,7 +22,8 @@ GO_ARCH_LIST := amd64 arm64
 all: protoc build
 
 protoc-client-go:
-	@echo "Compiling client protobuf files..."
+	@echo "Compiling client protobuf files for Go..."
+	mkdir -p $(LIBS_DIR)/go/proto
 	protoc --proto_path=$(PROTO_DIR) --go_out=$(LIBS_DIR)/go/proto --go-grpc_out=$(LIBS_DIR)/go/proto --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative $(PROTO_CLIENT_FILE)
 # Compile the .proto files into Go code
 protoc:

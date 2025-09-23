@@ -3,7 +3,9 @@ package tui
 import (
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -15,17 +17,19 @@ import (
 var (
 	paneStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			Padding(1)
+			Padding(1).MarginBottom(1)
 
 	focusedPaneStyle = paneStyle.
 				BorderForeground(lipgloss.Color("69"))
 )
 
 type inspectorPane int
+type namespaceItem string
 
 const (
 	clientsPane inspectorPane = iota
 	secretsPane
+	viewPane
 )
 
 // inspectorModel holds the state for our new three-pane view.
@@ -38,10 +42,17 @@ type inspectorModel struct {
 	clientsList list.Model
 	secretsList list.Model
 	viewport    viewport.Model
+	tbl         table.Model // value type, not pointer
 
 	// Data
 	allData        map[string][]*pb.Namespace // clientName -> namespaces
 	selectedClient string
+
+	// Edit form state
+	editing       bool
+	editKey       string
+	editValue     string
+	editNamespace string
 }
 
 func newInspectorModel(cfg *config.Config) *inspectorModel {
@@ -100,12 +111,12 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 		}
 		var items []list.Item
 		for _, client := range msg.clients {
-			items = append(items, namespaceItem(client))
+			items = append(items, namespaceItem(client.Name))
 		}
 		m.clientsList.SetItems(items)
 		// Fetch secrets for the first client automatically
 		if len(msg.clients) > 0 {
-			m.selectedClient = msg.clients[0]
+			m.selectedClient = msg.clients[0].Name
 			return m, fetchSecretsForClientCmd(m.config, m.selectedClient)
 		}
 
@@ -118,14 +129,26 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 		m.updateSecretsList()
 
 	case tea.KeyMsg:
-		// Switch focus between panes
 		if msg.String() == "tab" {
-			m.focusedPane = (m.focusedPane + 1) % 2
-			return m, nil
+			// Cycle focus: clientsPane > secretsPane > viewPane > clientsPane
+			if m.focusedPane == clientsPane {
+				m.focusedPane = secretsPane
+			} else if m.focusedPane == secretsPane {
+				m.focusedPane = viewPane
+				if m.tbl.Rows() != nil && len(m.tbl.Rows()) > 0 {
+					m.tbl.Focus()
+					m.viewport.SetContent(m.tbl.View())
+				}
+			} else if m.focusedPane == viewPane {
+				m.focusedPane = clientsPane
+			}
+			return m, nil // <--- IMMEDIATELY RETURN after tab key
 		}
-
-		// Handle selection in the client's list
+		if key.Matches(msg, keys.Back) {
+			return m, func() tea.Msg { return backToDataManagementMsg{} }
+		}
 		if m.focusedPane == clientsPane {
+			// Handle selection in the client's list
 			if m.clientsList.SelectedItem() != nil {
 				newClient := string(m.clientsList.SelectedItem().(namespaceItem))
 				if newClient != m.selectedClient {
@@ -137,26 +160,64 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 					m.updateSecretsList()
 				}
 			}
+		} else if m.focusedPane == secretsPane {
+			if m.secretsList.SelectedItem() != nil {
+				if nsItem, ok := m.secretsList.SelectedItem().(namespaceListItem); ok {
+					rows := [][]string{}
+					for _, secret := range nsItem.secrets {
+						rows = append(rows, []string{secret.Id, secret.Value})
+					}
+					m.tbl = newKeyValueTable(rows)
+					m.viewport.SetContent(m.tbl.View())
+				}
+			}
+		} else if m.focusedPane == viewPane {
+			m.tbl, cmd = m.tbl.Update(msg)
+			cmds = append(cmds, cmd)
+			m.tbl.Focus()
+			m.viewport.SetContent(m.tbl.View())
+			if msg.Type == tea.KeyEnter {
+				row := m.tbl.SelectedRow()
+				if len(row) == 2 {
+					m.editing = true
+					m.editKey = row[0]
+					m.editValue = row[1]
+					if nsItem, ok := m.secretsList.SelectedItem().(namespaceListItem); ok {
+						m.editNamespace = nsItem.name
+					}
+					return m, nil
+				}
+			}
 		}
 	}
 
 	// Delegate updates to the focused component
-	if m.focusedPane == clientsPane {
+	switch m.focusedPane {
+	case clientsPane:
 		m.clientsList, cmd = m.clientsList.Update(msg)
 		cmds = append(cmds, cmd)
-	} else {
+	case secretsPane:
 		m.secretsList, cmd = m.secretsList.Update(msg)
 		cmds = append(cmds, cmd)
+	case viewPane:
+		m.tbl, cmd = m.tbl.Update(msg)
+		cmds = append(cmds, cmd)
+		m.tbl.Focus()
+		m.viewport.SetContent(m.tbl.View())
 	}
 
 	// Update the viewport content when the secret list selection changes
 	if m.secretsList.SelectedItem() != nil {
-		if secret, ok := m.secretsList.SelectedItem().(secretItem); ok {
-
-			key := secret.key
-			value := secret.value
-			secret := fmt.Sprintf("Key: %s\n\nValue:\n%s", key, value)
-			m.viewport.SetContent(secret)
+		if nsItem, ok := m.secretsList.SelectedItem().(namespaceListItem); ok {
+			rows := [][]string{}
+			for _, secret := range nsItem.secrets {
+				rows = append(rows, []string{secret.Id, secret.Value})
+			}
+			m.tbl = newKeyValueTable(rows)
+			if m.focusedPane == viewPane {
+				m.tbl.Focus()
+			}
+			m.viewport.SetContent(m.tbl.View())
 		}
 	} else {
 		m.viewport.SetContent("")
@@ -165,8 +226,49 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// Helper to create a bubbles/table for key-value pairs
+func newKeyValueTable(rows [][]string) table.Model {
+	columns := []table.Column{
+		{Title: "KEY", Width: 24},
+		{Title: "VALUE", Width: 40},
+	}
+	tableRows := make([]table.Row, 0, len(rows))
+	for _, r := range rows {
+		if len(r) == 2 {
+			tableRows = append(tableRows, table.Row{r[0], r[1]})
+		}
+	}
+
+	tbl := table.New(
+		table.WithColumns(columns),
+		table.WithRows(tableRows),
+		table.WithFocused(true),
+		table.WithHeight(7),
+	)
+
+	tblStyle := table.DefaultStyles()
+
+	tblStyle.Header = tblStyle.Header.BorderStyle(lipgloss.ASCIIBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+
+	tblStyle.Cell = tblStyle.Cell.Margin(1, 0)
+
+	tblStyle.Selected = tblStyle.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false).Height(1)
+
+	tbl.SetStyles(tblStyle)
+	return tbl
+}
+
 // View renders the three-pane layout.
 func (m *inspectorModel) View() string {
+	if m.editing {
+		return renderEditForm(m.editKey, m.editValue)
+	}
 	var clientsPaneView, secretsPaneView, sidePaneView, valuePaneView string
 
 	clientsPaneStyle := paneStyle.Width(m.clientsList.Width()).Height(m.clientsList.Height())
@@ -193,13 +295,10 @@ func (m *inspectorModel) updateSecretsList() {
 	var items []list.Item
 	namespaces := m.allData[m.selectedClient]
 	for _, ns := range namespaces {
-		for _, secret := range ns.Secrets {
-			items = append(items, secretItem{
-				namespace: ns.Name,
-				key:       secret.Id,
-				value:     secret.Value,
-			})
-		}
+		items = append(items, namespaceListItem{
+			name:    ns.Name,
+			secrets: ns.Secrets,
+		})
 	}
 	m.secretsList.SetItems(items)
 }
@@ -233,8 +332,24 @@ func (i secretItem) Description() string {
 func (i secretItem) FilterValue() string { return i.key }
 
 // namespaceItem is a custom list.Item for the clients' pane.
-type namespaceItem string
 
 func (n namespaceItem) Title() string       { return string(n) }
 func (n namespaceItem) Description() string { return "Client" }
 func (n namespaceItem) FilterValue() string { return string(n) }
+
+// namespaceListItem represents an item in the secrets list for a namespace.
+type namespaceListItem struct {
+	name    string
+	secrets []*pb.Secret
+}
+
+func (i namespaceListItem) Title() string       { return i.name }
+func (i namespaceListItem) Description() string { return "Namespace" }
+func (i namespaceListItem) FilterValue() string { return i.name }
+
+// Dummy edit form renderer (replace with real implementation)
+func renderEditForm(key, value string) string {
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00BFFF")).Render(
+		fmt.Sprintf("Edit value for key: %s\nCurrent value: %s\n[Implement input here]", key, value),
+	)
+}

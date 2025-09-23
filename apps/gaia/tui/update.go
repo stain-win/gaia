@@ -47,11 +47,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, keys.Quit):
 			m.quitting = true
 			return m, tea.Quit
-		case key.Matches(msg, keys.Back):
-			if m.activeScreen != mainMenu {
-				m.activeScreen = mainMenu
-				return m, nil
-			}
 		}
 	case statusUpdatedMsg:
 		if msg.err != nil {
@@ -59,6 +54,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.daemonStatus = msg.status
 		}
+		return m, nil
+	case backToDataManagementMsg:
+		m.activeScreen = dataManagement
 		return m, nil
 	}
 
@@ -142,7 +140,10 @@ func (m *model) updateDataManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMessage = fmt.Sprintf("Error loading clients: %v", msg.err)
 			return m, nil
 		}
-		m.clients = msg.clients
+		m.clients = make([]string, len(msg.clients))
+		for i, c := range msg.clients {
+			m.clients[i] = c.Name
+		}
 		m.addRecordFormModel = newAddRecordFormModel(m.clients, m.namespaces)
 		m.activeScreen = addRecord
 		m.statusMessage = "Enter new record details."
