@@ -124,7 +124,7 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 			return m, nil
 		}
 
-		// Handle selection in the clients list
+		// Handle selection in the client's list
 		if m.focusedPane == clientsPane {
 			if m.clientsList.SelectedItem() != nil {
 				newClient := string(m.clientsList.SelectedItem().(namespaceItem))
@@ -149,7 +149,7 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 
-	// Update the viewport content when the secrets list selection changes
+	// Update the viewport content when the secret list selection changes
 	if m.secretsList.SelectedItem() != nil {
 		if secret, ok := m.secretsList.SelectedItem().(secretItem); ok {
 
@@ -188,7 +188,7 @@ func (m *inspectorModel) View() string {
 	)
 }
 
-// updateSecretsList populates the secrets list based on the selected client.
+// updateSecretsList populates the secret list based on the selected client.
 func (m *inspectorModel) updateSecretsList() {
 	var items []list.Item
 	namespaces := m.allData[m.selectedClient]
@@ -219,7 +219,7 @@ func (m *inspectorModel) SetSize(w, h int) {
 	m.viewport.Height = listHeight
 }
 
-// secretItem represents an item in the secrets list.
+// secretItem represents an item in the secret list.
 type secretItem struct {
 	namespace, key, value string
 }

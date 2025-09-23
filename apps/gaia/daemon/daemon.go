@@ -50,6 +50,7 @@ type Daemon struct {
 	status      string
 	isLocked    bool
 	stopChannel chan struct{}
+	createdAt   time.Time
 }
 
 const (
@@ -71,6 +72,7 @@ func NewDaemon(cfg *config.Config) *Daemon {
 		status:      StatusStopped,
 		isLocked:    true,
 		stopChannel: make(chan struct{}),
+		createdAt:   time.Now().UTC(),
 	}
 }
 
@@ -502,8 +504,8 @@ func (d *Daemon) loadTLSCredentials() (credentials.TransportCredentials, error) 
 
 // loadCACredentials loads the CA certificate and private key from disk.
 func (d *Daemon) loadCACredentials() error {
-	caKeyPath := d.config.CertsDirectory + "/ca.key"
-	caCertPath := d.config.CertsDirectory + "/ca.crt"
+	caKeyPath := filepath.Join(d.config.CertsDirectory, "ca.key")
+	caCertPath := filepath.Join(d.config.CertsDirectory, "ca.crt")
 
 	keyBytes, err := os.ReadFile(caKeyPath)
 	if err != nil {
