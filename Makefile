@@ -1,6 +1,7 @@
 # Set the current directory for the application
 APP_DIR := apps/gaia
 LIBS_DIR := libs
+BUILD_DIR := build
 
 # Protobuf directories and files
 PROTO_DIR := proto
@@ -21,7 +22,8 @@ GO_ARCH_LIST := amd64 arm64
 all: protoc build
 
 protoc-client-go:
-	@echo "Compiling client protobuf files..."
+	@echo "Compiling client protobuf files for Go..."
+	mkdir -p $(LIBS_DIR)/go/proto
 	protoc --proto_path=$(PROTO_DIR) --go_out=$(LIBS_DIR)/go/proto --go-grpc_out=$(LIBS_DIR)/go/proto --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative $(PROTO_CLIENT_FILE)
 # Compile the .proto files into Go code
 protoc:
@@ -60,3 +62,7 @@ clean:
 	rm -f $(GO_BIN_DIR)/$(GAIA_BIN_NAME)
 	rm -rf $(GO_BIN_DIR)/cross-build
 	rm -rf $(APP_DIR)/proto/*.pb.go
+
+debug_build:
+	@echo "Building Gaia with debug flags..."
+	cd $(BUILD_DIR) && ./build_gaia

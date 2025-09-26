@@ -4,6 +4,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+func (m *model) statusView() string {
+	return statusBarStyle.
+		Align(lipgloss.Center).
+		Render(m.daemonStatus)
+}
+
 func (m *model) View() string {
 	logo := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#6A5ACD")).
@@ -13,23 +19,29 @@ func (m *model) View() string {
 	var screenView string
 	switch m.activeScreen {
 	case mainMenu:
-		screenView = m.mainMenu.View()
+		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.mainMenu.View())
 	case dataManagement:
-		screenView = m.dataMenu.View()
+		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.dataMenu.View())
 	case addRecord:
-		screenView = m.addRecordFormModel.View()
+		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.addRecordFormModel.View())
 	case certManagement:
-		screenView = m.certMenu.View()
+		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.certMenu.View())
 	case createCerts:
-		screenView = m.certForm.View()
+		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.certForm.View())
 	case registerClient:
-		screenView = m.registerClientFormModel.View()
+		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.registerClientFormModel.View())
 	case listRecords:
-		screenView = m.viewListRecords()
+		screenView = m.inspector.View()
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Center, logo, screenView)
-	return appStyle.
-		Width(m.width).
-		Render(content)
+	content := lipgloss.JoinVertical(lipgloss.Left, screenView)
+	return lipgloss.Place(
+		m.width,
+		m.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		content,
+		lipgloss.WithWhitespaceChars(" "),
+		lipgloss.WithWhitespaceForeground(lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}),
+	)
 }
