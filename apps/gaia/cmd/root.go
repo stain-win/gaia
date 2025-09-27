@@ -76,4 +76,10 @@ func init() {
 	rootCmd.AddCommand(secretsCmd)
 	rootCmd.AddCommand(lockCmd)
 	rootCmd.AddCommand(unlockCmd)
+	rootCmd.AddCommand(versionCmd)
+
+	// Cobra automatically adds the -v / --version flag to the rootCmd
+	// if we set the Version field. This provides a convenient shortcut.
+	rootCmd.Version = version
+	rootCmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
 }

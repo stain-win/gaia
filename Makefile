@@ -14,6 +14,10 @@ GAIA_BIN_NAME := gaia
 GO_OS_LIST := linux darwin windows
 GO_ARCH_LIST := amd64 arm64
 
+VERSION_PKG := github.com/stain-win/gaia/apps/gaia/cmd
+
+GIT_VERSION := $(shell git describe --tags --always --dirty)
+
 # --- Commands ---
 
 .PHONY: all build protoc clean test cross-build
@@ -33,7 +37,7 @@ protoc:
 # Build the application for the current OS
 build: protoc
 	@echo "Building Gaia for $(shell go env GOOS)/$(shell go env GOARCH)..."
-	cd $(APP_DIR) && go build -o ../../$(GO_BIN_DIR)/$(GO_BIN_NAME) ./main.go
+	cd $(APP_DIR) && go build -ldflags="-X '$(VERSION_PKG).version=$(GIT_VERSION)'" -o ../../$(GO_BIN_DIR)/$(GO_BIN_NAME) ./main.go
 
 # Run tests
 test:
@@ -52,7 +56,7 @@ cross-build: protoc
 				BIN_SUFFIX=""; \
 			fi; \
 			echo "--> Building for $$GOOS/$$GOARCH..."; \
-			GOOS=$$GOOS GOARCH=$$GOARCH go build -o $(GO_BIN_DIR)/cross-build/$(GAIA_BIN_NAME)-$$GOOS-$$GOARCH$(BIN_SUFFIX) $(APP_DIR)/main.go; \
+			GOOS=$$GOOS GOARCH=$$GOARCH go build -ldflags="-X '$(VERSION_PKG).version=$(GIT_VERSION)'" -o $(GO_BIN_DIR)/cross-build/$(GAIA_BIN_NAME)-$$GOOS-$$GOARCH$(BIN_SUFFIX) $(APP_DIR)/main.go; \
 		done; \
 	done
 

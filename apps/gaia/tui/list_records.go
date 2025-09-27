@@ -19,7 +19,7 @@ var (
 			Border(lipgloss.RoundedBorder()).
 			Padding(0, 1)
 
-	focusedPaneStyle = paneStyle.Copy().BorderForeground(lipgloss.Color("69"))
+	focusedPaneStyle = paneStyle.BorderForeground(lipgloss.Color("69"))
 )
 
 type inspectorPane int
@@ -69,7 +69,7 @@ func newInspectorModel(cfg *config.Config) *inspectorModel {
 	ti := textinput.New()
 	ti.Placeholder = "New secret value"
 	ti.CharLimit = 256
-	ti.Width = 50
+	ti.Width = 26 // Accommodate for inputFieldStyle's width, padding and border
 
 	return &inspectorModel{
 		config:            cfg,
@@ -396,7 +396,7 @@ func (m *inspectorModel) renderEditView() string {
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
 		lipgloss.JoinVertical(lipgloss.Left,
 			fmt.Sprintf("Editing Value for Key: %s", m.editKey),
-			m.editInput.View(),
+			inputFieldStyle.Render(m.editInput.View()),
 			"(esc to cancel, enter to save)",
 		),
 	)
