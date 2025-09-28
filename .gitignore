@@ -44,3 +44,4 @@ go.work.sum
 /.github/copilot-instructions.md
 /.github/instructions
 /certs/
+dist/

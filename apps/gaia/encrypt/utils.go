@@ -5,12 +5,10 @@ import (
 )
 
 func ValidatePassword(password string) (bool, error) {
-
-	minEntropy := 60. // Minimum entropy in bits
-	validationError := passwordvalidator.Validate(password, minEntropy)
-	if validationError != nil {
-		return false, validationError
-	} else {
-		return true, nil
+	minEntropy := 60.0
+	err := passwordvalidator.Validate(password, minEntropy)
+	if err != nil {
+		return false, err
 	}
+	return true, nil
 }

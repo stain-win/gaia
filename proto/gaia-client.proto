@@ -2,19 +2,26 @@ syntax = "proto3";
 
 package gaia;
 
-option go_package = "github.com/stain-win/gaia/apps/gaia/proto/client";
+option go_package = "github.com/stain-win/gaia/libs/go/proto";
 
 import "google/protobuf/empty.proto";
 
 service GaiaClient {
   rpc GetSecret(GetSecretRequest) returns (Secret);
   rpc GetStatus(google.protobuf.Empty) returns (StatusResponse);
-   rpc GetNamespaces(google.protobuf.Empty) returns (NamespaceResponse);
+  rpc GetNamespaces(google.protobuf.Empty) returns (NamespaceResponse);
+  rpc GetCommonSecrets(GetCommonSecretsRequest) returns (GetCommonSecretsResponse);
 }
 
 message Secret {
   string id = 1;
   string value = 2;
+}
+
+// A Namespace contains a collection of secrets.
+message Namespace {
+  string name = 1;
+  repeated Secret secrets = 2;
 }
 
 message GetSecretRequest {
@@ -26,6 +33,18 @@ message StatusResponse {
   string status = 1;
 }
 
- message NamespaceResponse {
-   repeated string namespaces = 1;
- }
+message NamespaceResponse {
+  repeated string namespaces = 1;
+}
+
+// Request for getting secrets from the common area.
+message GetCommonSecretsRequest {
+  // If provided, returns secrets only for this namespace.
+  // If omitted, returns secrets for all namespaces in the common area.
+  optional string namespace = 1;
+}
+
+// Response containing secrets from the common area, grouped by namespace.
+message GetCommonSecretsResponse {
+  repeated Namespace namespaces = 1;
+}

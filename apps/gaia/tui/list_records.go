@@ -393,12 +393,13 @@ func (m *inspectorModel) View() string {
 
 // renderEditView renders the form for editing a secret's value.
 func (m *inspectorModel) renderEditView() string {
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
+	return lipgloss.Place(m.width/2, m.height/2, lipgloss.Center, lipgloss.Center,
 		lipgloss.JoinVertical(lipgloss.Left,
 			fmt.Sprintf("Editing Value for Key: %s", m.editKey),
 			inputFieldStyle.Render(m.editInput.View()),
 			"(esc to cancel, enter to save)",
-		),
+		), lipgloss.WithWhitespaceChars("猫咪"),
+		lipgloss.WithWhitespaceForeground(subtle),
 	)
 }
 

@@ -4,6 +4,7 @@ import "github.com/charmbracelet/lipgloss"
 
 // Global styles for the TUI.
 var (
+	subtle   = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
 	appStyle = lipgloss.NewStyle().
 			Width(80).
 			Align(lipgloss.Center).AlignVertical(lipgloss.Top)
