@@ -6,9 +6,9 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/table"
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stain-win/gaia/apps/gaia/config"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
@@ -49,7 +49,7 @@ type inspectorModel struct {
 
 	// Edit form state
 	editing       bool
-	editInput     textinput.Model
+	editForm      *huh.Form
 	editKey       string
 	editValue     string
 	editNamespace string
@@ -66,11 +66,6 @@ func newInspectorModel(cfg *config.Config) *inspectorModel {
 
 	vp := viewport.New(0, 0)
 
-	ti := textinput.New()
-	ti.Placeholder = "New secret value"
-	ti.CharLimit = 256
-	ti.Width = 26 // Accommodate for inputFieldStyle's width, padding and border
-
 	return &inspectorModel{
 		config:            cfg,
 		clientsList:       clientsList,
@@ -78,7 +73,6 @@ func newInspectorModel(cfg *config.Config) *inspectorModel {
 		viewport:          vp,
 		focusedPane:       clientsPane,
 		allData:           make(map[string][]*pb.Namespace),
-		editInput:         ti,
 		lastNamespaceName: "",
 	}
 }
@@ -144,48 +138,44 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 
 // updateEditView handles all updates when the edit form is active.
 func (m *inspectorModel) updateEditView(msg tea.Msg) (*inspectorModel, tea.Cmd) {
-	var cmd tea.Cmd
+	var cmds []tea.Cmd
+	form, cmd := m.editForm.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		m.editForm = f
+	}
+	cmds = append(cmds, cmd)
 
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, keys.Enter):
-			newValue := m.editInput.Value()
-			m.editing = false
-			m.editInput.Reset()
-			m.editValue = newValue // Store for optimistic update
+	if m.editForm.State == huh.StateCompleted {
+		newValue := m.editForm.GetString("value")
+		m.editing = false
+		m.editValue = newValue // Store for optimistic update
 
-			// Optimistically update local data
-			if namespaces, ok := m.allData[m.selectedClient]; ok {
-				for _, ns := range namespaces {
-					if ns.Name == m.editNamespace {
-						for _, secret := range ns.Secrets {
-							if secret.Id == m.editKey {
-								secret.Value = m.editValue
-								break
-							}
+		// Optimistically update local data
+		if namespaces, ok := m.allData[m.selectedClient]; ok {
+			for _, ns := range namespaces {
+				if ns.Name == m.editNamespace {
+					for _, secret := range ns.Secrets {
+						if secret.Id == m.editKey {
+							secret.Value = m.editValue
+							break
 						}
-						break
 					}
+					break
 				}
 			}
-			// Refresh the view from local data
-			m.updateSecretsList()
-
-			// Send the update to the daemon
-			return m, addRecordToDaemonCmd(m.config, m.selectedClient, m.editNamespace, m.editKey, newValue)
-
-		case key.Matches(msg, keys.Back):
-			m.editing = false
-			m.editInput.Reset()
-			m.statusMessage = "Edit cancelled."
-			m.lastNamespaceName = "" // Also clear here
-			return m, nil
 		}
+		// Refresh the view from local data
+		m.updateSecretsList()
+
+		// Send the update to the daemon
+		cmds = append(cmds, addRecordToDaemonCmd(m.config, m.selectedClient, m.editNamespace, m.editKey, newValue))
+	} else if m.editForm.State == huh.StateAborted {
+		m.editing = false
+		m.statusMessage = "Edit cancelled."
+		m.lastNamespaceName = ""
 	}
 
-	m.editInput, cmd = m.editInput.Update(msg)
-	return m, cmd
+	return m, tea.Batch(cmds...)
 }
 
 // updateClientsPane handles updates when the clients list is focused.
@@ -241,9 +231,15 @@ func (m *inspectorModel) updateViewPane(msg tea.Msg) tea.Cmd {
 				m.editNamespace = nsItem.name
 			}
 			m.editKey = row[0]
-			m.editInput.SetValue(row[1])
-			m.editInput.Focus()
-			m.statusMessage = "" // Clear status when starting to edit
+			m.editValue = row[1]
+
+			// Create and initialize the form
+			input := huh.NewInput().
+				Title(fmt.Sprintf("New value for %s", m.editKey)).
+				Value(&m.editValue).Key("value")
+
+			m.editForm = huh.NewForm(huh.NewGroup(input)).WithTheme(huh.ThemeBase())
+			return m.editForm.Init()
 		}
 	}
 	return cmd
@@ -366,11 +362,11 @@ func (m *inspectorModel) View() string {
 	}
 
 	leftPane := lipgloss.JoinVertical(lipgloss.Left,
-		clientsStyle.Width(m.clientsList.Width()+2).Render(clientsView),
-		secretsStyle.Width(m.secretsList.Width()+2).Render(secretsView),
+		clientsStyle.Render(clientsView),
+		secretsStyle.Render(secretsView),
 	)
 
-	rightPane := viewportStyle.Width(m.viewport.Width + 2).Height(m.viewport.Height + 2).Render(viewportView)
+	rightPane := viewportStyle.Render(viewportView)
 
 	mainView := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
 
@@ -393,13 +389,8 @@ func (m *inspectorModel) View() string {
 
 // renderEditView renders the form for editing a secret's value.
 func (m *inspectorModel) renderEditView() string {
-	return lipgloss.Place(m.width/2, m.height/2, lipgloss.Center, lipgloss.Center,
-		lipgloss.JoinVertical(lipgloss.Left,
-			fmt.Sprintf("Editing Value for Key: %s", m.editKey),
-			inputFieldStyle.Render(m.editInput.View()),
-			"(esc to cancel, enter to save)",
-		), lipgloss.WithWhitespaceChars("猫咪"),
-		lipgloss.WithWhitespaceForeground(subtle),
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
+		paneStyle.Render(m.editForm.View()),
 	)
 }
 
@@ -437,11 +428,11 @@ func (m *inspectorModel) SetSize(w, h int) {
 
 // newKeyValueTable creates a bubbles/table for key-value pairs.
 func newKeyValueTable(rows [][]string, width, height int) table.Model {
-	keyWidth := width / 4
-	// The -5 was causing a wrap. The total overhead seems to be 6.
-	// It's likely 1 (separator) + 4 (cell padding) + 1 (final table border/padding).
-	// Reducing the width by one more character should fix the wrap.
-	valueWidth := width - keyWidth - 6
+	// table includes 1 separator and 2 padding per cell (4 total)
+	// total overhead is 5
+	availableWidth := width - 5
+	keyWidth := availableWidth / 4
+	valueWidth := availableWidth - keyWidth
 
 	columns := []table.Column{
 		{Title: "KEY", Width: keyWidth},
