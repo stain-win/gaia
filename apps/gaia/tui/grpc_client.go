@@ -67,5 +67,5 @@ func GetDaemonStatus(cfg *config.Config) (string, error) {
 		return "nil", err
 	}
 
-	return "TEST: " + res.Status, nil
+	return res.Status, nil
 }
