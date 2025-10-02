@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stain-win/gaia/apps/gaia/config" // Import the config package
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 	"google.golang.org/grpc"
@@ -75,12 +74,4 @@ func getClientConn(_ context.Context, cfg *config.Config) (*grpc.ClientConn, err
 	}
 
 	return conn, nil
-}
-
-// CheckDaemonStatus is the function called by the TUI to check the daemon's status.
-func CheckDaemonStatus(cfg *config.Config) tea.Cmd {
-	return func() tea.Msg {
-		status, err := getDaemonStatus(cfg)
-		return StatusMsg{Status: status, Err: err}
-	}
 }

@@ -37,10 +37,11 @@ go.work.sum
 
 
 .cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
 /build
 /nx
 /nx.bat
 /gaia.db
 /.github/copilot-instructions.md
+/.github/instructions
 /certs/
+dist/

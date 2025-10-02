@@ -1,0 +1,32 @@
+[Unit]
+Description="Gaia Secrets Management Daemon"
+Documentation=https://github.com/stain-win/gaia
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+# It is a security best practice to run daemons as a non-root user.
+# You will need to create this user and group first.
+User=gaia
+Group=gaia
+
+Type=simple
+ExecStart=/usr/local/bin/gaia daemon start --config /etc/gaia/config.yaml
+
+# Automatically restart the service on failure
+Restart=on-failure
+RestartSec=5s
+
+# The working directory for the daemon, where it can store its database file.
+WorkingDirectory=/var/lib/gaia
+
+# Configure logging to use the systemd journal.
+StandardOutput=journal
+StandardError=journal
+
+# Increase the file descriptor limit, which is good practice for services
+# that might handle many connections or files.
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

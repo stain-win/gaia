@@ -8,15 +8,12 @@ import (
 
 	"github.com/stain-win/gaia/apps/gaia/certs"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
+	"github.com/stain-win/gaia/apps/gaia/validation"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 )
-
-// gaiaAdminServer implements the GaiaAdmin gRPC service.
-type gaiaAdminServer struct {
-	pb.UnimplementedGaiaAdminServer
-	d *Daemon
-}
 
 func getClientIdentity(ctx context.Context) (string, error) {
 	p, ok := peer.FromContext(ctx)
@@ -50,7 +47,17 @@ func (s *gaiaAdminServer) AddSecret(_ context.Context, req *pb.AddSecretRequest)
 	if s.d.isLocked {
 		return nil, errors.New("daemon is in a locked state, cannot add secrets")
 	}
-	// The client name is provided in the request for admin operations.
+
+	if err := validation.ValidateName(req.ClientName); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client name: %v", err)
+	}
+	if err := validation.ValidateName(req.Namespace); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid namespace: %v", err)
+	}
+	if err := validation.ValidateName(req.Id); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid secret id: %v", err)
+	}
+
 	err := s.d.AddSecret(req.ClientName, req.Namespace, req.Id, req.Value)
 	if err != nil {
 		return &pb.AddSecretResponse{Success: false, Message: err.Error()}, nil
@@ -69,12 +76,6 @@ func (s *gaiaAdminServer) DeleteSecret(_ context.Context, req *pb.DeleteSecretRe
 	}
 
 	return &pb.DeleteSecretResponse{Success: true}, nil
-}
-
-// RevokeCert handles the RevokeCert RPC call.
-func (s *gaiaAdminServer) RevokeCert(_ context.Context, _ *pb.RevokeCertRequest) (*pb.RevokeCertResponse, error) {
-	// TODO: Implement certificate revocation logic here.
-	return &pb.RevokeCertResponse{Success: false}, errors.New("not implemented")
 }
 
 // GetStatus handles the GetStatus RPC call.
@@ -116,9 +117,13 @@ func (s *gaiaAdminServer) RegisterClient(_ context.Context, req *pb.RegisterClie
 		return nil, errors.New("daemon is in a locked state, cannot register new clients")
 	}
 
-	certPEM, keyPEM, err := certs.GenerateClientCertificateData(req.ClientName, s.d.caCert, s.d.caKey)
+	certPEM, keyPEM, err := certs.GenerateClientCertificateData(req.ClientName, s.d.caCert, s.d.caKey, s.d.config.CertExpiryDays)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate client certificate: %w", err)
+	}
+
+	if err := validation.ValidateName(req.ClientName); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client name: %v", err)
 	}
 
 	if err := s.d.RegisterClient(req.ClientName); err != nil {
@@ -136,18 +141,30 @@ func (s *gaiaAdminServer) ListClients(_ context.Context, _ *pb.ListClientsReques
 		return nil, errors.New("daemon is in a locked state, cannot list clients")
 	}
 
-	clientNames, err := s.d.ListClients()
+	clients, err := s.d.ListClients()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client list: %w", err)
 	}
 
-	return &pb.ListClientsResponse{ClientNames: clientNames}, nil
+	pbClients := make([]*pb.Client, len(clients))
+	for i, c := range clients {
+		pbClients[i] = &pb.Client{
+			Name:        c.Name,
+			TimeCreated: c.TimeCreated,
+		}
+	}
+
+	return &pb.ListClientsResponse{Clients: pbClients}, nil
 }
 
 // RevokeClient handles the gRPC request to revoke a client.
 func (s *gaiaAdminServer) RevokeClient(_ context.Context, req *pb.RevokeClientRequest) (*pb.RevokeClientResponse, error) {
 	if s.d.isLocked {
 		return nil, errors.New("daemon is in a locked state, cannot revoke clients")
+	}
+
+	if err := validation.ValidateName(req.ClientName); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client name: %v", err)
 	}
 
 	if err := s.d.RevokeClient(req.ClientName); err != nil {
@@ -214,4 +231,30 @@ func (s *gaiaAdminServer) ImportSecrets(stream pb.GaiaAdmin_ImportSecretsServer)
 		SecretsImported: int32(count),
 		Message:         "Secrets imported successfully.",
 	})
+}
+
+func (s *gaiaAdminServer) ListSecrets(ctx context.Context, req *pb.ListSecretsRequest) (*pb.ListSecretsResponse, error) {
+	if s.d.isLocked {
+		return nil, errors.New("daemon is in a locked state")
+	}
+
+	if err := validation.ValidateName(req.ClientName); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client name: %v", err)
+	}
+
+	allData, err := s.d.ListSecrets(req.ClientName)
+	if err != nil {
+		return nil, err
+	}
+
+	var namespaces []*pb.Namespace
+	for nsName, secretsMap := range allData {
+		ns := &pb.Namespace{Name: nsName}
+		for key, value := range secretsMap {
+			ns.Secrets = append(ns.Secrets, &pb.Secret{Id: key, Value: value})
+		}
+		namespaces = append(namespaces, ns)
+	}
+
+	return &pb.ListSecretsResponse{Namespaces: namespaces}, nil
 }

@@ -1,195 +1,481 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbles/help"
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
-	bubblesTable "github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/stain-win/gaia/apps/gaia/tui/table"
+	"github.com/stain-win/gaia/apps/gaia/config"
+	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
 
-// listRecordsModel holds the state for the screen that lists all records.
-type listRecordsModel struct {
-	namespaces list.Model
-	secrets    table.Model
-	help       help.Model
-	keys       keyMap
-	activePane int // 0 for namespaces, 1 for secrets
-	width      int
-	height     int
+var (
+	paneStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			Padding(0, 1)
+
+	focusedPaneStyle = paneStyle.BorderForeground(lipgloss.Color("69"))
+)
+
+type inspectorPane int
+
+const (
+	clientsPane inspectorPane = iota
+	secretsPane
+	viewPane
+)
+
+// inspectorModel holds the state for our three-pane view.
+type inspectorModel struct {
+	config *config.Config
+	width  int
+	height int
+
+	focusedPane inspectorPane
+	clientsList list.Model
+	secretsList list.Model
+	viewport    viewport.Model
+	tbl         table.Model
+
+	allData           map[string][]*pb.Namespace
+	selectedClient    string
+	lastNamespaceName string // To restore selection after updates
+	statusMessage     string
+
+	// Edit form state
+	editing       bool
+	editForm      *huh.Form
+	editKey       string
+	editValue     string
+	editNamespace string
 }
 
-type namespaceItem struct {
-	name string
-	desc string
-}
+func newInspectorModel(cfg *config.Config) *inspectorModel {
+	clientsList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	clientsList.Title = "Clients"
+	clientsList.SetShowHelp(false)
 
-func (n namespaceItem) FilterValue() string { return n.name }
-func (n namespaceItem) Title() string       { return n.name }
-func (n namespaceItem) Description() string { return n.desc }
+	secretsList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	secretsList.Title = "Namespaces"
+	secretsList.SetShowHelp(false)
 
-// keyMap defines the keybindings for the list records screen.
-type keyMap struct {
-	Tab    key.Binding
-	Esc    key.Binding
-	Quit   key.Binding
-	Up     key.Binding
-	Down   key.Binding
-	Enter  key.Binding
-	Add    key.Binding
-	Delete key.Binding
-}
+	vp := viewport.New(0, 0)
 
-func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Tab, k.Esc, k.Add, k.Delete, k.Enter}
-}
-
-func (k keyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{
-		{k.Up, k.Down, k.Tab, k.Esc},
-		{k.Add, k.Delete, k.Enter, k.Quit},
+	return &inspectorModel{
+		config:            cfg,
+		clientsList:       clientsList,
+		secretsList:       secretsList,
+		viewport:          vp,
+		focusedPane:       clientsPane,
+		allData:           make(map[string][]*pb.Namespace),
+		lastNamespaceName: "",
 	}
 }
 
-var keys = keyMap{
-	Tab:    key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch pane")),
-	Esc:    key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
-	Quit:   key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
-	Up:     key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "move up")),
-	Down:   key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "move down")),
-	Enter:  key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select/edit")),
-	Add:    key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "add record")),
-	Delete: key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete record")),
+func (m *inspectorModel) Init() tea.Cmd {
+	return fetchAllClientsCmd(m.config)
 }
 
-// newListRecordsModel initializes the model for the list records screen.
-func newListRecordsModel() listRecordsModel {
-	// For now, we'll use mock data. This will be replaced by a gRPC call.
-	namespaceItems := []list.Item{
-		namespaceItem{"common", "Common namespace for shared secrets"},
-		namespaceItem{"client-app-a", "Namespace for client application A"},
-		namespaceItem{"client-app-b", "Namespace for client application B"},
+// Update is the main message handler for the inspector view.
+func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
+	if m.editing {
+		return m.updateEditView(msg)
 	}
 
-	nsList := list.New(namespaceItems, list.NewDefaultDelegate(), 0, 0)
-	nsList.SetShowHelp(false)
-	//nsList.SetShowTitle(false)
-	//nsList.SetShowStatusBar(false)
-	nsList.SetShowPagination(false)
-
-	// Define the columns for our secrets table.
-	columns := []bubblesTable.Column{
-		{Title: "Key", Width: 20},
-		{Title: "Value", Width: 40},
-	}
-
-	// Mock rows for the 'common' namespace.
-	rows := []bubblesTable.Row{
-		{"api_key_service_x", "****************"},
-		{"database_url", "postgres://..."},
-		{"stripe_api_key", "sk_test_..."},
-	}
-
-	secretsTable := table.New(
-		bubblesTable.WithColumns(columns),
-		bubblesTable.WithRows(rows),
-		bubblesTable.WithFocused(true),
-		bubblesTable.WithHeight(10),
-	)
-
-	return listRecordsModel{
-		namespaces: nsList,
-		secrets:    secretsTable,
-		help:       help.New(),
-		keys:       keys,
-		activePane: 0,
-	}
-}
-
-// updateListRecords handles messages for the list records screen.
-func (m *model) updateListRecords(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.listRecords.width = msg.Width
-		m.listRecords.height = msg.Height
-		m.listRecords.help.Width = msg.Width
+		m.SetSize(msg.Width, msg.Height)
+		return m, nil
+
+	case allClientsLoadedMsg:
+		return m.handleClientsLoaded(msg)
+
+	case secretsForClientLoadedMsg:
+		return m.handleSecretsLoaded(msg)
+
+	case recordAddedMsg: // Handle the result of the update
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("Error: %v. Reverting.", msg.err)
+			// Re-fetch to get the true state from the server
+			return m, fetchSecretsForClientCmd(m.config, m.selectedClient)
+		}
+		m.statusMessage = "Secret updated successfully!"
+		// No need to re-fetch, optimistic update was successful
+		m.lastNamespaceName = "" // Clear the saved name
+		return m, nil
 
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, m.listRecords.keys.Tab):
-			m.listRecords.activePane = (m.listRecords.activePane + 1) % 2
-		case key.Matches(msg, m.listRecords.keys.Esc):
-			m.activeScreen = dataManagement
-			return m, nil
+		case key.Matches(msg, keys.Back):
+			return m, func() tea.Msg { return backToDataManagementMsg{} }
+		case key.Matches(msg, keys.Tab):
+			return m.cycleFocus(true)
+		case key.Matches(msg, keys.ShiftTab):
+			return m.cycleFocus(false)
 		}
 	}
 
-	if m.listRecords.activePane == 0 {
-		m.listRecords.namespaces, cmd = m.listRecords.namespaces.Update(msg)
-		cmds = append(cmds, cmd)
-	} else {
-		m.listRecords.secrets, cmd = m.listRecords.secrets.Update(msg)
-		cmds = append(cmds, cmd)
+	var cmd tea.Cmd
+	switch m.focusedPane {
+	case clientsPane:
+		cmd = m.updateClientsPane(msg)
+	case secretsPane:
+		cmd = m.updateSecretsPane(msg)
+	case viewPane:
+		cmd = m.updateViewPane(msg)
+	}
+	cmds = append(cmds, cmd)
+
+	return m, tea.Batch(cmds...)
+}
+
+// updateEditView handles all updates when the edit form is active.
+func (m *inspectorModel) updateEditView(msg tea.Msg) (*inspectorModel, tea.Cmd) {
+	var cmds []tea.Cmd
+	form, cmd := m.editForm.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		m.editForm = f
+	}
+	cmds = append(cmds, cmd)
+
+	if m.editForm.State == huh.StateCompleted {
+		newValue := m.editForm.GetString("value")
+		m.editing = false
+		m.editValue = newValue // Store for optimistic update
+
+		// Optimistically update local data
+		if namespaces, ok := m.allData[m.selectedClient]; ok {
+			for _, ns := range namespaces {
+				if ns.Name == m.editNamespace {
+					for _, secret := range ns.Secrets {
+						if secret.Id == m.editKey {
+							secret.Value = m.editValue
+							break
+						}
+					}
+					break
+				}
+			}
+		}
+		// Refresh the view from local data
+		m.updateSecretsList()
+
+		// Send the update to the daemon
+		cmds = append(cmds, addRecordToDaemonCmd(m.config, m.selectedClient, m.editNamespace, m.editKey, newValue))
+	} else if m.editForm.State == huh.StateAborted {
+		m.editing = false
+		m.statusMessage = "Edit cancelled."
+		m.lastNamespaceName = ""
 	}
 
 	return m, tea.Batch(cmds...)
 }
 
-// viewListRecords renders the list records screen.
-func (m *model) viewListRecords() string {
-	// Define styles for active and inactive panes
-	inactivePaneStyle := lipgloss.NewStyle().
-		Border(lipgloss.ThickBorder(), false, false, false, false).
-		BorderTop(true).
-		BorderForeground(lipgloss.Color("240")).
-		Padding(1, 2)
+// updateClientsPane handles updates when the clients list is focused.
+func (m *inspectorModel) updateClientsPane(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	m.clientsList, cmd = m.clientsList.Update(msg)
 
-	activePaneStyle := inactivePaneStyle.
-		Border(lipgloss.ThickBorder(), false, false, false, false).
-		BorderTop(true).
-		BorderForeground(lipgloss.Color("226"))
+	if m.clientsList.SelectedItem() != nil {
+		newClient := m.clientsList.SelectedItem().(listItem).FilterValue()
+		if newClient != m.selectedClient {
+			m.selectedClient = newClient
+			m.secretsList.SetItems([]list.Item{}) // Clear previous items
+			m.viewport.SetContent("")
+			m.lastNamespaceName = "" // Reset when client changes
 
-	// Calculate pane widths and heights
-	helpHeight := lipgloss.Height(m.listRecords.help.View(m.listRecords.keys))
-	verticalMargin := lipgloss.Height(activePaneStyle.Render(""))
-	paneHeight := m.height - helpHeight - verticalMargin - 4 // Adjust for logo and margins
+			if _, ok := m.allData[m.selectedClient]; !ok {
+				return fetchSecretsForClientCmd(m.config, m.selectedClient)
+			}
+			m.updateSecretsList()
+		}
+	}
+	return cmd
+}
 
-	namespaceWidth := m.listRecords.width / 2
-	tableWidth := m.listRecords.width - namespaceWidth - 8 // Adjust for padding/margins
+// updateSecretsPane handles updates when the secrets list is focused.
+func (m *inspectorModel) updateSecretsPane(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
 
-	m.listRecords.namespaces.SetHeight(paneHeight)
-	m.listRecords.secrets.SetHeight(paneHeight)
-	m.listRecords.secrets.SetWidth(tableWidth)
-
-	var nsStyle, tblStyle lipgloss.Style
-	if m.listRecords.activePane == 0 {
-		nsStyle = activePaneStyle
-		//tblStyle = inactivePaneStyle
-	} else {
-		nsStyle = inactivePaneStyle
-		//tblStyle = activePaneStyle
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if key.Matches(keyMsg, keys.Enter) {
+			_, cmd = m.cycleFocus(true) // Cycle forward to the view pane
+			return cmd
+		}
 	}
 
-	// Render panes with titles
-	nsView := lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.NewStyle().Bold(true).Padding(0, 1).Render("Namespaces"),
-		m.listRecords.namespaces.View(),
-	)
-	tblView := lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.NewStyle().Bold(true).Padding(0, 1).Render("Secrets"),
-		m.listRecords.secrets.View(),
-	)
-
-	panes := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		nsStyle.Width(namespaceWidth).Render(nsView),
-		tblStyle.Width(tableWidth).Render(tblView),
-	)
-
-	return lipgloss.JoinVertical(lipgloss.Left, panes, m.listRecords.help.View(m.listRecords.keys))
+	m.secretsList, cmd = m.secretsList.Update(msg)
+	m.updateTableView()
+	return cmd
 }
+
+// updateViewPane handles updates when the value viewport is focused.
+func (m *inspectorModel) updateViewPane(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	m.tbl, cmd = m.tbl.Update(msg)
+	m.viewport.SetContent(m.tbl.View())
+
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && key.Matches(keyMsg, keys.Enter) {
+		row := m.tbl.SelectedRow()
+		if len(row) == 2 {
+			m.editing = true
+			if nsItem, ok := m.secretsList.SelectedItem().(namespaceListItem); ok {
+				m.lastNamespaceName = nsItem.name // Save name before editing
+				m.editNamespace = nsItem.name
+			}
+			m.editKey = row[0]
+			m.editValue = row[1]
+
+			// Create and initialize the form
+			input := huh.NewInput().
+				Title(fmt.Sprintf("New value for %s", m.editKey)).
+				Value(&m.editValue).Key("value")
+
+			m.editForm = huh.NewForm(huh.NewGroup(input)).WithTheme(huh.ThemeBase())
+			return m.editForm.Init()
+		}
+	}
+	return cmd
+}
+
+// cycleFocus moves the focus between the three panes.
+func (m *inspectorModel) cycleFocus(forward bool) (*inspectorModel, tea.Cmd) {
+	if forward {
+		m.focusedPane = (m.focusedPane + 1) % 3
+	} else {
+		// Go backwards, wrapping around
+		m.focusedPane = (m.focusedPane - 1 + 3) % 3
+	}
+
+	if m.focusedPane == viewPane {
+		m.tbl.Focus()
+	} else {
+		m.tbl.Blur()
+	}
+	return m, nil
+}
+
+// handleClientsLoaded processes the message with the list of all clients.
+func (m *inspectorModel) handleClientsLoaded(msg allClientsLoadedMsg) (*inspectorModel, tea.Cmd) {
+	if msg.err != nil {
+		return m, nil
+	}
+	var items []list.Item
+	for _, client := range msg.clients {
+		items = append(items, listItem{title: client.Name, description: "Client"})
+	}
+	m.clientsList.SetItems(items)
+
+	if len(msg.clients) > 0 {
+		m.selectedClient = msg.clients[0].Name
+		return m, fetchSecretsForClientCmd(m.config, m.selectedClient)
+	}
+	return m, nil
+}
+
+// handleSecretsLoaded processes the message with secrets for a specific client.
+func (m *inspectorModel) handleSecretsLoaded(msg secretsForClientLoadedMsg) (*inspectorModel, tea.Cmd) {
+	if msg.err != nil {
+		return m, nil
+	}
+	m.allData[msg.clientName] = msg.namespaces
+	if msg.clientName == m.selectedClient {
+		m.updateSecretsList()
+	}
+	return m, nil
+}
+
+// updateSecretsList populates the secrets list based on the selected client.
+func (m *inspectorModel) updateSecretsList() {
+	var items []list.Item
+	namespaces := m.allData[m.selectedClient]
+	for _, ns := range namespaces {
+		items = append(items, namespaceListItem{name: ns.Name, secrets: ns.Secrets})
+	}
+	m.secretsList.SetItems(items)
+
+	// Restore selection after data refresh
+	restoredIndex := 0
+	if m.lastNamespaceName != "" {
+		for i, item := range items {
+			if item.(namespaceListItem).name == m.lastNamespaceName {
+				restoredIndex = i
+				break
+			}
+		}
+	}
+
+	if len(items) > 0 {
+		m.secretsList.Select(restoredIndex)
+	}
+
+	m.updateTableView()
+}
+
+// updateTableView creates/updates the table based on the selected namespace.
+func (m *inspectorModel) updateTableView() {
+	if m.secretsList.SelectedItem() == nil {
+		m.viewport.SetContent("")
+		return
+	}
+
+	nsItem, ok := m.secretsList.SelectedItem().(namespaceListItem)
+	if !ok {
+		return
+	}
+
+	var rows [][]string
+	for _, secret := range nsItem.secrets {
+		rows = append(rows, []string{secret.Id, secret.Value})
+	}
+
+	m.tbl = newKeyValueTable(rows, m.viewport.Width, m.viewport.Height)
+	m.viewport.SetContent(m.tbl.View())
+}
+
+// View renders the three-pane layout.
+func (m *inspectorModel) View() string {
+	if m.editing {
+		return m.renderEditView()
+	}
+
+	// Build the main three-pane view
+	clientsView := m.clientsList.View()
+	secretsView := m.secretsList.View()
+	viewportView := m.viewport.View()
+
+	clientsStyle, secretsStyle, viewportStyle := paneStyle, paneStyle, paneStyle
+	switch m.focusedPane {
+	case clientsPane:
+		clientsStyle = focusedPaneStyle
+	case secretsPane:
+		secretsStyle = focusedPaneStyle
+	case viewPane:
+		viewportStyle = focusedPaneStyle
+	}
+
+	leftPane := lipgloss.JoinVertical(lipgloss.Left,
+		clientsStyle.Render(clientsView),
+		secretsStyle.Render(secretsView),
+	)
+
+	rightPane := viewportStyle.Render(viewportView)
+
+	mainView := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
+
+	// Build the status bar
+	statusView := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Padding(0, 1).
+		Width(lipgloss.Width(mainView)).
+		Render(m.statusMessage)
+
+	// Combine main view and status bar
+	fullView := lipgloss.JoinVertical(lipgloss.Left, mainView, statusView)
+
+	// Center the entire UI
+	return lipgloss.Place(m.width, m.height,
+		lipgloss.Center, lipgloss.Center,
+		fullView,
+	)
+}
+
+// renderEditView renders the form for editing a secret's value.
+func (m *inspectorModel) renderEditView() string {
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
+		paneStyle.Render(m.editForm.View()),
+	)
+}
+
+func (m *inspectorModel) SetSize(w, h int) {
+	m.width = w
+	m.height = h
+
+	contentWidth := w
+	if w > 120 {
+		contentWidth = 120
+	}
+
+	statusBarHeight := 1
+	mainHeight := h - statusBarHeight
+
+	leftPaneWidth := contentWidth / 3
+	rightPaneWidth := contentWidth - leftPaneWidth
+
+	// paneStyle has 1px border and 1px padding on each side (left/right). Total horizontal overhead is 4.
+	listContentWidth := leftPaneWidth - 4
+
+	// The two left panes are stacked. Each has a border.
+	// Total vertical border space for the stack is 4.
+	availableHeight := mainHeight - 4
+	clientsListHeight := availableHeight / 2
+	secretsListHeight := availableHeight - clientsListHeight
+
+	m.clientsList.SetSize(listContentWidth, clientsListHeight)
+	m.secretsList.SetSize(listContentWidth, secretsListHeight)
+
+	// The right pane takes the full height of the main content area.
+	m.viewport.Width = rightPaneWidth - 4
+	m.viewport.Height = mainHeight - 2
+}
+
+// newKeyValueTable creates a bubbles/table for key-value pairs.
+func newKeyValueTable(rows [][]string, width, height int) table.Model {
+	// table includes 1 separator and 2 padding per cell (4 total)
+	// total overhead is 5
+	availableWidth := width - 5
+	keyWidth := availableWidth / 4
+	valueWidth := availableWidth - keyWidth
+
+	columns := []table.Column{
+		{Title: "KEY", Width: keyWidth},
+		{Title: "VALUE", Width: valueWidth},
+	}
+
+	tableRows := make([]table.Row, len(rows))
+	for i, r := range rows {
+		if len(r) == 2 {
+			tableRows[i] = table.Row{r[0], r[1]}
+		}
+	}
+
+	tbl := table.New(
+		table.WithColumns(columns),
+		table.WithRows(tableRows),
+		table.WithFocused(true),
+		table.WithHeight(height),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.BorderStyle(lipgloss.NormalBorder()).BorderBottom(true)
+	s.Selected = s.Selected.Foreground(lipgloss.Color("229")).Background(lipgloss.Color("57"))
+	tbl.SetStyles(s)
+
+	return tbl
+}
+
+// listItem is a generic item for bubbletea lists.
+type listItem struct {
+	title, description string
+}
+
+func (i listItem) Title() string       { return i.title }
+func (i listItem) Description() string { return i.description }
+func (i listItem) FilterValue() string { return i.title }
+
+// namespaceListItem represents an item in the secrets list.
+type namespaceListItem struct {
+	name    string
+	secrets []*pb.Secret
+}
+
+func (i namespaceListItem) Title() string       { return i.name }
+func (i namespaceListItem) Description() string { return fmt.Sprintf("%d secrets", len(i.secrets)) }
+func (i namespaceListItem) FilterValue() string { return i.name }

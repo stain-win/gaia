@@ -5,33 +5,42 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 // Config holds all configurable settings for Gaia.
 type Config struct {
-	GRPCPort           string `yaml:"grpc_port"`
-	DBFile             string `yaml:"db_file"`
-	CertsDirectory     string `yaml:"certs_directory"`
-	CACertFile         string `yaml:"ca_cert_file"`
-	ServerCertFile     string `yaml:"server_cert_file"`
-	ServerKeyFile      string `yaml:"server_key_file"`
-	GaiaClientCertFile string `yaml:"gaia_client_cert_file"`
-	GaianClientKeyFile string `yaml:"gaia_client_key_file"`
+	GRPCServerName      string        `yaml:"grpc_server_name"`
+	GRPCPort            string        `yaml:"grpc_port"`
+	DBFile              string        `yaml:"db_file"`
+	CertsDirectory      string        `yaml:"certs_directory"`
+	CACertFile          string        `yaml:"ca_cert_file"`
+	ServerCertFile      string        `yaml:"server_cert_file"`
+	ServerKeyFile       string        `yaml:"server_key_file"`
+	GaiaClientCertFile  string        `yaml:"gaia_client_cert_file"`
+	GaianClientKeyFile  string        `yaml:"gaia_client_key_file"`
+	GRPCClientTimeout   time.Duration `yaml:"grpc_client_timeout"`
+	GaiaTuiTickInterval time.Duration `yaml:"gaia_tui_tick_interval"`
+	CertExpiryDays      int           `yaml:"cert_expiry_days"`
 }
 
 // NewDefaultConfig returns a Config with default values.
 func NewDefaultConfig() *Config {
 	return &Config{
-		GRPCPort:           "50051",
-		DBFile:             "gaia.db",
-		CertsDirectory:     "./certs",
-		CACertFile:         "ca.crt",
-		ServerCertFile:     "server.crt",
-		ServerKeyFile:      "server.key",
-		GaiaClientCertFile: "gaia_client.crt",
-		GaianClientKeyFile: "gaia_client.key",
+		GRPCServerName:      "localhost",
+		GRPCPort:            "50051",
+		DBFile:              "gaia.db",
+		CertsDirectory:      "./certs",
+		CACertFile:          "ca.crt",
+		ServerCertFile:      "server.crt",
+		ServerKeyFile:       "server.key",
+		GaiaClientCertFile:  "gaia_client.crt",
+		GaianClientKeyFile:  "gaia_client.key",
+		GRPCClientTimeout:   5 * time.Second,
+		GaiaTuiTickInterval: 2 * time.Second,
+		CertExpiryDays:      365, // Default to 365 days
 	}
 }
 
