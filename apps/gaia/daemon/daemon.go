@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/encrypt"
 	"github.com/stain-win/gaia/apps/gaia/gaialog"
@@ -43,12 +45,18 @@ const (
 	StatusStopped   = "stopped"
 	StatusStarting  = "starting"
 	commonNamespace = "common"
+
+	// Client statuses
+	ClientStatusActive  = "active"
+	ClientStatusRevoked = "revoked"
 )
 
 // Client represents a registered client in the Gaia system.
 type Client struct {
-	Name        string
-	TimeCreated string
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Status      string `json:"status"`
+	TimeCreated string `json:"time_created"`
 }
 
 // Daemon represents the state of the Gaia daemon.
@@ -247,7 +255,19 @@ func (d *Daemon) InitializeDB(passphrase string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create clients bucket: %w", err)
 		}
-		if err := clientsB.Put([]byte(commonNamespace), []byte(time.Now().UTC().Format(time.RFC3339))); err != nil {
+
+		// Create the special 'common' client, keyed by its name for easy lookup.
+		commonClient := Client{
+			ID:          commonNamespace, // Use the name as the ID for this special client.
+			Name:        commonNamespace,
+			Status:      ClientStatusActive,
+			TimeCreated: time.Now().UTC().Format(time.RFC3339),
+		}
+		clientData, err := json.Marshal(commonClient)
+		if err != nil {
+			return fmt.Errorf("failed to marshal common client: %w", err)
+		}
+		if err := clientsB.Put([]byte(commonNamespace), clientData); err != nil {
 			return fmt.Errorf("failed to register common client: %w", err)
 		}
 
@@ -344,7 +364,7 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 	return nil
 }
 
-// RegisterClient adds a new client name to the database.
+// RegisterClient creates a new client, assigns it a UUID, and stores it in the database.
 func (d *Daemon) RegisterClient(clientName string) error {
 	d.dbLock.Lock()
 	defer d.dbLock.Unlock()
@@ -353,18 +373,40 @@ func (d *Daemon) RegisterClient(clientName string) error {
 		return errors.New("daemon is in a locked state, cannot register clients")
 	}
 
-	err := d.db.Update(func(tx *bbolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists([]byte(clientsBucket))
-		if err != nil {
-			return fmt.Errorf("failed to create or get clients bucket: %w", err)
-		}
-		return b.Put([]byte(clientName), []byte(time.Now().UTC().Format(time.RFC3339)))
-	})
-
-	if err == nil {
-		gaialog.Get().Info("client registered", slog.String("client_name", clientName))
+	if clientName == commonNamespace {
+		return errors.New("'common' is a reserved client name")
 	}
-	return err
+
+	return d.db.Update(func(tx *bbolt.Tx) error {
+		// First, check if a client with this name already exists to prevent duplicates.
+		_, _, err := d.findClientByName(tx, clientName)
+		if err == nil {
+			return fmt.Errorf("client with name '%s' already exists", clientName)
+		}
+
+		newClient := Client{
+			ID:          uuid.New().String(),
+			Name:        clientName,
+			Status:      ClientStatusActive,
+			TimeCreated: time.Now().UTC().Format(time.RFC3339),
+		}
+
+		clientData, err := json.Marshal(newClient)
+		if err != nil {
+			return fmt.Errorf("failed to marshal new client: %w", err)
+		}
+
+		b := tx.Bucket([]byte(clientsBucket))
+		if b == nil {
+			return errors.New("clients bucket not found")
+		}
+		if err := b.Put([]byte(newClient.ID), clientData); err != nil {
+			return err
+		}
+
+		gaialog.Get().Info("client registered", slog.String("client_name", clientName), slog.String("client_id", newClient.ID))
+		return nil
+	})
 }
 
 // ListClients returns a list of all registered clients.
@@ -380,18 +422,19 @@ func (d *Daemon) ListClients() ([]Client, error) {
 	err := d.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(clientsBucket))
 		if b == nil {
-			// If the bucket doesn't exist for some reason, return an empty list.
-			return nil
+			return nil // No clients bucket means no clients.
 		}
 
-		c := b.Cursor()
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			clients = append(clients, Client{
-				Name:        string(k),
-				TimeCreated: string(v),
-			})
-		}
-		return nil
+		return b.ForEach(func(k, v []byte) error {
+			var client Client
+			if err := json.Unmarshal(v, &client); err != nil {
+				// Log the error but continue, so one bad record doesn't fail the whole list.
+				gaialog.Get().Warn("failed to unmarshal client data, skipping", "key", string(k), "error", err)
+				return nil
+			}
+			clients = append(clients, client)
+			return nil
+		})
 	})
 
 	if err != nil {
@@ -401,7 +444,7 @@ func (d *Daemon) ListClients() ([]Client, error) {
 	return clients, nil
 }
 
-// RevokeClient removes a client's registration and all of its associated secrets.
+// RevokeClient finds a client by name and sets its status to "revoked".
 func (d *Daemon) RevokeClient(clientName string) error {
 	d.dbLock.Lock()
 	defer d.dbLock.Unlock()
@@ -411,27 +454,73 @@ func (d *Daemon) RevokeClient(clientName string) error {
 	}
 
 	return d.db.Update(func(tx *bbolt.Tx) error {
-		clientsB := tx.Bucket([]byte(clientsBucket))
-		if clientsB != nil {
-			if err := clientsB.Delete([]byte(clientName)); err != nil {
-				return fmt.Errorf("failed to delete client from registry: %w", err)
-			}
-		}
-		secretsB := tx.Bucket([]byte(secretsBucket))
-		if secretsB == nil {
-			return nil // No secrets bucket, so nothing to delete.
+		client, key, err := d.findClientByName(tx, clientName)
+		if err != nil {
+			return err // findClientByName will return a clear error if not found.
 		}
 
-		prefix := []byte(clientName + "\x00")
-		c := secretsB.Cursor()
-		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
-			if err := c.Delete(); err != nil {
-				log.Printf("error deleting secret %s for revoked client %s: %v", string(k), clientName, err)
-			}
+		if client.Status == ClientStatusRevoked {
+			return fmt.Errorf("client '%s' is already revoked", clientName)
 		}
 
+		client.Status = ClientStatusRevoked
+		updatedData, err := json.Marshal(client)
+		if err != nil {
+			return fmt.Errorf("failed to marshal updated client data: %w", err)
+		}
+
+		b := tx.Bucket([]byte(clientsBucket))
+		if err := b.Put(key, updatedData); err != nil {
+			return err
+		}
+
+		gaialog.Get().Info("client revoked", slog.String("client_name", clientName), slog.String("client_id", client.ID))
 		return nil
 	})
+}
+
+// findClientByName is an internal helper to locate a client by their name.
+// It must be called within a database transaction.
+func (d *Daemon) findClientByName(tx *bbolt.Tx, name string) (*Client, []byte, error) {
+	b := tx.Bucket([]byte(clientsBucket))
+	if b == nil {
+		return nil, nil, errors.New("internal error: clients bucket not found")
+	}
+
+	// First, try a direct lookup. This is a fast path for the 'common' client.
+	val := b.Get([]byte(name))
+	if val != nil {
+		var c Client
+		if err := json.Unmarshal(val, &c); err == nil && c.Name == name {
+			return &c, []byte(name), nil
+		}
+	}
+
+	// If direct lookup fails, iterate to find by name.
+	var foundClient *Client
+	var foundKey []byte
+	err := b.ForEach(func(k, v []byte) error {
+		var c Client
+		if err := json.Unmarshal(v, &c); err != nil {
+			return nil // Skip malformed records.
+		}
+		if c.Name == name {
+			foundClient = &c
+			foundKey = k
+			return fmt.Errorf("client found") // Stop iteration.
+		}
+		return nil
+	})
+
+	if err != nil && err.Error() != "client found" {
+		return nil, nil, err
+	}
+
+	if foundClient == nil {
+		return nil, nil, fmt.Errorf("client with name '%s' not found", name)
+	}
+
+	return foundClient, foundKey, nil
 }
 
 // ListNamespaces retrieves all unique namespaces associated with a given client.
@@ -443,73 +532,68 @@ func (d *Daemon) ListNamespaces(clientName string) ([]string, error) {
 		return nil, errors.New("daemon is in a locked state, cannot list namespaces")
 	}
 
-	namespaceSet := make(map[string]struct{})
-	prefix := []byte(clientName + "\x00")
-
+	var namespaces []string
 	err := d.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte(secretsBucket))
-		if b == nil {
-			return nil // No secrets, so no namespaces.
+		client, _, err := d.findClientByName(tx, clientName)
+		if err != nil {
+			return err
 		}
 
-		c := b.Cursor()
+		namespaceSet := make(map[string]struct{})
+		prefix := []byte(client.ID + "\x00")
+
+		c := tx.Bucket([]byte(secretsBucket)).Cursor()
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
-			// The key format is clientName\x00namespace\x00id
-			// We need to extract the 'namespace' part.
 			trimmedKey := bytes.TrimPrefix(k, prefix)
 			parts := bytes.SplitN(trimmedKey, []byte("\x00"), 2)
 			if len(parts) > 0 {
 				namespaceSet[string(parts[0])] = struct{}{}
 			}
 		}
+
+		for ns := range namespaceSet {
+			namespaces = append(namespaces, ns)
+		}
 		return nil
 	})
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for client '%s': %w", clientName, err)
-	}
-
-	// Convert the set of namespaces to a slice.
-	namespaces := make([]string, 0, len(namespaceSet))
-	for ns := range namespaceSet {
-		namespaces = append(namespaces, ns)
-	}
-
-	return namespaces, nil
+	return namespaces, err
 }
 
 // AddSecret stores an encrypted secret for a specific client and namespace.
 func (d *Daemon) AddSecret(clientName, namespace, id, value string) error {
-	d.dbLock.RLock()
-	defer d.dbLock.RUnlock()
+	d.dbLock.Lock()
+	defer d.dbLock.Unlock()
 
 	if d.isLocked || d.db == nil {
 		return errors.New("daemon is in a locked state, cannot write secrets")
 	}
 
-	key := constructDBKey(clientName, namespace, id)
-
-	encValue, err := encrypt.Encrypt(d.key, []byte(value))
-	if err != nil {
-		return fmt.Errorf("failed to encrypt secret: %w", err)
-	}
-
-	err = d.db.Update(func(tx *bbolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists([]byte(secretsBucket))
+	return d.db.Update(func(tx *bbolt.Tx) error {
+		client, _, err := d.findClientByName(tx, clientName)
 		if err != nil {
-			return fmt.Errorf("failed to create or get bucket: %w", err)
+			return err
 		}
-		return b.Put(key, []byte(encValue))
-	})
 
-	if err == nil {
+		key := constructDBKey(client.ID, namespace, id)
+
+		encValue, err := encrypt.Encrypt(d.key, []byte(value))
+		if err != nil {
+			return fmt.Errorf("failed to encrypt secret: %w", err)
+		}
+
+		b := tx.Bucket([]byte(secretsBucket))
+		if err := b.Put(key, []byte(encValue)); err != nil {
+			return err
+		}
+
 		gaialog.Get().Info("secret added/updated",
 			slog.String("client_name", clientName),
 			slog.String("namespace", namespace),
 			slog.String("id", id),
 		)
-	}
-	return err
+		return nil
+	})
 }
 
 // GetSecret retrieves and decrypts a secret, enforcing authorization.
@@ -525,24 +609,33 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 		return "", errors.New("database not open")
 	}
 
-	// Authorization: A client can access its own namespace or the "common" namespace.
-	if namespace != commonNamespace && namespace != clientName {
-		return "", fmt.Errorf("permission denied: client '%s' is not authorized for namespace '%s'", clientName, namespace)
-	}
-
-	// Secrets in the common namespace are stored under the 'common' client name.
-	// Otherwise, they are stored under the requesting client's name.
-	var lookupClient string
-	if namespace == commonNamespace {
-		lookupClient = commonNamespace
-	} else {
-		lookupClient = clientName
-	}
-
-	key := constructDBKey(lookupClient, namespace, id)
-
-	var encValue []byte
+	var decryptedValue string
 	err := d.db.View(func(tx *bbolt.Tx) error {
+		requestingClient, _, err := d.findClientByName(tx, clientName)
+		if err != nil {
+			return fmt.Errorf("unauthorized: client '%s' not registered", clientName)
+		}
+
+		if requestingClient.Status != ClientStatusActive {
+			return fmt.Errorf("unauthorized: client '%s' is not active", clientName)
+		}
+
+		var lookupClientID string
+		if namespace == commonNamespace {
+			commonClient, _, err := d.findClientByName(tx, commonNamespace)
+			if err != nil {
+				return fmt.Errorf("internal error: common client not found")
+			}
+			lookupClientID = commonClient.ID
+		} else if namespace == clientName {
+			lookupClientID = requestingClient.ID
+		} else {
+			return fmt.Errorf("permission denied: client '%s' is not authorized for namespace '%s'", clientName, namespace)
+		}
+
+		key := constructDBKey(lookupClientID, namespace, id)
+
+		var encValue []byte
 		b := tx.Bucket([]byte(secretsBucket))
 		if b == nil {
 			return errors.New("bucket not found")
@@ -551,28 +644,19 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 		if encValue == nil {
 			return errors.New("secret not found")
 		}
+
+		decVal, err := encrypt.Decrypt(d.key, string(encValue))
+		if err != nil {
+			gaialog.Get().Error("secret failed to decrypt", "client", clientName, "namespace", namespace, "id", id)
+			return fmt.Errorf("failed to decrypt secret: %w", err)
+		}
+		decryptedValue = string(decVal)
+
+		gaialog.Get().Info("secret accessed", slog.String("client_name", clientName), slog.String("namespace", namespace), slog.String("id", id))
 		return nil
 	})
-	if err != nil {
-		return "", err
-	}
 
-	decValue, err := encrypt.Decrypt(d.key, string(encValue))
-	if err != nil {
-		gaialog.Get().Error("secret failed to decrypt",
-			"client", clientName,
-			"namespace", namespace,
-			"id", id,
-		)
-		return "", fmt.Errorf("failed to decrypt secret: %w", err)
-	}
-
-	gaialog.Get().Info("secret accessed",
-		slog.String("client_name", clientName),
-		slog.String("namespace", namespace),
-		slog.String("id", id),
-	)
-	return string(decValue), nil
+	return decryptedValue, err
 }
 
 // DeleteSecret removes a specific secret from the database.
@@ -584,26 +668,20 @@ func (d *Daemon) DeleteSecret(clientName, namespace, id string) error {
 		return errors.New("daemon is in a locked state, cannot delete secrets")
 	}
 
-	key := constructDBKey(clientName, namespace, id)
+	return d.db.Update(func(tx *bbolt.Tx) error {
+		client, _, err := d.findClientByName(tx, clientName)
+		if err != nil {
+			return err
+		}
 
-	err := d.db.Update(func(tx *bbolt.Tx) error {
+		key := constructDBKey(client.ID, namespace, id)
+
 		b := tx.Bucket([]byte(secretsBucket))
 		if b == nil {
-			// If the bucket doesn't exist, the secret can't exist either.
 			return nil
 		}
-		// b.Delete does not return an error if the key does not exist.
 		return b.Delete(key)
 	})
-
-	if err == nil {
-		gaialog.Get().Info("secret deleted successfully",
-			slog.String("client_name", clientName),
-			slog.String("namespace", namespace),
-			slog.String("id", id),
-		)
-	}
-	return err
 }
 
 // ListSecrets retrieves all namespaces and their secrets for a given client.
@@ -616,24 +694,26 @@ func (d *Daemon) ListSecrets(clientName string) (map[string]map[string]string, e
 	}
 
 	allSecrets := make(map[string]map[string]string)
-	prefix := []byte(clientName + "\x00")
-
 	err := d.db.View(func(tx *bbolt.Tx) error {
+		client, _, err := d.findClientByName(tx, clientName)
+		if err != nil {
+			return err
+		}
+
+		prefix := []byte(client.ID + "\x00")
 		c := tx.Bucket([]byte(secretsBucket)).Cursor()
 
 		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
 			parts := strings.SplitN(string(k), "\x00", 3)
 			if len(parts) != 3 {
-				continue // Skip malformed keys
+				continue
 			}
-			// parts[0] is clientName, parts[1] is namespace, parts[2] is key
 
 			namespace := parts[1]
 			secretKey := parts[2]
 
 			decryptedValue, err := encrypt.Decrypt(d.key, string(v))
 			if err != nil {
-				// Log the error but continue, so one bad secret doesn't fail the whole list
 				gaialog.Get().Warn("failed to decrypt secret, skipping", "key", string(k), "error", err)
 				continue
 			}
@@ -646,11 +726,7 @@ func (d *Daemon) ListSecrets(clientName string) (map[string]map[string]string, e
 		return nil
 	})
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to list secrets: %w", err)
-	}
-
-	return allSecrets, nil
+	return allSecrets, err
 }
 
 // ImportSecrets performs a bulk, transactional import of secrets.
@@ -670,21 +746,24 @@ func (d *Daemon) ImportSecrets(secrets []*pb.ImportSecretItem, overwrite bool) (
 		}
 
 		for _, secret := range secrets {
-			key := constructDBKey(secret.ClientName, secret.Namespace, secret.Id)
+			client, _, err := d.findClientByName(tx, secret.ClientName)
+			if err != nil {
+				return fmt.Errorf("client '%s' not found for import: %w", secret.ClientName, err)
+			}
 
-			// If not overwriting, check if the secret already exists.
+			key := constructDBKey(client.ID, secret.Namespace, secret.Id)
+
 			if !overwrite && secretsB.Get(key) != nil {
-				return fmt.Errorf("secret '%s' already exists. Use --overwrite to replace it", key)
+				return fmt.Errorf("secret '%s' for client '%s' already exists. Use --overwrite to replace it", secret.Id, secret.ClientName)
 			}
 
 			encValue, err := encrypt.Encrypt(d.key, []byte(secret.Value))
 			if err != nil {
-				// Failing here will roll back the entire transaction.
-				return fmt.Errorf("failed to encrypt secret %s: %w", key, err)
+				return fmt.Errorf("failed to encrypt secret %s: %w", secret.Id, err)
 			}
 
 			if err := secretsB.Put(key, []byte(encValue)); err != nil {
-				return fmt.Errorf("failed to write secret %s to db: %w", key, err)
+				return fmt.Errorf("failed to write secret %s to db: %w", secret.Id, err)
 			}
 			importedCount++
 		}
@@ -701,8 +780,8 @@ func (d *Daemon) ImportSecrets(secrets []*pb.ImportSecretItem, overwrite bool) (
 }
 
 // constructDBKey safely joins the parts of a secret's key using a null byte delimiter.
-func constructDBKey(client, namespace, key string) []byte {
-	return bytes.Join([][]byte{[]byte(client), []byte(namespace), []byte(key)}, nullByte)
+func constructDBKey(clientID, namespace, key string) []byte {
+	return bytes.Join([][]byte{[]byte(clientID), []byte(namespace), []byte(key)}, nullByte)
 }
 
 // openDB is an internal helper to open the BoltDB file.
