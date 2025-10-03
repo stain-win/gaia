@@ -1,0 +1,49 @@
+# --- Build Stage ---
+# Use the official Golang image to build the application.
+FROM golang:1.22-alpine AS builder
+
+# Set the working directory inside the container.
+WORKDIR /app
+
+# Copy the Go module files and download dependencies.
+# This is done in a separate layer to leverage Docker's layer caching.
+COPY go.mod go.sum ./ 
+RUN go mod download
+
+# Copy the rest of the application source code.
+COPY . .
+
+# Build the Gaia application, creating a static binary.
+# The -o flag specifies the output file name.
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /gaia ./apps/gaia
+
+
+# --- Final Stage ---
+# Use a minimal base image for the final container.
+# Alpine Linux is small and includes a shell, which is useful for debugging.
+FROM alpine:latest
+
+# It is a security best practice to run services as a non-root user.
+# Create a dedicated user and group for the Gaia service.
+RUN addgroup -S gaia && adduser -S gaia -G gaia
+
+# Create the directories for configuration and data with correct permissions.
+RUN mkdir -p /etc/gaia/certs /var/lib/gaia && \
+    chown -R gaia:gaia /etc/gaia && \
+    chown -R gaia:gaia /var/lib/gaia
+
+# Copy the compiled Gaia binary from the builder stage.
+COPY --from=builder /gaia /usr/local/bin/gaia
+
+# Switch to the non-root user.
+USER gaia
+
+# Set the working directory.
+WORKDIR /var/lib/gaia
+
+# Expose the default gRPC port.
+EXPOSE 50051
+
+# The command to run when the container starts.
+# This assumes the configuration file will be mounted at /etc/gaia/config.yaml.
+CMD ["gaia", "daemon", "start", "--config", "/etc/gaia/config.yaml"]

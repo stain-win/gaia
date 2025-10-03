@@ -1,0 +1,41 @@
+# --- Build Stage ---
+# Use the official Golang image to build the application.
+FROM golang:1.22-alpine AS builder
+
+# Set the working directory inside the container.
+WORKDIR /app
+
+# Copy the Go module files and download dependencies.
+COPY go.mod go.sum ./ 
+RUN go mod download
+
+# Copy the rest of the application source code.
+COPY . .
+
+# Build the Gaia application binary.
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /gaia ./apps/gaia
+
+
+# --- Final Stage ---
+# Use a minimal base image for the final container.
+FROM alpine:latest
+
+# Create a non-root user for security.
+RUN addgroup -S gaia && adduser -S gaia -G gaia
+
+# Create a directory for certificates.
+RUN mkdir -p /etc/gaia/certs && chown -R gaia:gaia /etc/gaia
+
+# Copy the compiled Gaia binary from the builder stage.
+COPY --from=builder /gaia /usr/local/bin/gaia
+
+# Switch to the non-root user.
+USER gaia
+
+# Set a working directory.
+WORKDIR /app
+
+# The default command is to show the help message.
+# This container is intended to be used with `docker-compose run` to execute specific commands.
+ENTRYPOINT ["gaia"]
+CMD ["--help"]
