@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -343,7 +344,7 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 	// **VALIDATION STEP**
 	// Hash the derived key and compare it to the stored hash.
 	derivedKeyHash := sha256.Sum256(derivedKey)
-	if !bytes.Equal(derivedKeyHash[:], storedHash) {
+	if subtle.ConstantTimeCompare(derivedKeyHash[:], storedHash) != 1 {
 		d.db.Close()
 		return errors.New("invalid passphrase")
 	}
@@ -853,4 +854,11 @@ func (d *Daemon) loadCACredentials() error {
 	}
 
 	return nil
+}
+
+// wipeBytes securely zeros a byte slice to remove sensitive data from memory.
+func wipeBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
 }

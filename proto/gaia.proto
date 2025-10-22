@@ -47,7 +47,7 @@ message AddSecretResponse {
 }
 
 message GetSecretRequest {
-  string namespace = 1; // Change from just 'id'
+  string namespace = 1;
   string id = 2;
 }
 
@@ -87,8 +87,10 @@ message RegisterClientResponse {
 }
 
 message Client {
-  string name = 1;
-  string time_created = 2;
+  string id = 1;
+  string name = 2;
+  string status = 3;
+  string time_created = 4;
 }
 
 message ListClientsRequest {}

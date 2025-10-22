@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"io"
 
 	"golang.org/x/crypto/scrypt"
@@ -52,7 +53,7 @@ func Decrypt(key []byte, enc string) ([]byte, error) {
 		return nil, err
 	}
 	if len(ciphertext) < gcm.NonceSize() {
-		return nil, err
+		return nil, fmt.Errorf("ciphertext too short: length=%d, nonceSize=%d", len(ciphertext), gcm.NonceSize())
 	}
 	nonce := ciphertext[:gcm.NonceSize()]
 	ciphertext = ciphertext[gcm.NonceSize():]
