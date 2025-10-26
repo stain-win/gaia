@@ -2,6 +2,8 @@ package certs
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -84,11 +86,12 @@ func generateCert(commonName string, caKey *rsa.PrivateKey, caCert *x509.Certifi
 	return key, cert, nil
 }
 
-// generateClientCertData creates a new client certificate and returns the PEM-encoded data.
+// generateClientCertData creates a new client certificate using ECDSA and returns the PEM-encoded data.
 func generateClientCertData(clientName string, caCert *x509.Certificate, caKey *rsa.PrivateKey, validityDays int) (certPEM, keyPEM []byte, err error) {
-	clientKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	// Use ECDSA with P-256 curve for client certificates
+	clientKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate client key: %w", err)
+		return nil, nil, fmt.Errorf("failed to generate client ECDSA key: %w", err)
 	}
 
 	template := &x509.Certificate{
@@ -112,8 +115,14 @@ func generateClientCertData(clientName string, caCert *x509.Certificate, caKey *
 		return nil, nil, fmt.Errorf("failed to encode certificate to PEM: %w", err)
 	}
 
+	// Marshal ECDSA private key
+	ecdsaKeyBytes, err := x509.MarshalECPrivateKey(clientKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to marshal ECDSA private key: %w", err)
+	}
+
 	keyBuf := new(bytes.Buffer)
-	if err := pem.Encode(keyBuf, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientKey)}); err != nil {
+	if err := pem.Encode(keyBuf, &pem.Block{Type: "EC PRIVATE KEY", Bytes: ecdsaKeyBytes}); err != nil {
 		return nil, nil, fmt.Errorf("failed to encode private key to PEM: %w", err)
 	}
 
