@@ -1,4 +1,4 @@
-package gaialog
+package log
 
 type Level int
 

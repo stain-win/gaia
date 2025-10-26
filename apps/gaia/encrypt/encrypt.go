@@ -1,3 +1,6 @@
+// Package encrypt provides encryption and decryption functionality for the Gaia daemon.
+// It uses AES-256-GCM for symmetric encryption and scrypt for key derivation from passphrases.
+// All encrypted data is base64-encoded for storage.
 package encrypt
 
 import (
@@ -8,7 +11,7 @@ import (
 	"fmt"
 	"io"
 
-	gaiaerrors "github.com/stain-win/gaia/apps/gaia/errors"
+	gaiaerrors "github.com/stain-win/gaia/apps/gaia/internal/errors"
 	"golang.org/x/crypto/scrypt"
 )
 

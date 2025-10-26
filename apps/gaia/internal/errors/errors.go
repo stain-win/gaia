@@ -1,3 +1,6 @@
+// Package errors provides custom error types and sentinel errors for the Gaia daemon.
+// It defines domain-specific errors for validation, storage, authentication, and cryptography
+// operations, enabling better error handling and debugging throughout the application.
 package errors
 
 import (

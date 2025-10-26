@@ -1,3 +1,6 @@
+// Package certs provides certificate management for the Gaia daemon.
+// It handles creation and management of the Certificate Authority (CA),
+// server certificates, and client certificates for mutual TLS authentication.
 package certs
 
 import (

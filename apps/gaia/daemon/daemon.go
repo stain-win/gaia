@@ -1,3 +1,6 @@
+// Package daemon implements the core Gaia daemon server.
+// It manages the gRPC server, BoltDB database, encryption state, and provides
+// the main API for secret management, client registration, and daemon lifecycle.
 package daemon
 
 import (
@@ -24,8 +27,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/encrypt"
-	gaiaerrors "github.com/stain-win/gaia/apps/gaia/errors"
-	"github.com/stain-win/gaia/apps/gaia/gaialog"
+	gaiaerrors "github.com/stain-win/gaia/apps/gaia/internal/errors"
+	gaialog "github.com/stain-win/gaia/apps/gaia/log"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 	"go.etcd.io/bbolt"
 	"google.golang.org/grpc"

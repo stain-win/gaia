@@ -1,10 +1,13 @@
+// Package validation provides input validation for client names, namespace names, and secret keys.
+// It enforces Gaia's naming rules: names must be 1-63 characters, consist of lowercase letters,
+// numbers, hyphens, and underscores, and must start and end with a letter or number.
 package validation
 
 import (
 	"fmt"
 	"regexp"
 
-	gaiaerrors "github.com/stain-win/gaia/apps/gaia/errors"
+	gaiaerrors "github.com/stain-win/gaia/apps/gaia/internal/errors"
 )
 
 // nameValidationRegex defines the allowed format for client, namespace, and key names.

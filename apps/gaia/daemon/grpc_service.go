@@ -6,9 +6,9 @@ import (
 	"io"
 
 	"github.com/stain-win/gaia/apps/gaia/certs"
-	gaiaerrors "github.com/stain-win/gaia/apps/gaia/errors"
+	gaiaerrors "github.com/stain-win/gaia/apps/gaia/internal/errors"
+	"github.com/stain-win/gaia/apps/gaia/internal/validation"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
-	"github.com/stain-win/gaia/apps/gaia/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"

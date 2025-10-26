@@ -1,3 +1,6 @@
+// Package config manages configuration for the Gaia daemon.
+// It loads settings from config.yaml and environment variables, providing defaults
+// for all configuration options including server ports, file paths, and timeouts.
 package config
 
 import (

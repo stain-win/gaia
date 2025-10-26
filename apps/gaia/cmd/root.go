@@ -1,3 +1,6 @@
+// Package cmd implements the Gaia CLI commands using Cobra.
+// It provides commands for daemon management, secret operations, client registration,
+// and the interactive TUI for easy secret management.
 package cmd
 
 import (
@@ -8,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/daemon"
-	"github.com/stain-win/gaia/apps/gaia/gaialog"
+	gaialog "github.com/stain-win/gaia/apps/gaia/log"
 	"github.com/stain-win/gaia/apps/gaia/tui"
 )
 
