@@ -2,11 +2,11 @@ package daemon
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 
 	"github.com/stain-win/gaia/apps/gaia/certs"
+	gaiaerrors "github.com/stain-win/gaia/apps/gaia/errors"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 	"github.com/stain-win/gaia/apps/gaia/validation"
 	"google.golang.org/grpc/codes"
@@ -18,14 +18,14 @@ import (
 func getClientIdentity(ctx context.Context) (string, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
-		return "", errors.New("could not get peer from context")
+		return "", gaiaerrors.ErrNoPeerContext
 	}
 	tlsInfo, ok := p.AuthInfo.(credentials.TLSInfo)
 	if !ok {
-		return "", errors.New("peer auth info is not TLS")
+		return "", gaiaerrors.ErrNotTLS
 	}
 	if len(tlsInfo.State.PeerCertificates) == 0 {
-		return "", errors.New("no peer certificates found")
+		return "", gaiaerrors.ErrNoPeerCertificates
 	}
 	// The client's certificate is the first in the chain.
 	clientCert := tlsInfo.State.PeerCertificates[0]
@@ -45,30 +45,30 @@ func NewClientServer(d *Daemon) pb.GaiaClientServer {
 // AddSecret handles the AddSecret RPC call.
 func (s *gaiaAdminServer) AddSecret(_ context.Context, req *pb.AddSecretRequest) (*pb.AddSecretResponse, error) {
 	if s.d.isLocked {
-		return nil, errors.New("daemon is in a locked state, cannot add secrets")
+		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
 	}
 
-	if err := validation.ValidateName(req.ClientName); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid client name: %v", err)
+	if err := validation.ValidateClient(req.ClientName); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := validation.ValidateName(req.Namespace); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid namespace: %v", err)
+	if err := validation.ValidateNamespace(req.Namespace); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := validation.ValidateName(req.Id); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid secret id: %v", err)
+	if err := validation.ValidateKey(req.Id); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	err := s.d.AddSecret(req.ClientName, req.Namespace, req.Id, req.Value)
 	if err != nil {
 		return &pb.AddSecretResponse{Success: false, Message: err.Error()}, nil
 	}
-	return &pb.AddSecretResponse{Success: true, Message: "Secret added successfully"}, nil
+	return &pb.AddSecretResponse{Success: true, Message: "secret added successfully"}, nil
 }
 
 // DeleteSecret handles the gRPC request to delete a secret.
 func (s *gaiaAdminServer) DeleteSecret(_ context.Context, req *pb.DeleteSecretRequest) (*pb.DeleteSecretResponse, error) {
 	if s.d.isLocked {
-		return nil, errors.New("daemon is in a locked state, cannot delete secrets")
+		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
 	}
 
 	if err := s.d.DeleteSecret(req.ClientName, req.Namespace, req.Id); err != nil {
@@ -114,16 +114,16 @@ func (s *gaiaAdminServer) Unlock(_ context.Context, req *pb.UnlockRequest) (*pb.
 
 func (s *gaiaAdminServer) RegisterClient(_ context.Context, req *pb.RegisterClientRequest) (*pb.RegisterClientResponse, error) {
 	if s.d.isLocked {
-		return nil, errors.New("daemon is in a locked state, cannot register new clients")
+		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
+	}
+
+	if err := validation.ValidateClient(req.ClientName); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	certPEM, keyPEM, err := certs.GenerateClientCertificateData(req.ClientName, s.d.caCert, s.d.caKey, s.d.config.CertExpiryDays)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate client certificate: %w", err)
-	}
-
-	if err := validation.ValidateName(req.ClientName); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid client name: %v", err)
 	}
 
 	if err := s.d.RegisterClient(req.ClientName); err != nil {
@@ -138,7 +138,7 @@ func (s *gaiaAdminServer) RegisterClient(_ context.Context, req *pb.RegisterClie
 
 func (s *gaiaAdminServer) ListClients(_ context.Context, _ *pb.ListClientsRequest) (*pb.ListClientsResponse, error) {
 	if s.d.isLocked {
-		return nil, errors.New("daemon is in a locked state, cannot list clients")
+		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
 	}
 
 	clients, err := s.d.ListClients()
@@ -160,11 +160,11 @@ func (s *gaiaAdminServer) ListClients(_ context.Context, _ *pb.ListClientsReques
 // RevokeClient handles the gRPC request to revoke a client.
 func (s *gaiaAdminServer) RevokeClient(_ context.Context, req *pb.RevokeClientRequest) (*pb.RevokeClientResponse, error) {
 	if s.d.isLocked {
-		return nil, errors.New("daemon is in a locked state, cannot revoke clients")
+		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
 	}
 
-	if err := validation.ValidateName(req.ClientName); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid client name: %v", err)
+	if err := validation.ValidateClient(req.ClientName); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	if err := s.d.RevokeClient(req.ClientName); err != nil {
@@ -176,7 +176,7 @@ func (s *gaiaAdminServer) RevokeClient(_ context.Context, req *pb.RevokeClientRe
 
 func (s *gaiaAdminServer) ListNamespaces(_ context.Context, req *pb.ListNamespacesRequest) (*pb.ListNamespacesResponse, error) {
 	if s.d.isLocked {
-		return nil, errors.New("daemon is in a locked state, cannot list namespaces")
+		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
 	}
 
 	namespaces, err := s.d.ListNamespaces(req.ClientName)
@@ -190,7 +190,7 @@ func (s *gaiaAdminServer) ListNamespaces(_ context.Context, req *pb.ListNamespac
 // ImportSecrets handles the client-streaming RPC for bulk secret import.
 func (s *gaiaAdminServer) ImportSecrets(stream pb.GaiaAdmin_ImportSecretsServer) error {
 	if s.d.isLocked {
-		return errors.New("daemon is in a locked state, cannot import secrets")
+		return status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
 	}
 
 	initialReq, err := stream.Recv()
@@ -200,7 +200,7 @@ func (s *gaiaAdminServer) ImportSecrets(stream pb.GaiaAdmin_ImportSecretsServer)
 
 	configPayload, ok := initialReq.GetPayload().(*pb.ImportSecretsRequest_Config)
 	if !ok {
-		return errors.New("expected the first message to be import configuration")
+		return status.Error(codes.InvalidArgument, "expected the first message to be import configuration")
 	}
 	overwrite := configPayload.Config.GetOverwrite()
 
@@ -217,7 +217,7 @@ func (s *gaiaAdminServer) ImportSecrets(stream pb.GaiaAdmin_ImportSecretsServer)
 
 		itemPayload, ok := req.GetPayload().(*pb.ImportSecretsRequest_Item)
 		if !ok {
-			return errors.New("expected subsequent messages to be secret items")
+			return status.Error(codes.InvalidArgument, "expected subsequent messages to be secret items")
 		}
 		receivedSecrets = append(receivedSecrets, itemPayload.Item)
 	}
@@ -229,17 +229,17 @@ func (s *gaiaAdminServer) ImportSecrets(stream pb.GaiaAdmin_ImportSecretsServer)
 
 	return stream.SendAndClose(&pb.ImportSecretsResponse{
 		SecretsImported: int32(count),
-		Message:         "Secrets imported successfully.",
+		Message:         "secrets imported successfully",
 	})
 }
 
 func (s *gaiaAdminServer) ListSecrets(ctx context.Context, req *pb.ListSecretsRequest) (*pb.ListSecretsResponse, error) {
 	if s.d.isLocked {
-		return nil, errors.New("daemon is in a locked state")
+		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
 	}
 
-	if err := validation.ValidateName(req.ClientName); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid client name: %v", err)
+	if err := validation.ValidateClient(req.ClientName); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	allData, err := s.d.ListSecrets(req.ClientName)

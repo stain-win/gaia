@@ -3,6 +3,8 @@ package validation
 import (
 	"fmt"
 	"regexp"
+
+	gaiaerrors "github.com/stain-win/gaia/apps/gaia/errors"
 )
 
 // nameValidationRegex defines the allowed format for client, namespace, and key names.
@@ -15,7 +17,38 @@ var nameValidationRegex = regexp.MustCompile(`^[a-z0-9]([-_a-z0-9]{0,61}[a-z0-9]
 // ValidateName checks if a given name conforms to the standard naming rules.
 func ValidateName(name string) error {
 	if !nameValidationRegex.MatchString(name) {
-		return fmt.Errorf("name '%s' is invalid: must be 1-63 characters, start/end with a letter/number, and contain only lowercase letters, numbers, '-', or '_'", name)
+		return gaiaerrors.NewValidationError(
+			"name",
+			name,
+			"must be 1-63 characters, start/end with a letter/number, and contain only lowercase letters, numbers, '-', or '_'",
+		)
+	}
+	return nil
+}
+
+// ValidateClient validates a client name.
+func ValidateClient(name string) error {
+	if err := ValidateName(name); err != nil {
+		return fmt.Errorf("invalid client name: %w", err)
+	}
+	return nil
+}
+
+// ValidateNamespace validates a namespace name and ensures it's not reserved.
+func ValidateNamespace(name string) error {
+	if name == "common" {
+		return fmt.Errorf("%w: 'common' is a reserved namespace", gaiaerrors.ErrReservedName)
+	}
+	if err := ValidateName(name); err != nil {
+		return fmt.Errorf("invalid namespace name: %w", err)
+	}
+	return nil
+}
+
+// ValidateKey validates a secret key name.
+func ValidateKey(name string) error {
+	if err := ValidateName(name); err != nil {
+		return fmt.Errorf("invalid key name: %w", err)
 	}
 	return nil
 }
