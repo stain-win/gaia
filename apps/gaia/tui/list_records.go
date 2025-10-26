@@ -269,7 +269,7 @@ func (m *inspectorModel) handleClientsLoaded(msg allClientsLoadedMsg) (*inspecto
 	}
 	var items []list.Item
 	for _, client := range msg.clients {
-		items = append(items, listItem{title: client.Id, description: client.Status})
+		items = append(items, listItem{title: client.Name, description: client.TimeCreated})
 	}
 	m.clientsList.SetItems(items)
 
