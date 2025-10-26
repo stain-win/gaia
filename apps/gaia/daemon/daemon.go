@@ -11,7 +11,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -25,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/encrypt"
+	gaiaerrors "github.com/stain-win/gaia/apps/gaia/errors"
 	"github.com/stain-win/gaia/apps/gaia/gaialog"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 	"go.etcd.io/bbolt"
@@ -101,7 +101,7 @@ type gaiaAdminServer struct {
 // Start launches the gRPC server and opens the database in a locked (read-only) state.
 func (d *Daemon) Start(cfg *config.Config) error {
 	if d.status == StatusRunning {
-		return errors.New("daemon already running")
+		return gaiaerrors.ErrDaemonAlreadyRunning
 	}
 
 	d.config = cfg
@@ -174,7 +174,7 @@ func (d *Daemon) Start(cfg *config.Config) error {
 // stopDaemon gracefully stops the gRPC server and closes the database.
 func (d *Daemon) stopDaemon(_ context.Context) error {
 	if d.status != StatusRunning {
-		return errors.New("daemon not running")
+		return gaiaerrors.ErrDaemonNotRunning
 	}
 	d.server.GracefulStop()
 	d.db.Close()
@@ -221,11 +221,11 @@ func (s *gaiaAdminServer) Stop(_ context.Context, _ *pb.StopRequest) (*pb.StopRe
 // InitializeDB creates the encrypted BoltDB, derives the key, and stores a hash of the key for validation.
 func (d *Daemon) InitializeDB(passphrase string) error {
 	if _, err := os.Stat(d.config.DBFile); err == nil {
-		return errors.New("database already exists")
+		return gaiaerrors.ErrDatabaseExists
 	}
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
-		return err
+		return fmt.Errorf("failed to generate salt: %w", err)
 	}
 
 	// Derive the key from the passphrase.
@@ -310,35 +310,35 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 
 	err := d.openDB()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open database: %w", err)
 	}
 
 	var salt, storedHash []byte
 	err = d.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(secretsBucket))
 		if b == nil {
-			return errors.New("bucket not found")
+			return gaiaerrors.ErrBucketNotFound
 		}
 		salt = b.Get([]byte(saltKey))
 		if salt == nil {
-			return errors.New("salt not found")
+			return gaiaerrors.ErrSaltNotFound
 		}
 		storedHash = b.Get([]byte(keyHashKey))
 		if storedHash == nil {
-			return errors.New("key hash not found for validation")
+			return gaiaerrors.ErrKeyHashNotFound
 		}
 		return nil
 	})
 	if err != nil {
 		d.db.Close()
-		return err
+		return fmt.Errorf("failed to read database metadata: %w", err)
 	}
 
 	// Derive a key from the provided passphrase.
 	derivedKey, err := encrypt.DeriveKey([]byte(passphrase), salt)
 	if err != nil {
 		d.db.Close()
-		return err
+		return fmt.Errorf("failed to derive key: %w", err)
 	}
 
 	// **VALIDATION STEP**
@@ -346,7 +346,7 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 	derivedKeyHash := sha256.Sum256(derivedKey)
 	if subtle.ConstantTimeCompare(derivedKeyHash[:], storedHash) != 1 {
 		d.db.Close()
-		return errors.New("invalid passphrase")
+		return gaiaerrors.ErrInvalidPassphrase
 	}
 
 	// If validation passes, store the key and proceed.
@@ -371,18 +371,18 @@ func (d *Daemon) RegisterClient(clientName string) error {
 	defer d.dbLock.Unlock()
 
 	if d.isLocked || d.db == nil {
-		return errors.New("daemon is in a locked state, cannot register clients")
+		return gaiaerrors.ErrDaemonLocked
 	}
 
 	if clientName == commonNamespace {
-		return errors.New("'common' is a reserved client name")
+		return fmt.Errorf("%w: 'common' is a reserved client name", gaiaerrors.ErrReservedName)
 	}
 
 	return d.db.Update(func(tx *bbolt.Tx) error {
 		// First, check if a client with this name already exists to prevent duplicates.
 		_, _, err := d.findClientByName(tx, clientName)
 		if err == nil {
-			return fmt.Errorf("client with name '%s' already exists", clientName)
+			return fmt.Errorf("%w: '%s'", gaiaerrors.ErrClientExists, clientName)
 		}
 
 		newClient := Client{
@@ -399,10 +399,10 @@ func (d *Daemon) RegisterClient(clientName string) error {
 
 		b := tx.Bucket([]byte(clientsBucket))
 		if b == nil {
-			return errors.New("clients bucket not found")
+			return gaiaerrors.NewStorageError("registerClient", clientsBucket, "", "bucket not found", gaiaerrors.ErrBucketNotFound)
 		}
 		if err := b.Put([]byte(newClient.ID), clientData); err != nil {
-			return err
+			return fmt.Errorf("failed to store client: %w", err)
 		}
 
 		gaialog.Get().Info("client registered", slog.String("client_name", clientName), slog.String("client_id", newClient.ID))
@@ -416,7 +416,7 @@ func (d *Daemon) ListClients() ([]Client, error) {
 	defer d.dbLock.RUnlock()
 
 	if d.isLocked || d.db == nil {
-		return nil, errors.New("daemon is in a locked state, cannot list clients")
+		return nil, gaiaerrors.ErrDaemonLocked
 	}
 
 	var clients []Client
@@ -451,7 +451,7 @@ func (d *Daemon) RevokeClient(clientName string) error {
 	defer d.dbLock.Unlock()
 
 	if d.isLocked || d.db == nil {
-		return errors.New("daemon is in a locked state, cannot revoke clients")
+		return gaiaerrors.ErrDaemonLocked
 	}
 
 	return d.db.Update(func(tx *bbolt.Tx) error {
@@ -485,7 +485,7 @@ func (d *Daemon) RevokeClient(clientName string) error {
 func (d *Daemon) findClientByName(tx *bbolt.Tx, name string) (*Client, []byte, error) {
 	b := tx.Bucket([]byte(clientsBucket))
 	if b == nil {
-		return nil, nil, errors.New("internal error: clients bucket not found")
+		return nil, nil, gaiaerrors.NewStorageError("findClientByName", clientsBucket, "", "bucket not found", gaiaerrors.ErrBucketNotFound)
 	}
 
 	// First, try a direct lookup. This is a fast path for the 'common' client.
@@ -518,7 +518,7 @@ func (d *Daemon) findClientByName(tx *bbolt.Tx, name string) (*Client, []byte, e
 	}
 
 	if foundClient == nil {
-		return nil, nil, fmt.Errorf("client with name '%s' not found", name)
+		return nil, nil, fmt.Errorf("%w: '%s'", gaiaerrors.ErrClientNotFound, name)
 	}
 
 	return foundClient, foundKey, nil
@@ -530,7 +530,7 @@ func (d *Daemon) ListNamespaces(clientName string) ([]string, error) {
 	defer d.dbLock.RUnlock()
 
 	if d.isLocked || d.db == nil {
-		return nil, errors.New("daemon is in a locked state, cannot list namespaces")
+		return nil, gaiaerrors.ErrDaemonLocked
 	}
 
 	var namespaces []string
@@ -567,7 +567,7 @@ func (d *Daemon) AddSecret(clientName, namespace, id, value string) error {
 	defer d.dbLock.Unlock()
 
 	if d.isLocked || d.db == nil {
-		return errors.New("daemon is in a locked state, cannot write secrets")
+		return gaiaerrors.ErrDaemonLocked
 	}
 
 	return d.db.Update(func(tx *bbolt.Tx) error {
@@ -603,11 +603,11 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 	defer d.dbLock.RUnlock()
 
 	if d.isLocked {
-		return "", errors.New("daemon is locked")
+		return "", gaiaerrors.ErrDaemonLocked
 	}
 
 	if d.db == nil {
-		return "", errors.New("database not open")
+		return "", fmt.Errorf("database not open")
 	}
 
 	var decryptedValue string
@@ -639,11 +639,11 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 		var encValue []byte
 		b := tx.Bucket([]byte(secretsBucket))
 		if b == nil {
-			return errors.New("bucket not found")
+			return gaiaerrors.ErrBucketNotFound
 		}
 		encValue = b.Get(key)
 		if encValue == nil {
-			return errors.New("secret not found")
+			return fmt.Errorf("%w: %s/%s/%s", gaiaerrors.ErrSecretNotFound, clientName, namespace, id)
 		}
 
 		decVal, err := encrypt.Decrypt(d.key, string(encValue))
@@ -666,7 +666,7 @@ func (d *Daemon) DeleteSecret(clientName, namespace, id string) error {
 	defer d.dbLock.Unlock()
 
 	if d.isLocked || d.db == nil {
-		return errors.New("daemon is in a locked state, cannot delete secrets")
+		return gaiaerrors.ErrDaemonLocked
 	}
 
 	return d.db.Update(func(tx *bbolt.Tx) error {
@@ -691,7 +691,7 @@ func (d *Daemon) ListSecrets(clientName string) (map[string]map[string]string, e
 	defer d.dbLock.RUnlock()
 
 	if d.isLocked {
-		return nil, errors.New("daemon is in a locked state")
+		return nil, gaiaerrors.ErrDaemonLocked
 	}
 
 	allSecrets := make(map[string]map[string]string)
@@ -736,7 +736,7 @@ func (d *Daemon) ImportSecrets(secrets []*pb.ImportSecretItem, overwrite bool) (
 	defer d.dbLock.Unlock()
 
 	if d.isLocked || d.db == nil {
-		return 0, errors.New("daemon is in a locked state, cannot import secrets")
+		return 0, gaiaerrors.ErrDaemonLocked
 	}
 
 	var importedCount int
@@ -807,7 +807,7 @@ func (d *Daemon) loadTLSCredentials() (credentials.TransportCredentials, error) 
 		return nil, fmt.Errorf("could not read CA certificate: %w", err)
 	}
 	if !certPool.AppendCertsFromPEM(caCert) {
-		return nil, errors.New("could not append CA certificate to pool")
+		return nil, fmt.Errorf("could not append CA certificate to pool")
 	}
 
 	serverCert, err := tls.LoadX509KeyPair(serverCertPath, serverKeyPath)
@@ -829,28 +829,28 @@ func (d *Daemon) loadCACredentials() error {
 
 	keyBytes, err := os.ReadFile(caKeyPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read CA key file: %w", err)
 	}
 	keyBlock, _ := pem.Decode(keyBytes)
 	if keyBlock == nil {
-		return errors.New("failed to decode CA private key PEM")
+		return fmt.Errorf("failed to decode CA private key PEM")
 	}
 	d.caKey, err = x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse CA private key: %w", err)
 	}
 
 	certBytes, err := os.ReadFile(caCertPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read CA certificate file: %w", err)
 	}
 	certBlock, _ := pem.Decode(certBytes)
 	if certBlock == nil {
-		return errors.New("failed to decode CA certificate PEM")
+		return fmt.Errorf("failed to decode CA certificate PEM")
 	}
 	d.caCert, err = x509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse CA certificate: %w", err)
 	}
 
 	return nil
