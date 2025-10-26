@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -14,6 +15,59 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
+
+// mapErrorToGRPCStatus converts domain errors to appropriate gRPC status codes.
+func mapErrorToGRPCStatus(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// Check for sentinel errors
+	switch {
+	case errors.Is(err, gaiaerrors.ErrDaemonLocked):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, gaiaerrors.ErrDaemonNotRunning):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, gaiaerrors.ErrInvalidPassphrase):
+		return status.Error(codes.Unauthenticated, "invalid passphrase")
+	case errors.Is(err, gaiaerrors.ErrClientNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, gaiaerrors.ErrClientExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, gaiaerrors.ErrSecretNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, gaiaerrors.ErrReservedName):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, gaiaerrors.ErrNoPeerContext),
+		errors.Is(err, gaiaerrors.ErrNotTLS),
+		errors.Is(err, gaiaerrors.ErrNoPeerCertificates):
+		return status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	// Check for typed errors
+	var valErr *gaiaerrors.ValidationError
+	if errors.As(err, &valErr) {
+		return status.Error(codes.InvalidArgument, valErr.Error())
+	}
+
+	var authErr *gaiaerrors.AuthError
+	if errors.As(err, &authErr) {
+		return status.Error(codes.PermissionDenied, authErr.Error())
+	}
+
+	var cryptoErr *gaiaerrors.CryptoError
+	if errors.As(err, &cryptoErr) {
+		return status.Error(codes.Internal, "cryptographic operation failed")
+	}
+
+	var storageErr *gaiaerrors.StorageError
+	if errors.As(err, &storageErr) {
+		return status.Error(codes.Internal, "storage operation failed")
+	}
+
+	// Default to Internal for unknown errors
+	return status.Error(codes.Internal, "internal server error")
+}
 
 func getClientIdentity(ctx context.Context) (string, error) {
 	p, ok := peer.FromContext(ctx)
@@ -87,12 +141,12 @@ func (s *gaiaAdminServer) GetStatus(_ context.Context, _ *pb.GetStatusRequest) (
 func (s *gaiaClientServer) GetSecret(ctx context.Context, req *pb.GetSecretRequest) (*pb.Secret, error) {
 	clientName, err := getClientIdentity(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not identify client: %w", err)
+		return nil, mapErrorToGRPCStatus(err)
 	}
 
 	value, err := s.daemon.GetSecret(clientName, req.Namespace, req.Id)
 	if err != nil {
-		return nil, err
+		return nil, mapErrorToGRPCStatus(err)
 	}
 	return &pb.Secret{Id: req.Id, Value: value}, nil
 }
@@ -107,7 +161,7 @@ func (s *gaiaAdminServer) Lock(_ context.Context, _ *pb.LockRequest) (*pb.LockRe
 func (s *gaiaAdminServer) Unlock(_ context.Context, req *pb.UnlockRequest) (*pb.UnlockResponse, error) {
 	err := s.d.UnlockDB(req.Passphrase)
 	if err != nil {
-		return &pb.UnlockResponse{Success: false}, err
+		return &pb.UnlockResponse{Success: false}, mapErrorToGRPCStatus(err)
 	}
 	return &pb.UnlockResponse{Success: true}, nil
 }
@@ -118,16 +172,16 @@ func (s *gaiaAdminServer) RegisterClient(_ context.Context, req *pb.RegisterClie
 	}
 
 	if err := validation.ValidateClient(req.ClientName); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, mapErrorToGRPCStatus(err)
 	}
 
 	certPEM, keyPEM, err := certs.GenerateClientCertificateData(req.ClientName, s.d.caCert, s.d.caKey, s.d.config.CertExpiryDays)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate client certificate: %w", err)
+		return nil, status.Errorf(codes.Internal, "failed to generate client certificate: %v", err)
 	}
 
 	if err := s.d.RegisterClient(req.ClientName); err != nil {
-		return nil, fmt.Errorf("failed to register client in database: %w", err)
+		return nil, mapErrorToGRPCStatus(err)
 	}
 
 	return &pb.RegisterClientResponse{
@@ -143,7 +197,7 @@ func (s *gaiaAdminServer) ListClients(_ context.Context, _ *pb.ListClientsReques
 
 	clients, err := s.d.ListClients()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get client list: %w", err)
+		return nil, mapErrorToGRPCStatus(err)
 	}
 
 	pbClients := make([]*pb.Client, len(clients))
@@ -164,11 +218,11 @@ func (s *gaiaAdminServer) RevokeClient(_ context.Context, req *pb.RevokeClientRe
 	}
 
 	if err := validation.ValidateClient(req.ClientName); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, mapErrorToGRPCStatus(err)
 	}
 
 	if err := s.d.RevokeClient(req.ClientName); err != nil {
-		return nil, fmt.Errorf("failed to revoke client '%s': %w", req.ClientName, err)
+		return nil, mapErrorToGRPCStatus(err)
 	}
 
 	return &pb.RevokeClientResponse{Success: true}, nil
@@ -181,7 +235,7 @@ func (s *gaiaAdminServer) ListNamespaces(_ context.Context, req *pb.ListNamespac
 
 	namespaces, err := s.d.ListNamespaces(req.ClientName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get namespace list for client '%s': %w", req.ClientName, err)
+		return nil, mapErrorToGRPCStatus(err)
 	}
 
 	return &pb.ListNamespacesResponse{Namespaces: namespaces}, nil

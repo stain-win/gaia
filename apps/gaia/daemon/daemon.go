@@ -20,7 +20,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -75,6 +74,7 @@ type Daemon struct {
 	status      string
 	isLocked    bool
 	stopChannel chan struct{}
+	stopOnce    sync.Once // Ensures shutdown runs only once
 	createdAt   time.Time
 }
 
@@ -146,7 +146,9 @@ func (d *Daemon) Start(cfg *config.Config) error {
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", d.config.GRPCPort))
 	if err != nil {
-		d.db.Close()
+		if closeErr := d.db.Close(); closeErr != nil {
+			gaialog.Get().Error("failed to close database after listen error", "error", closeErr)
+		}
 		d.status = StatusStopped
 		return fmt.Errorf("failed to listen: %w", err)
 	}
@@ -154,7 +156,8 @@ func (d *Daemon) Start(cfg *config.Config) error {
 	d.status = StatusRunning
 	d.isLocked = true
 
-	log.Println("Gaia daemon started successfully and is running in the foreground.")
+	gaialog.Get().Info("Gaia daemon started successfully", "port", d.config.GRPCPort)
+
 	errChan := make(chan error, 1)
 	go func() {
 		if err := d.server.Serve(listener); err != nil {
@@ -165,12 +168,36 @@ func (d *Daemon) Start(cfg *config.Config) error {
 	// Block until a stop signal is received via the channel
 	select {
 	case <-d.stopChannel:
-		d.server.GracefulStop()
+		gaialog.Get().Info("Shutdown signal received, stopping gracefully...")
+
+		// Graceful shutdown with timeout
+		stopped := make(chan struct{})
+		go func() {
+			d.server.GracefulStop()
+			close(stopped)
+		}()
+
+		// Wait for graceful shutdown with 30-second timeout
+		select {
+		case <-stopped:
+			gaialog.Get().Info("Server stopped gracefully")
+		case <-time.After(30 * time.Second):
+			gaialog.Get().Warn("Graceful shutdown timeout, forcing stop")
+			d.server.Stop()
+		}
+
 	case err := <-errChan:
+		d.status = StatusStopped
+		if closeErr := d.db.Close(); closeErr != nil {
+			gaialog.Get().Error("failed to close database", "error", closeErr)
+		}
 		return err
 	}
+
 	d.status = StatusStopped
-	d.db.Close()
+	if err := d.db.Close(); err != nil {
+		gaialog.Get().Error("failed to close database during shutdown", "error", err)
+	}
 	return nil
 }
 
@@ -216,8 +243,13 @@ func (d *Daemon) GetConfig() *config.Config {
 
 // Stop is the gRPC method for stopping the daemon.
 func (s *gaiaAdminServer) Stop(_ context.Context, _ *pb.StopRequest) (*pb.StopResponse, error) {
-	log.Println("Received stop request via gRPC. Shutting down...")
-	close(s.d.stopChannel)
+	gaialog.Get().Info("Received stop request via gRPC")
+
+	// Use sync.Once to ensure shutdown happens only once
+	s.d.stopOnce.Do(func() {
+		close(s.d.stopChannel)
+	})
+
 	return &pb.StopResponse{Success: true}, nil
 }
 
@@ -708,13 +740,14 @@ func (d *Daemon) ListSecrets(clientName string) (map[string]map[string]string, e
 		c := tx.Bucket([]byte(secretsBucket)).Cursor()
 
 		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
-			parts := strings.SplitN(string(k), "\x00", 3)
+			// Use bytes.SplitN instead of converting to string for better performance
+			parts := bytes.SplitN(k, nullByte, 3)
 			if len(parts) != 3 {
 				continue
 			}
 
-			namespace := parts[1]
-			secretKey := parts[2]
+			namespace := string(parts[1])
+			secretKey := string(parts[2])
 
 			decryptedValue, err := encrypt.Decrypt(d.key, string(v))
 			if err != nil {
@@ -826,6 +859,7 @@ func (d *Daemon) loadTLSCredentials() (credentials.TransportCredentials, error) 
 }
 
 // loadCACredentials loads the CA certificate and private key from disk.
+// Supports both PKCS#1 and PKCS#8 private key formats.
 func (d *Daemon) loadCACredentials() error {
 	caKeyPath := filepath.Join(d.config.CertsDirectory, "ca.key")
 	caCertPath := filepath.Join(d.config.CertsDirectory, "ca.crt")
@@ -838,10 +872,24 @@ func (d *Daemon) loadCACredentials() error {
 	if keyBlock == nil {
 		return fmt.Errorf("failed to decode CA private key PEM")
 	}
-	d.caKey, err = x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+
+	// Try PKCS#1 first (traditional RSA format)
+	rsaKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
 	if err != nil {
-		return fmt.Errorf("failed to parse CA private key: %w", err)
+		// Fallback to PKCS#8 (modern format that supports multiple key types)
+		pkcs8Key, err := x509.ParsePKCS8PrivateKey(keyBlock.Bytes)
+		if err != nil {
+			return fmt.Errorf("failed to parse CA private key (tried both PKCS#1 and PKCS#8): %w", err)
+		}
+
+		// Type assert to RSA key
+		var ok bool
+		rsaKey, ok = pkcs8Key.(*rsa.PrivateKey)
+		if !ok {
+			return fmt.Errorf("CA private key is not an RSA key (got %T)", pkcs8Key)
+		}
 	}
+	d.caKey = rsaKey
 
 	certBytes, err := os.ReadFile(caCertPath)
 	if err != nil {
