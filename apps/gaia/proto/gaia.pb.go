@@ -247,7 +247,7 @@ func (x *AddSecretResponse) GetMessage() string {
 
 type GetSecretRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"` // Change from just 'id'
+	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -723,8 +723,10 @@ func (x *RegisterClientResponse) GetPrivateKey() string {
 
 type Client struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	TimeCreated   string                 `protobuf:"bytes,2,opt,name=time_created,json=timeCreated,proto3" json:"time_created,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	TimeCreated   string                 `protobuf:"bytes,4,opt,name=time_created,json=timeCreated,proto3" json:"time_created,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -759,9 +761,23 @@ func (*Client) Descriptor() ([]byte, []int) {
 	return file_gaia_proto_rawDescGZIP(), []int{15}
 }
 
+func (x *Client) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 func (x *Client) GetName() string {
 	if x != nil {
 		return x.Name
+	}
+	return ""
+}
+
+func (x *Client) GetStatus() string {
+	if x != nil {
+		return x.Status
 	}
 	return ""
 }
@@ -1513,10 +1529,12 @@ const file_gaia_proto_rawDesc = "" +
 	"\x16RegisterClientResponse\x12 \n" +
 	"\vcertificate\x18\x01 \x01(\tR\vcertificate\x12\x1f\n" +
 	"\vprivate_key\x18\x02 \x01(\tR\n" +
-	"privateKey\"?\n" +
-	"\x06Client\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
-	"\ftime_created\x18\x02 \x01(\tR\vtimeCreated\"\x14\n" +
+	"privateKey\"g\n" +
+	"\x06Client\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12!\n" +
+	"\ftime_created\x18\x04 \x01(\tR\vtimeCreated\"\x14\n" +
 	"\x12ListClientsRequest\"=\n" +
 	"\x13ListClientsResponse\x12&\n" +
 	"\aclients\x18\x01 \x03(\v2\f.gaia.ClientR\aclients\"8\n" +

@@ -39,8 +39,15 @@ func Init(level Level, filename string, isProduction bool) {
 	logger = slog.New(handler)
 }
 
-// Get returns the configured logger instance.
+// Get returns the configured logger instance. If Init was not called, it lazily
+// creates a console logger at INFO level to avoid nil dereferences.
 func Get() *slog.Logger {
+	if logger == nil {
+		// Lazy initialize a sensible default (console text handler at INFO level)
+		logLevel.Set(slogLevel(LevelInfo))
+		handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel})
+		logger = slog.New(handler)
+	}
 	return logger
 }
 

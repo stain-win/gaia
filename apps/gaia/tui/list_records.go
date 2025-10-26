@@ -269,7 +269,7 @@ func (m *inspectorModel) handleClientsLoaded(msg allClientsLoadedMsg) (*inspecto
 	}
 	var items []list.Item
 	for _, client := range msg.clients {
-		items = append(items, listItem{title: client.Name, description: "Client"})
+		items = append(items, listItem{title: client.Id, description: client.Status})
 	}
 	m.clientsList.SetItems(items)
 
@@ -361,6 +361,17 @@ func (m *inspectorModel) View() string {
 		viewportStyle = focusedPaneStyle
 	}
 
+	// Calculate pane widths
+	contentWidth := m.width
+	if m.width > 160 {
+		contentWidth = 160
+	}
+	leftPaneWidth := contentWidth / 4
+
+	// Set explicit widths for the left panes to ensure they are equal
+	clientsStyle = clientsStyle.Width(leftPaneWidth)
+	secretsStyle = secretsStyle.Width(leftPaneWidth)
+
 	leftPane := lipgloss.JoinVertical(lipgloss.Left,
 		clientsStyle.Render(clientsView),
 		secretsStyle.Render(secretsView),
@@ -399,14 +410,14 @@ func (m *inspectorModel) SetSize(w, h int) {
 	m.height = h
 
 	contentWidth := w
-	if w > 120 {
-		contentWidth = 120
+	if w > 160 {
+		contentWidth = 160
 	}
 
 	statusBarHeight := 1
 	mainHeight := h - statusBarHeight
 
-	leftPaneWidth := contentWidth / 3
+	leftPaneWidth := contentWidth / 4
 	rightPaneWidth := contentWidth - leftPaneWidth
 
 	// paneStyle has 1px border and 1px padding on each side (left/right). Total horizontal overhead is 4.

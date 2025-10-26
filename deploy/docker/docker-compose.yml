@@ -1,0 +1,57 @@
+version: '3.8'
+
+# This Docker Compose file sets up the Gaia ecosystem for local development.
+# It defines two main services: the Gaia daemon and a client for interacting with it.
+
+services:
+  # The Gaia Daemon Service
+  # This is the core service that runs the Gaia secrets management daemon.
+  daemon:
+    build:
+      # The build context is the root of the repository, so Docker can access all source code.
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.daemon
+    container_name: gaia-daemon
+    restart: unless-stopped
+    ports:
+      # Expose the gRPC port to the host machine for local development and testing.
+      - "50051:50051"
+    volumes:
+      # Mount a local directory for configuration. This is where you will place
+      # your config.yaml and the server's TLS certificates.
+      - ./config/daemon:/etc/gaia
+      # Use a named volume to persist the Gaia database across container restarts.
+      - gaia-data:/var/lib/gaia
+    networks:
+      - gaia-net
+
+  # The Gaia Client Service
+  # This service is not meant to run continuously. Instead, it is used to execute
+  # one-off commands against the daemon (e.g., registering a new client).
+  client:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.client
+    container_name: gaia-client
+    # This ensures the daemon is running before any client commands are attempted.
+    depends_on:
+      - daemon
+    volumes:
+      # Mount a local directory for the client's configuration and certificates.
+      # This allows the client to authenticate with the daemon.
+      - ./config/client:/etc/gaia
+    networks:
+      - gaia-net
+    # By default, this service does nothing. Use `docker-compose run` to execute commands.
+    # Example: docker-compose run --rm client clients list
+    entrypoint: ["gaia"]
+    command: ["--help"]
+
+# Named volume for persisting the Gaia database.
+volumes:
+  gaia-data:
+
+# Dedicated network for secure communication between services.
+networks:
+  gaia-net:
+    driver: bridge
