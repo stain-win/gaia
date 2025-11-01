@@ -52,7 +52,7 @@ The daemon must be unlocked before it can serve secrets to clients. You will be
 prompted to enter the master passphrase securely.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Print("Enter master passphrase: ")
-		passphrase, err := term.ReadPassword(syscall.Stdin)
+		passphrase, err := term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
 			return fmt.Errorf("failed to read passphrase: %w", err)
 		}
