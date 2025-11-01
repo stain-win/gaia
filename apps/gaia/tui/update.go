@@ -136,7 +136,7 @@ func (m *model) updateDataManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 			selected := m.dataMenu.SelectedItem().(menuItem)
 			switch selected.title {
 			case "Add New Record":
-				// Check if daemon is locked or offline
+				// Check if the daemon is locked or offline
 				if isDaemonLocked(m.daemonStatus) {
 					m.statusMessage = "⚠️ Cannot add records - Gaia is locked. Please unlock first."
 					m.activeScreen = mainMenu
@@ -152,7 +152,7 @@ func (m *model) updateDataManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, fetchClientsCmd(m.config)
 
 			case "List All Records":
-				// Check if daemon is locked or offline
+				// Check if the daemon is locked or offline
 				if isDaemonLocked(m.daemonStatus) {
 					m.statusMessage = "⚠️ Cannot list records - Gaia is locked. Please unlock first."
 					m.activeScreen = mainMenu
@@ -180,7 +180,7 @@ func (m *model) updateDataManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for i, c := range msg.clients {
 			m.clients[i] = c.Name
 		}
-		m.addRecordFormModel = newAddRecordFormModel(m.clients, m.namespaces)
+		m.addRecordFormModel = newAddRecordFormModel(m.clients)
 		m.activeScreen = addRecord
 		m.statusMessage = "Enter new record details."
 		return m, m.addRecordFormModel.Init()
@@ -209,7 +209,7 @@ func (m *model) updateAddRecord(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Handle the escape key to exit the form (only 'esc', not 'b' since form needs input)
+		// Handle the escape key to exit the form (only 'esc', not 'b' since the form needs input)
 		if msg.String() == "esc" {
 			m.activeScreen = dataManagement
 			m.statusMessage = ""
@@ -356,7 +356,7 @@ func (m *model) updateUnlockScreen(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// rebuildMainMenu rebuilds the main menu items based on daemon state.
+// rebuildMainMenu rebuilds the main menu items based on the daemon state.
 func (m *model) rebuildMainMenu() {
 	// Common menu items that appear in all states
 	certItem := menuItem{"Manage Certificates", "View and manage your certificates"}
@@ -374,14 +374,14 @@ func (m *model) rebuildMainMenu() {
 			quitItem,
 		}
 	case isOffline(m.daemonStatus):
-		// When offline/stopped/starting, show disabled menu
+		// When offline/stopped/starting, show a disabled menu
 		items = []list.Item{
 			menuItem{"Manage Data (Offline)", "⚠️ Daemon not running - Cannot access secret records"},
 			certItem,
 			quitItem,
 		}
 	default:
-		// When unlocked or any other state, show normal menu
+		// When unlocked or any other state, show a normal menu
 		items = []list.Item{
 			menuItem{"Manage Data", "Add, view, or delete secret records"},
 			certItem,

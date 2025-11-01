@@ -52,7 +52,7 @@ func startTestServer(mock pb.GaiaClientServer) (*grpc.ClientConn, func()) {
 		}
 	}()
 
-	conn, err := grpc.DialContext(context.Background(), "",
+	conn, err := grpc.NewClient("passthrough:///bufnet",
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return lis.Dial()
 		}),

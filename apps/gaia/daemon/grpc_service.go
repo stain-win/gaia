@@ -86,16 +86,6 @@ func getClientIdentity(ctx context.Context) (string, error) {
 	return clientCert.Subject.CommonName, nil
 }
 
-// NewAdminServer creates a new server for the GaiaAdmin service.
-func NewAdminServer(d *Daemon) pb.GaiaAdminServer {
-	return &gaiaAdminServer{d: d}
-}
-
-// NewClientServer creates a new server for the GaiaClient service.
-func NewClientServer(d *Daemon) pb.GaiaClientServer {
-	return &gaiaClientServer{daemon: d}
-}
-
 // AddSecret handles the AddSecret RPC call.
 func (s *gaiaAdminServer) AddSecret(_ context.Context, req *pb.AddSecretRequest) (*pb.AddSecretResponse, error) {
 	if s.d.isLocked {
@@ -287,7 +277,7 @@ func (s *gaiaAdminServer) ImportSecrets(stream pb.GaiaAdmin_ImportSecretsServer)
 	})
 }
 
-func (s *gaiaAdminServer) ListSecrets(ctx context.Context, req *pb.ListSecretsRequest) (*pb.ListSecretsResponse, error) {
+func (s *gaiaAdminServer) ListSecrets(_ context.Context, req *pb.ListSecretsRequest) (*pb.ListSecretsResponse, error) {
 	if s.d.isLocked {
 		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
 	}

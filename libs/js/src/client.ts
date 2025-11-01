@@ -83,7 +83,7 @@ export type SecretsMap = Record<string, Record<string, string>>;
  */
 export class GaiaClient {
   private client: any;
-  private protoPath: string;
+  private readonly protoPath: string;
 
   /**
    * Creates a new Gaia client.

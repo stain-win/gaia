@@ -36,7 +36,7 @@ func saveKey(filename string, key *rsa.PrivateKey) error {
 	})
 }
 
-// loadCA reads a CA certificate and private key from disk.
+// loadCA reads a CA certificate and private key from the disk.
 func loadCA(certPath, keyPath string) (*x509.Certificate, *rsa.PrivateKey, error) {
 	caCertPEM, err := os.ReadFile(certPath)
 	if err != nil {

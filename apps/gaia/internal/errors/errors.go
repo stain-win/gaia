@@ -17,7 +17,6 @@ var (
 	ErrDatabaseExists       = errors.New("database already exists")
 	ErrClientNotFound       = errors.New("client not found")
 	ErrClientExists         = errors.New("client already exists")
-	ErrNamespaceNotFound    = errors.New("namespace not found")
 	ErrSecretNotFound       = errors.New("secret not found")
 	ErrBucketNotFound       = errors.New("bucket not found")
 	ErrSaltNotFound         = errors.New("salt not found")
@@ -101,15 +100,6 @@ func (e *AuthError) Error() string {
 
 func (e *AuthError) Unwrap() error {
 	return e.Err
-}
-
-// NewAuthError creates a new authentication error.
-func NewAuthError(client, message string, err error) *AuthError {
-	return &AuthError{
-		Client:  client,
-		Message: message,
-		Err:     err,
-	}
 }
 
 // CryptoError represents encryption/decryption failures.

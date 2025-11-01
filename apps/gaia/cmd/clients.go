@@ -40,7 +40,7 @@ with the Gaia daemon.`,
 		defer cancel()
 
 		cfg := gaiaDaemon.GetConfig()
-		conn, err := getClientConn(ctx, cfg)
+		conn, err := getClientConn(cfg)
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon: %w", err)
 		}

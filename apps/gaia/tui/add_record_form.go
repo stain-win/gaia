@@ -21,10 +21,10 @@ type addRecordFormModel struct {
 	form    *huh.Form
 	width   int
 	height  int
-	success bool // true if record was saved
+	success bool // true if the record was saved
 }
 
-func newAddRecordFormModel(clients []string, namespaces []string) *addRecordFormModel {
+func newAddRecordFormModel(clients []string) *addRecordFormModel {
 	var clientName, namespace, key, value string
 
 	clientOptions := make([]huh.Option[string], len(clients))
@@ -117,8 +117,7 @@ func (m *addRecordFormModel) View() string {
 }
 
 func (m *addRecordFormModel) resetForm() {
-	clients := []string{}
-	namespaces := []string{}
-	m.form = newAddRecordFormModel(clients, namespaces).form
+	var clients []string
+	m.form = newAddRecordFormModel(clients).form
 	m.success = false
 }

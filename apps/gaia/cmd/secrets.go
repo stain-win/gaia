@@ -67,7 +67,7 @@ secrets with the values from the file.`,
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // Longer timeout for potentially large files
 		defer cancel()
 		cfg := gaiaDaemon.GetConfig()
-		conn, err := getClientConn(ctx, cfg)
+		conn, err := getClientConn(cfg)
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon: %w", err)
 		}

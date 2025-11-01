@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -14,7 +13,7 @@ import (
 )
 
 // getClientConn establishes a secure gRPC connection to the daemon.
-func getClientConn(ctx context.Context, cfg *config.Config) (*grpc.ClientConn, error) {
+func getClientConn(cfg *config.Config) (*grpc.ClientConn, error) {
 	daemonAddress := fmt.Sprintf("%s:%s", cfg.GRPCServerName, cfg.GRPCPort)
 	caCertFile := filepath.Join(cfg.CertsDirectory, cfg.CACertFile)
 	clientCertFile := filepath.Join(cfg.CertsDirectory, cfg.GaiaClientCertFile)

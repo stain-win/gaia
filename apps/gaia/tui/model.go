@@ -49,7 +49,6 @@ type model struct {
 	width                   int
 	height                  int
 	clients                 []string
-	namespaces              []string
 	daemonStatus            string
 	config                  *config.Config
 	//listRecords             listRecordsModel // New model state
@@ -113,7 +112,7 @@ func initialModel(config *config.Config) *model {
 		dataMenu:                dataList,
 		certMenu:                certList,
 		help:                    help.New(),
-		addRecordFormModel:      newAddRecordFormModel(nil, nil),
+		addRecordFormModel:      newAddRecordFormModel(nil),
 		registerClientFormModel: newRegisterClientFormModel(),
 		unlockFormModel:         newUnlockFormModel(),
 		daemonStatus:            "",

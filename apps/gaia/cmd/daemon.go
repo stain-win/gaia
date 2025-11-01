@@ -87,7 +87,7 @@ var stopCmd = &cobra.Command{
 		defer cancel()
 
 		cfg := gaiaDaemon.GetConfig()
-		conn, err := getClientConn(ctx, cfg)
+		conn, err := getClientConn(cfg)
 		if err != nil {
 			fmt.Printf("Error: could not connect to daemon. Is it running? %v\n", err)
 			return
@@ -116,7 +116,7 @@ var restartCmd = &cobra.Command{
 		defer cancel()
 
 		cfg := gaiaDaemon.GetConfig()
-		conn, err := getClientConn(ctx, cfg)
+		conn, err := getClientConn(cfg)
 		if err != nil {
 			fmt.Printf("Error: could not connect to daemon for restart. Is it running? %v\n", err)
 			return
@@ -149,7 +149,7 @@ var statusCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.GRPCClientTimeout)
 		defer cancel()
 
-		conn, err := getClientConn(ctx, cfg)
+		conn, err := getClientConn(cfg)
 		if err != nil {
 			fmt.Printf("Gaia daemon status: %s\n", daemon.StatusStopped)
 			return

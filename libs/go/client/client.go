@@ -2,8 +2,6 @@ package client
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"os"
 	"strings"
@@ -11,8 +9,6 @@ import (
 
 	pb "github.com/stain-win/gaia/libs/go/proto"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -36,60 +32,6 @@ type Config struct {
 	Timeout time.Duration
 	// Insecure allows connecting without TLS. For development only.
 	Insecure bool
-}
-
-// NewClient creates a new Gaia client. It handles loading TLS credentials
-// and establishing a secure gRPC connection to the daemon.
-func NewClient(cfg Config) (*Client, error) {
-	var opts []grpc.DialOption
-
-	if cfg.Insecure {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	} else {
-		if cfg.ClientCertFile == "" || cfg.ClientKeyFile == "" || cfg.CACertFile == "" {
-			return nil, fmt.Errorf("for secure connections, ca_cert, client_cert, and client_key paths are required")
-		}
-		// Load client TLS certificates
-		clientCert, err := tls.LoadX509KeyPair(cfg.ClientCertFile, cfg.ClientKeyFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load client certs: %w", err)
-		}
-
-		// Load CA cert
-		caCert, err := os.ReadFile(cfg.CACertFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read ca cert file: %w", err)
-		}
-
-		caCertPool := x509.NewCertPool()
-		if !caCertPool.AppendCertsFromPEM(caCert) {
-			return nil, fmt.Errorf("failed to add ca cert to pool")
-		}
-
-		creds := credentials.NewTLS(&tls.Config{
-			Certificates: []tls.Certificate{clientCert},
-			RootCAs:      caCertPool,
-		})
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	}
-
-	if cfg.Timeout == 0 {
-		cfg.Timeout = 5 * time.Second
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
-	defer cancel()
-
-	opts = append(opts, grpc.WithBlock())
-	conn, err := grpc.DialContext(ctx, cfg.Address, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to gaia daemon: %w", err)
-	}
-
-	return &Client{
-		conn:   conn,
-		client: pb.NewGaiaClientClient(conn),
-	}, nil
 }
 
 // Close closes the client's connection to the Gaia daemon.

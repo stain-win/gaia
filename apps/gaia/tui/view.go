@@ -5,7 +5,7 @@ import (
 )
 
 func (m *model) statusView() string {
-	// Create status indicator with visual icons
+	// Create a status indicator with visual icons
 	var statusIcon, statusColor string
 	var statusBg lipgloss.Color
 
@@ -13,19 +13,19 @@ func (m *model) statusView() string {
 	case DaemonStatusUnlocked:
 		statusIcon = "🔓"
 		statusColor = "#00FF00" // Green
-		statusBg = lipgloss.Color("#003300")
+		statusBg = "#003300"
 	case DaemonStatusLocked:
 		statusIcon = "🔒"
 		statusColor = "#FFA500" // Orange
-		statusBg = lipgloss.Color("#332200")
+		statusBg = "#332200"
 	case DaemonStatusOffline, DaemonStatusStopped, DaemonStatusStarting:
 		statusIcon = "⚠️"
 		statusColor = "#FF0000" // Red
-		statusBg = lipgloss.Color("#330000")
+		statusBg = "#330000"
 	default:
 		statusIcon = "❓"
 		statusColor = "#888888" // Gray
-		statusBg = lipgloss.Color("#222222")
+		statusBg = "#222222"
 	}
 
 	statusText := lipgloss.NewStyle().
@@ -33,7 +33,7 @@ func (m *model) statusView() string {
 		Bold(true).
 		Render(statusIcon + " " + m.daemonStatus)
 
-	// Add status message if present
+	// Add a status message if present
 	var fullStatus string
 	if m.statusMessage != "" {
 		msgStyle := lipgloss.NewStyle().
@@ -82,7 +82,7 @@ func (m *model) View() string {
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.unlockFormModel.View())
 	}
 
-	// Show status bar at the top
+	// Show the status bar at the top
 	statusBar := m.statusView()
 
 	content := lipgloss.JoinVertical(lipgloss.Center, statusBar, screenView)

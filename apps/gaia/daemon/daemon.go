@@ -49,7 +49,7 @@ const (
 	StatusStarting  = "starting"
 	commonNamespace = "common"
 
-	// Client statuses
+	// ClientStatusActive Client statuses
 	ClientStatusActive  = "active"
 	ClientStatusRevoked = "revoked"
 )
@@ -78,7 +78,7 @@ type Daemon struct {
 	createdAt   time.Time
 }
 
-// NewDaemon creates a new Daemon instance with default configuration.
+// NewDaemon creates a new Daemon instance with the default configuration.
 func NewDaemon(cfg *config.Config) *Daemon {
 	return &Daemon{
 		config:      cfg,
@@ -232,7 +232,7 @@ func (d *Daemon) Restart(ctx context.Context) error {
 // Status returns the current operational status of the daemon.
 // Returns "locked", "unlocked", "starting", or "stopped"
 func (d *Daemon) Status() string {
-	// If daemon is running, return lock state
+	// If the daemon is running, return lock state
 	if d.status == StatusRunning {
 		if d.isLocked {
 			return "locked"
@@ -467,7 +467,7 @@ func (d *Daemon) ListClients() ([]Client, error) {
 	err := d.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(clientsBucket))
 		if b == nil {
-			return nil // No clients bucket means no clients.
+			return nil // No client's bucket means no clients.
 		}
 
 		return b.ForEach(func(k, v []byte) error {

@@ -43,7 +43,7 @@ func (m *unlockFormModel) Init() tea.Cmd {
 }
 
 func (m *unlockFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Check for escape key to go back (for forms, we only use esc, not 'b')
+	// Check for an escape key to go back (for forms, we only use esc, not 'b')
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
 		return m, func() tea.Msg {
 			return BackMsg{}

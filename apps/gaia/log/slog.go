@@ -51,11 +51,6 @@ func Get() *slog.Logger {
 	return logger
 }
 
-// SetLevel dynamically changes the log level of the global logger.
-func SetLevel(level Level) {
-	logLevel.Set(slogLevel(level))
-}
-
 // slogLevel converts our custom Level to a slog.Level.
 func slogLevel(level Level) slog.Level {
 	switch level {

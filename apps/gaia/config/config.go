@@ -117,23 +117,3 @@ func loadConfigFromEnv(cfg *Config) {
 		cfg.GRPCPort = grpcPort
 	}
 }
-
-// WriteConfigToFile writes the given config to the specified path.
-func WriteConfigToFile(cfg *Config) error {
-	path, err := getDefaultConfigPath()
-	if err != nil {
-		return fmt.Errorf("failed to get default config path: %w", err)
-	}
-	data, err := yaml.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config to YAML: %w", err)
-	}
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
-	}
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
-	}
-	return nil
-}

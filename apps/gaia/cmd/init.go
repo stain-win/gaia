@@ -62,7 +62,7 @@ Once initialized, this command will not run again unless the database file is de
 	RunE: runInit,
 }
 
-func runInit(cmd *cobra.Command, args []string) error {
+func runInit(_ *cobra.Command, _ []string) error {
 	cfg := gaiaDaemon.GetConfig()
 	if dbFile != "" {
 		cfg.DBFile = dbFile
@@ -151,7 +151,7 @@ func promptForPassphrase() (string, error) {
 				Title("Master passphrase").
 				Description("Choose a strong passphrase").
 				Value(&passphrase).
-				Password(true).
+				EchoMode(huh.EchoModePassword).
 				Validate(func(s string) error {
 					if len(s) < 8 {
 						return errors.New("passphrase must be at least 8 characters")
@@ -168,7 +168,7 @@ func promptForPassphrase() (string, error) {
 				Title("Confirm passphrase").
 				Description("Enter the same passphrase again").
 				Value(&passphraseConfirm).
-				Password(true).
+				EchoMode(huh.EchoModePassword).
 				Validate(func(s string) error {
 					if s != passphrase {
 						return errors.New("passphrases do not match")
