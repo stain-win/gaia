@@ -65,7 +65,7 @@ Once initialized, this command will not run again unless the database file is de
 func runInit(_ *cobra.Command, _ []string) error {
 	cfg := gaiaDaemon.GetConfig()
 	if dbFile != "" {
-		cfg.DBFile = dbFile
+		cfg.Daemon.DBFile = dbFile
 	}
 
 	// Print welcome banner
@@ -76,11 +76,11 @@ func runInit(_ *cobra.Command, _ []string) error {
 	fmt.Println()
 
 	// Check if already initialized
-	if _, err := os.Stat(cfg.DBFile); err == nil {
+	if _, err := os.Stat(cfg.Daemon.DBFile); err == nil {
 		fmt.Println(errorStyle.Render("✗ Gaia is already initialized"))
-		fmt.Printf("\n  Database file found at: %s\n", cfg.DBFile)
+		fmt.Printf("\n  Database file found at: %s\n", cfg.Daemon.DBFile)
 		fmt.Println("\n  To re-initialize, please delete the existing database file first:")
-		fmt.Printf("    rm %s\n", cfg.DBFile)
+		fmt.Printf("    rm %s\n", cfg.Daemon.DBFile)
 		fmt.Println()
 		return errors.New("database already exists")
 	}
@@ -188,8 +188,8 @@ func promptForPassphrase() (string, error) {
 
 func handleCertificateSetup(cfg *config.Config) (bool, error) {
 	// Check if certificates already exist
-	caCertPath := filepath.Join(cfg.CertsDirectory, cfg.CACertFile)
-	serverCertPath := filepath.Join(cfg.CertsDirectory, cfg.ServerCertFile)
+	caCertPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.CACert)
+	serverCertPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.ServerCert)
 
 	certsExist := false
 	if _, err := os.Stat(caCertPath); err == nil {
@@ -206,7 +206,7 @@ func handleCertificateSetup(cfg *config.Config) (bool, error) {
 			huh.NewGroup(
 				huh.NewConfirm().
 					Title("Use existing certificates?").
-					Description(fmt.Sprintf("Found certificates in %s/\nDo you want to use them?", cfg.CertsDirectory)).
+					Description(fmt.Sprintf("Found certificates in %s/\nDo you want to use them?", cfg.TLS.CertsDirectory)).
 					Value(&useCerts),
 			),
 		)
@@ -259,7 +259,7 @@ func handleCertificateSetup(cfg *config.Config) (bool, error) {
 	fmt.Println(infoStyle.Render("Generating mTLS certificates..."))
 
 	// Create certs directory
-	if err := os.MkdirAll(cfg.CertsDirectory, 0755); err != nil {
+	if err := os.MkdirAll(cfg.TLS.CertsDirectory, 0755); err != nil {
 		return false, fmt.Errorf("failed to create certs directory: %w", err)
 	}
 
@@ -297,7 +297,7 @@ func initializeDatabase(cfg *config.Config, passphrase string) error {
 	fmt.Println(infoStyle.Render("Creating encrypted database..."))
 
 	// Ensure the directory exists
-	dbDir := filepath.Dir(cfg.DBFile)
+	dbDir := filepath.Dir(cfg.Daemon.DBFile)
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
 		return fmt.Errorf("failed to create database directory: %w", err)
 	}
@@ -319,14 +319,14 @@ func printSuccessSummary(cfg *config.Config, certsGenerated bool) {
 
 	// Database info
 	fmt.Println(successStyle.Render("Database"))
-	fmt.Printf("  Location: %s\n", cfg.DBFile)
+	fmt.Printf("  Location: %s\n", cfg.Daemon.DBFile)
 	fmt.Printf("  Status:   %s\n", successStyle.Render("Encrypted and ready"))
 	fmt.Println()
 
 	// Certificates info
 	if certsGenerated {
 		fmt.Println(successStyle.Render("Certificates"))
-		fmt.Printf("  Location: %s/\n", cfg.CertsDirectory)
+		fmt.Printf("  Location: %s/\n", cfg.TLS.CertsDirectory)
 		fmt.Println("  Files:")
 		fmt.Println("    • ca.crt, ca.key          (Certificate Authority)")
 		fmt.Println("    • server.crt, server.key  (Server certificate)")

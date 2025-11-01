@@ -273,7 +273,7 @@ func (m *model) updateCreateCerts(msg tea.Msg) (tea.Model, tea.Cmd) {
 		clientName := m.certForm.GetString("clientName")
 
 		cfg := *m.config
-		cfg.CertsDirectory = outPath
+		cfg.TLS.CertsDirectory = outPath
 
 		var err error
 		if err = certs.GenerateCA(&cfg, caName); err != nil {

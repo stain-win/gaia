@@ -16,11 +16,11 @@ import (
 
 // getAdminClientConn establishes a secure gRPC connection to the daemon.
 func getAdminClientConn(cfg *config.Config) (*grpc.ClientConn, error) {
-	caCertPath := filepath.Join(cfg.CertsDirectory, "ca.crt")
+	caCertPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.CACert)
 	// For admin actions from the TUI, we can use a generic "client" cert
 	// In a more advanced setup, this could be made configurable.
-	gaiaCertPath := filepath.Join(cfg.CertsDirectory, "gaia.crt")
-	gaiaKeyPath := filepath.Join(cfg.CertsDirectory, "gaia.key")
+	gaiaCertPath := filepath.Join(cfg.TLS.CertsDirectory, "gaia.crt")
+	gaiaKeyPath := filepath.Join(cfg.TLS.CertsDirectory, "gaia.key")
 
 	clientCert, err := tls.LoadX509KeyPair(gaiaCertPath, gaiaKeyPath)
 	if err != nil {
@@ -41,7 +41,7 @@ func getAdminClientConn(cfg *config.Config) (*grpc.ClientConn, error) {
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      certPool,
 	})
-	daemonAddress := fmt.Sprintf("%s:%s", cfg.GRPCServerName, cfg.GRPCPort)
+	daemonAddress := cfg.Daemon.ListenAddr
 	conn, err := grpc.NewClient(daemonAddress, grpc.WithTransportCredentials(creds), grpc.WithUserAgent(GaiaTui))
 	if err != nil {
 		return nil, fmt.Errorf("TUI failed to connect to daemon: %w", err)

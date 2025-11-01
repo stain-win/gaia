@@ -165,7 +165,7 @@ func (s *gaiaAdminServer) RegisterClient(_ context.Context, req *pb.RegisterClie
 		return nil, mapErrorToGRPCStatus(err)
 	}
 
-	certPEM, keyPEM, err := certs.GenerateClientCertificateData(req.ClientName, s.d.caCert, s.d.caKey, s.d.config.CertExpiryDays)
+	certPEM, keyPEM, err := certs.GenerateClientCertificateData(req.ClientName, s.d.caCert, s.d.caKey, s.d.config.TLS.CertExpiryDays)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to generate client certificate: %v", err)
 	}

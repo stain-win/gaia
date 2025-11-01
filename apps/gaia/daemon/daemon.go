@@ -109,7 +109,7 @@ func (d *Daemon) Start(cfg *config.Config) error {
 
 	d.config = cfg
 
-	if _, err := os.Stat(d.config.DBFile); os.IsNotExist(err) {
+	if _, err := os.Stat(d.config.Daemon.DBFile); os.IsNotExist(err) {
 		return fmt.Errorf("initial setup not complete, run 'gaia init' first")
 	}
 
@@ -144,7 +144,7 @@ func (d *Daemon) Start(cfg *config.Config) error {
 	pb.RegisterGaiaAdminServer(d.server, &gaiaAdminServer{d: d})
 	pb.RegisterGaiaClientServer(d.server, &gaiaClientServer{daemon: d})
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", d.config.GRPCPort))
+	listener, err := net.Listen("tcp", d.config.Daemon.ListenAddr)
 	if err != nil {
 		if closeErr := d.db.Close(); closeErr != nil {
 			gaialog.Get().Error("failed to close database after listen error", "error", closeErr)
@@ -156,7 +156,7 @@ func (d *Daemon) Start(cfg *config.Config) error {
 	d.status = StatusRunning
 	d.isLocked = true
 
-	gaialog.Get().Info("Gaia daemon started successfully", "port", d.config.GRPCPort)
+	gaialog.Get().Info("Gaia daemon started successfully", "address", d.config.Daemon.ListenAddr)
 
 	errChan := make(chan error, 1)
 	go func() {
@@ -264,7 +264,7 @@ func (s *gaiaAdminServer) Stop(_ context.Context, _ *pb.StopRequest) (*pb.StopRe
 
 // InitializeDB creates the encrypted BoltDB, derives the key, and stores a hash of the key for validation.
 func (d *Daemon) InitializeDB(passphrase string) error {
-	if _, err := os.Stat(d.config.DBFile); err == nil {
+	if _, err := os.Stat(d.config.Daemon.DBFile); err == nil {
 		return gaiaerrors.ErrDatabaseExists
 	}
 	salt := make([]byte, 16)
@@ -281,7 +281,7 @@ func (d *Daemon) InitializeDB(passphrase string) error {
 	// Create a hash of the key for future validation.
 	keyHash := sha256.Sum256(key)
 
-	db, err := bbolt.Open(d.config.DBFile, 0600, nil)
+	db, err := bbolt.Open(d.config.Daemon.DBFile, 0600, nil)
 	if err != nil {
 		return err
 	}
@@ -833,7 +833,7 @@ func constructDBKey(clientID, namespace, key string) []byte {
 // openDB is an internal helper to open the BoltDB file.
 func (d *Daemon) openDB() error {
 	var err error
-	d.db, err = bbolt.Open(d.config.DBFile, 0600, &bbolt.Options{Timeout: 1 * time.Second})
+	d.db, err = bbolt.Open(d.config.Daemon.DBFile, 0600, &bbolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		return err
 	}
@@ -842,9 +842,9 @@ func (d *Daemon) openDB() error {
 
 // loadTLSCredentials is an internal helper to set up mTLS.
 func (d *Daemon) loadTLSCredentials() (credentials.TransportCredentials, error) {
-	caCertPath := filepath.Join(d.config.CertsDirectory, d.config.CACertFile)
-	serverCertPath := filepath.Join(d.config.CertsDirectory, d.config.ServerCertFile)
-	serverKeyPath := filepath.Join(d.config.CertsDirectory, d.config.ServerKeyFile)
+	caCertPath := filepath.Join(d.config.TLS.CertsDirectory, d.config.TLS.CACert)
+	serverCertPath := filepath.Join(d.config.TLS.CertsDirectory, d.config.TLS.ServerCert)
+	serverKeyPath := filepath.Join(d.config.TLS.CertsDirectory, d.config.TLS.ServerKey)
 
 	certPool := x509.NewCertPool()
 	caCert, err := os.ReadFile(caCertPath)
@@ -870,8 +870,8 @@ func (d *Daemon) loadTLSCredentials() (credentials.TransportCredentials, error) 
 // loadCACredentials loads the CA certificate and private key from disk.
 // Supports both PKCS#1 and PKCS#8 private key formats.
 func (d *Daemon) loadCACredentials() error {
-	caKeyPath := filepath.Join(d.config.CertsDirectory, "ca.key")
-	caCertPath := filepath.Join(d.config.CertsDirectory, "ca.crt")
+	caKeyPath := filepath.Join(d.config.TLS.CertsDirectory, "ca.key")
+	caCertPath := filepath.Join(d.config.TLS.CertsDirectory, "ca.crt")
 
 	keyBytes, err := os.ReadFile(caKeyPath)
 	if err != nil {

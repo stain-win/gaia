@@ -15,21 +15,21 @@ import (
 
 // GenerateCA creates a new self-signed Certificate Authority and saves the certificate and private key.
 func GenerateCA(cfg *config.Config, commonName string) error {
-	if err := os.MkdirAll(cfg.CertsDirectory, 0755); err != nil {
+	if err := os.MkdirAll(cfg.TLS.CertsDirectory, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	caKey, caCert, err := generateCA(commonName, cfg.CertExpiryDays)
+	caKey, caCert, err := generateCA(commonName, cfg.TLS.CertExpiryDays)
 	if err != nil {
 		return fmt.Errorf("failed to generate CA: %w", err)
 	}
 
-	certPath := filepath.Join(cfg.CertsDirectory, cfg.CACertFile)
+	certPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.CACert)
 	if err := saveCert(certPath, caCert); err != nil {
 		return fmt.Errorf("failed to save CA certificate: %w", err)
 	}
 
-	keyPath := filepath.Join(cfg.CertsDirectory, "ca.key") // Assuming ca.key is the standard name
+	keyPath := filepath.Join(cfg.TLS.CertsDirectory, "ca.key") // Assuming ca.key is the standard name
 	if err := saveKey(keyPath, caKey); err != nil {
 		return fmt.Errorf("failed to save CA key: %w", err)
 	}
@@ -40,25 +40,25 @@ func GenerateCA(cfg *config.Config, commonName string) error {
 
 // GenerateServerCertificate creates a server certificate signed by the CA.
 func GenerateServerCertificate(cfg *config.Config, serverName string) error {
-	caCertPath := filepath.Join(cfg.CertsDirectory, cfg.CACertFile)
-	caKeyPath := filepath.Join(cfg.CertsDirectory, "ca.key")
+	caCertPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.CACert)
+	caKeyPath := filepath.Join(cfg.TLS.CertsDirectory, "ca.key")
 
 	caCert, caKey, err := loadCA(caCertPath, caKeyPath)
 	if err != nil {
 		return err
 	}
 
-	serverKey, serverCert, err := generateCert(serverName, caKey, caCert, true, cfg.CertExpiryDays)
+	serverKey, serverCert, err := generateCert(serverName, caKey, caCert, true, cfg.TLS.CertExpiryDays)
 	if err != nil {
 		return fmt.Errorf("failed to generate server certificate: %w", err)
 	}
 
-	certPath := filepath.Join(cfg.CertsDirectory, cfg.ServerCertFile)
+	certPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.ServerCert)
 	if err := saveCert(certPath, serverCert); err != nil {
 		return fmt.Errorf("failed to save server certificate: %w", err)
 	}
 
-	keyPath := filepath.Join(cfg.CertsDirectory, cfg.ServerKeyFile)
+	keyPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.ServerKey)
 	if err := saveKey(keyPath, serverKey); err != nil {
 		return fmt.Errorf("failed to save server key: %w", err)
 	}
@@ -69,25 +69,25 @@ func GenerateServerCertificate(cfg *config.Config, serverName string) error {
 
 // GenerateClientCertificate creates a client certificate signed by the CA.
 func GenerateClientCertificate(cfg *config.Config, clientName string) error {
-	caCertPath := filepath.Join(cfg.CertsDirectory, cfg.CACertFile)
-	caKeyPath := filepath.Join(cfg.CertsDirectory, "ca.key")
+	caCertPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.CACert)
+	caKeyPath := filepath.Join(cfg.TLS.CertsDirectory, "ca.key")
 
 	caCert, caKey, err := loadCA(caCertPath, caKeyPath)
 	if err != nil {
 		return err
 	}
 
-	clientKey, clientCert, err := generateCert(clientName, caKey, caCert, false, cfg.CertExpiryDays)
+	clientKey, clientCert, err := generateCert(clientName, caKey, caCert, false, cfg.TLS.CertExpiryDays)
 	if err != nil {
 		return fmt.Errorf("failed to generate client certificate: %w", err)
 	}
 
-	certPath := filepath.Join(cfg.CertsDirectory, clientName+".crt")
+	certPath := filepath.Join(cfg.TLS.CertsDirectory, clientName+".crt")
 	if err := saveCert(certPath, clientCert); err != nil {
 		return fmt.Errorf("failed to save client certificate: %w", err)
 	}
 
-	keyPath := filepath.Join(cfg.CertsDirectory, clientName+".key")
+	keyPath := filepath.Join(cfg.TLS.CertsDirectory, clientName+".key")
 	if err := saveKey(keyPath, clientKey); err != nil {
 		return fmt.Errorf("failed to save client key: %w", err)
 	}

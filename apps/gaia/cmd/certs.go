@@ -30,7 +30,7 @@ var createCaCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Generating new Certificate Authority...")
 		cfg := config.NewDefaultConfig()
-		cfg.CertsDirectory = outputDir
+		cfg.TLS.CertsDirectory = outputDir
 
 		if err := certs.GenerateCA(cfg, caName); err != nil {
 			return fmt.Errorf("failed to generate CA: %w", err)
@@ -53,7 +53,7 @@ var createServerCmd = &cobra.Command{
 		serverName = args[0]
 		fmt.Printf("Generating new server certificate for %s...\n", serverName)
 		cfg := config.NewDefaultConfig()
-		cfg.CertsDirectory = outputDir
+		cfg.TLS.CertsDirectory = outputDir
 
 		if err := certs.GenerateServerCertificate(cfg, serverName); err != nil {
 			return fmt.Errorf("failed to generate server certificate: %w", err)
@@ -76,7 +76,7 @@ var createClientCmd = &cobra.Command{
 		clientName := args[0]
 		fmt.Printf("Generating new client certificate for %s...\n", clientName)
 		cfg := config.NewDefaultConfig()
-		cfg.CertsDirectory = outputDir
+		cfg.TLS.CertsDirectory = outputDir
 
 		if err := certs.GenerateClientCertificate(cfg, clientName); err != nil {
 			return fmt.Errorf("failed to generate client certificate: %w", err)
@@ -97,7 +97,7 @@ var generateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Generating new TLS certificates...")
 		cfg := config.NewDefaultConfig()
-		cfg.CertsDirectory = outputDir
+		cfg.TLS.CertsDirectory = outputDir
 
 		fmt.Println("Step 1: Generating Root CA...")
 		if err := certs.GenerateCA(cfg, caName); err != nil {

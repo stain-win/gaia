@@ -1,5 +1,5 @@
 {
-  "name": "@gaia/client",
+  "name": "@stain-win/gaia-client",
   "version": "0.1.0",
   "description": "TypeScript/JavaScript client library for Gaia secret management daemon",
   "main": "dist/index.js",
@@ -43,6 +43,10 @@
     "type": "git",
     "url": "https://github.com/stain-win/gaia.git",
     "directory": "libs/js"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }
 

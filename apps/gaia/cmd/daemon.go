@@ -57,16 +57,16 @@ For example:
 
 		// Override with flags if set
 		if grpcPort != "" {
-			cfg.GRPCPort = grpcPort
+			cfg.Daemon.ListenAddr = grpcPort
 		}
 		if dbFile != "" {
-			cfg.DBFile = dbFile
+			cfg.Daemon.DBFile = dbFile
 		}
 		if certsDir != "" {
-			cfg.CertsDirectory = certsDir
-			cfg.CACertFile = "/ca.crt"
-			cfg.ServerCertFile = "/server.crt"
-			cfg.ServerKeyFile = "/server.key"
+			cfg.TLS.CertsDirectory = certsDir
+			cfg.TLS.CACert = "/ca.crt"
+			cfg.TLS.ServerCert = "/server.crt"
+			cfg.TLS.ServerKey = "/server.key"
 		}
 
 		err := gaiaDaemon.Start(cfg)

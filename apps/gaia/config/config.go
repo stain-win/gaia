@@ -13,37 +13,135 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DaemonConfig holds settings specific to the Gaia daemon's operation.
+type DaemonConfig struct {
+	ListenAddr string        `yaml:"listen_addr"` // Combines host and port (e.g., "0.0.0.0:50051")
+	DBFile     string        `yaml:"db_file"`     // Path to the BoltDB database file
+	Timeout    time.Duration `yaml:"timeout"`     // General server-side operation timeout
+}
+
+// LogConfig holds settings for structured logging and log rotation.
+type LogConfig struct {
+	FilePath   string `yaml:"file_path"`    // Path to log file
+	MaxSizeMB  int    `yaml:"max_size_mb"`  // Maximum size in MB before rotation
+	MaxBackups int    `yaml:"max_backups"`  // Maximum number of old log files to keep
+	MaxAgeDays int    `yaml:"max_age_days"` // Maximum days to keep old log files
+	Level      string `yaml:"level"`        // Log level: debug, info, warn, error
+}
+
+// TLSConfig holds settings for mTLS (mutual TLS).
+type TLSConfig struct {
+	CertsDirectory string `yaml:"certs_directory"`  // Base directory for all certificates
+	CACert         string `yaml:"ca_cert"`          // CA certificate file (relative to CertsDirectory)
+	ServerCert     string `yaml:"server_cert"`      // Server certificate file (relative to CertsDirectory)
+	ServerKey      string `yaml:"server_key"`       // Server private key file (relative to CertsDirectory)
+	KeyAlgorithm   string `yaml:"key_algorithm"`    // Key algorithm: "ECDSA" or "RSA"
+	KeySize        string `yaml:"key_size"`         // Key size: "P256", "P384", "P521" for ECDSA; "2048", "3072", "4096" for RSA
+	CertExpiryDays int    `yaml:"cert_expiry_days"` // Certificate validity period in days
+}
+
 // Config holds all configurable settings for Gaia.
 type Config struct {
-	GRPCServerName      string        `yaml:"grpc_server_name"`
-	GRPCPort            string        `yaml:"grpc_port"`
-	DBFile              string        `yaml:"db_file"`
-	CertsDirectory      string        `yaml:"certs_directory"`
-	CACertFile          string        `yaml:"ca_cert_file"`
-	ServerCertFile      string        `yaml:"server_cert_file"`
-	ServerKeyFile       string        `yaml:"server_key_file"`
-	GaiaClientCertFile  string        `yaml:"gaia_client_cert_file"`
-	GaianClientKeyFile  string        `yaml:"gaia_client_key_file"`
-	GRPCClientTimeout   time.Duration `yaml:"grpc_client_timeout"`
-	GaiaTuiTickInterval time.Duration `yaml:"gaia_tui_tick_interval"`
-	CertExpiryDays      int           `yaml:"cert_expiry_days"`
+	Daemon DaemonConfig `yaml:"daemon"` // Daemon-specific settings
+	Log    LogConfig    `yaml:"log"`    // Logging settings
+	TLS    TLSConfig    `yaml:"tls"`    // TLS/mTLS settings
+
+	GRPCClientTimeout   time.Duration `yaml:"grpc_client_timeout"`    // Timeout for gRPC client operations
+	GaiaTuiTickInterval time.Duration `yaml:"gaia_tui_tick_interval"` // TUI refresh interval
+
+	// Client certificate files for the Gaia CLI/TUI (relative to TLS.CertsDirectory)
+	GaiaClientCertFile string `yaml:"gaia_client_cert_file"` // Gaia client certificate file
+	GaiaClientKeyFile  string `yaml:"gaia_client_key_file"`  // Gaia client private key file
 }
 
 // NewDefaultConfig returns a Config with default values.
 func NewDefaultConfig() *Config {
 	return &Config{
-		GRPCServerName:      "localhost",
-		GRPCPort:            "50051",
-		DBFile:              "gaia.db",
-		CertsDirectory:      "./certs",
-		CACertFile:          "ca.crt",
-		ServerCertFile:      "server.crt",
-		ServerKeyFile:       "server.key",
-		GaiaClientCertFile:  "gaia_client.crt",
-		GaianClientKeyFile:  "gaia_client.key",
+		Daemon: DaemonConfig{
+			ListenAddr: "0.0.0.0:50051",
+			DBFile:     getDefaultDBPath(),
+			Timeout:    10 * time.Second,
+		},
+		Log: LogConfig{
+			FilePath:   getDefaultLogPath(),
+			MaxSizeMB:  10,
+			MaxBackups: 5,
+			MaxAgeDays: 7,
+			Level:      "info",
+		},
+		TLS: TLSConfig{
+			CertsDirectory: getDefaultCertsDirectory(),
+			CACert:         "ca.crt",
+			ServerCert:     "server.crt",
+			ServerKey:      "server.key",
+			KeyAlgorithm:   "ECDSA",
+			KeySize:        "P256",
+			CertExpiryDays: 365,
+		},
 		GRPCClientTimeout:   5 * time.Second,
 		GaiaTuiTickInterval: 2 * time.Second,
-		CertExpiryDays:      365, // Default to 365 days
+		GaiaClientCertFile:  "gaia_client.crt",
+		GaiaClientKeyFile:   "gaia_client.key",
+	}
+}
+
+// getDefaultDBPath returns the OS-specific default database file path.
+func getDefaultDBPath() string {
+	switch runtime.GOOS {
+	case "windows":
+		if appData := os.Getenv("APPDATA"); appData != "" {
+			return filepath.Join(appData, "Gaia", "gaia.db")
+		}
+		return "gaia.db"
+	case "darwin":
+		if homeDir, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(homeDir, "Library", "Application Support", "Gaia", "gaia.db")
+		}
+		return "gaia.db"
+	case "linux":
+		return "/var/lib/gaia/gaia.db"
+	default:
+		return "gaia.db"
+	}
+}
+
+// getDefaultLogPath returns the OS-specific default log file path.
+func getDefaultLogPath() string {
+	switch runtime.GOOS {
+	case "windows":
+		if appData := os.Getenv("APPDATA"); appData != "" {
+			return filepath.Join(appData, "Gaia", "gaia.log")
+		}
+		return "gaia.log"
+	case "darwin":
+		if homeDir, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(homeDir, "Library", "Logs", "Gaia", "gaia.log")
+		}
+		return "gaia.log"
+	case "linux":
+		return "/var/log/gaia/gaia.log"
+	default:
+		return "gaia.log"
+	}
+}
+
+// getDefaultCertsDirectory returns the OS-specific default certificates directory.
+func getDefaultCertsDirectory() string {
+	switch runtime.GOOS {
+	case "windows":
+		if appData := os.Getenv("APPDATA"); appData != "" {
+			return filepath.Join(appData, "Gaia", "certs")
+		}
+		return "./certs"
+	case "darwin":
+		if homeDir, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(homeDir, "Library", "Application Support", "Gaia", "certs")
+		}
+		return "./certs"
+	case "linux":
+		return "/etc/gaia/certs"
+	default:
+		return "./certs"
 	}
 }
 
@@ -109,11 +207,38 @@ func loadConfigFromFile(path string, cfg *Config) error {
 }
 
 // loadConfigFromEnv populates the Config struct with values from environment variables.
+// Environment variables take precedence over config file settings.
 func loadConfigFromEnv(cfg *Config) {
-	if dbFile := os.Getenv("GAIA_DB_FILE"); dbFile != "" {
-		cfg.DBFile = dbFile
+	// Daemon configuration
+	if listenAddr := os.Getenv("GAIA_LISTEN_ADDR"); listenAddr != "" {
+		cfg.Daemon.ListenAddr = listenAddr
 	}
-	if grpcPort := os.Getenv("GAIA_GRPC_PORT"); grpcPort != "" {
-		cfg.GRPCPort = grpcPort
+	if dbFile := os.Getenv("GAIA_DB_FILE"); dbFile != "" {
+		cfg.Daemon.DBFile = dbFile
+	}
+	if timeout := os.Getenv("GAIA_DAEMON_TIMEOUT"); timeout != "" {
+		if d, err := time.ParseDuration(timeout); err == nil {
+			cfg.Daemon.Timeout = d
+		}
+	}
+
+	// Log configuration
+	if logFile := os.Getenv("GAIA_LOG_FILE"); logFile != "" {
+		cfg.Log.FilePath = logFile
+	}
+	if logLevel := os.Getenv("GAIA_LOG_LEVEL"); logLevel != "" {
+		cfg.Log.Level = logLevel
+	}
+
+	// TLS configuration
+	if certsDir := os.Getenv("GAIA_CERTS_DIR"); certsDir != "" {
+		cfg.TLS.CertsDirectory = certsDir
+	}
+
+	// Client timeouts
+	if timeout := os.Getenv("GAIA_CLIENT_TIMEOUT"); timeout != "" {
+		if d, err := time.ParseDuration(timeout); err == nil {
+			cfg.GRPCClientTimeout = d
+		}
 	}
 }

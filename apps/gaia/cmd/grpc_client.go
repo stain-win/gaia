@@ -14,10 +14,10 @@ import (
 
 // getClientConn establishes a secure gRPC connection to the daemon.
 func getClientConn(cfg *config.Config) (*grpc.ClientConn, error) {
-	daemonAddress := fmt.Sprintf("%s:%s", cfg.GRPCServerName, cfg.GRPCPort)
-	caCertFile := filepath.Join(cfg.CertsDirectory, cfg.CACertFile)
-	clientCertFile := filepath.Join(cfg.CertsDirectory, cfg.GaiaClientCertFile)
-	clientKeyFile := filepath.Join(cfg.CertsDirectory, cfg.GaianClientKeyFile)
+	daemonAddress := cfg.Daemon.ListenAddr
+	caCertFile := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.CACert)
+	clientCertFile := filepath.Join(cfg.TLS.CertsDirectory, cfg.GaiaClientCertFile)
+	clientKeyFile := filepath.Join(cfg.TLS.CertsDirectory, cfg.GaiaClientKeyFile)
 
 	clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
 	if err != nil {

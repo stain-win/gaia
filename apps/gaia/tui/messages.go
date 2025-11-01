@@ -199,8 +199,8 @@ func registerClientCmd(cfg *config.Config, clientName string) tea.Cmd {
 		}
 
 		// Save certificate and key to disk
-		certPath := cfg.CertsDirectory + "/" + clientName + ".crt"
-		keyPath := cfg.CertsDirectory + "/" + clientName + ".key"
+		certPath := cfg.TLS.CertsDirectory + "/" + clientName + ".crt"
+		keyPath := cfg.TLS.CertsDirectory + "/" + clientName + ".key"
 
 		if err := os.WriteFile(certPath, []byte(res.Certificate), 0644); err != nil {
 			return clientRegisteredMsg{clientName: clientName, err: err}

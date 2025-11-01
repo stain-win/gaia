@@ -1,0 +1,233 @@
+# Gaia Configuration File
+# ========================
+# This is the template configuration file for Gaia, a lightweight, secure,
+# self-hosted secrets management daemon.
+#
+# Copy this file to the appropriate location for your OS:
+#   - Linux:   /etc/gaia/gaia-config.yaml
+#   - macOS:   ~/Library/Application Support/Gaia/gaia-config.yaml
+#   - Windows: %APPDATA%\Gaia\gaia-config.yaml
+#
+# Or specify a custom path when starting Gaia:
+#   gaia daemon start --config /path/to/gaia-config.yaml
+
+# =============================================================================
+# Daemon Configuration
+# =============================================================================
+daemon:
+  # Listen address (host:port)
+  # Default: 0.0.0.0:50051
+  # The address where the gRPC server will listen for client connections
+  # Use 0.0.0.0 to listen on all interfaces, or 127.0.0.1 for localhost only
+  listen_addr: "0.0.0.0:50051"
+
+  # Database file path
+  # Default (OS-specific):
+  #   - Linux:   /var/lib/gaia/gaia.db
+  #   - macOS:   ~/Library/Application Support/Gaia/gaia.db
+  #   - Windows: %APPDATA%\Gaia\gaia.db
+  # Path to the BoltDB database file where encrypted secrets are stored
+  db_file: "gaia.db"
+
+  # Daemon operation timeout
+  # Default: 10s
+  # General server-side operation timeout
+  timeout: 10s
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+log:
+  # Log file path
+  # Default (OS-specific):
+  #   - Linux:   /var/log/gaia/gaia.log
+  #   - macOS:   ~/Library/Logs/Gaia/gaia.log
+  #   - Windows: %APPDATA%\Gaia\gaia.log
+  file_path: "gaia.log"
+
+  # Maximum log file size in MB before rotation
+  # Default: 10
+  max_size_mb: 10
+
+  # Maximum number of old log files to keep
+  # Default: 5
+  max_backups: 5
+
+  # Maximum days to keep old log files
+  # Default: 7
+  max_age_days: 7
+
+  # Log level
+  # Default: info
+  # Options: debug, info, warn, error
+  level: "info"
+
+# =============================================================================
+# TLS/mTLS Configuration
+# =============================================================================
+tls:
+  # Certificates directory
+  # Default (OS-specific):
+  #   - Linux:   /etc/gaia/certs
+  #   - macOS:   ~/Library/Application Support/Gaia/certs
+  #   - Windows: %APPDATA%\Gaia\certs
+  # Base directory where all certificates and keys are stored
+  certs_directory: "./certs"
+
+  # CA certificate file
+  # Default: ca.crt
+  # Certificate Authority certificate (relative to certs_directory)
+  ca_cert: "ca.crt"
+
+  # Server certificate file
+  # Default: server.crt
+  # Server certificate for gRPC TLS (relative to certs_directory)
+  server_cert: "server.crt"
+
+  # Server key file
+  # Default: server.key
+  # Server private key for gRPC TLS (relative to certs_directory)
+  server_key: "server.key"
+
+  # Key algorithm
+  # Default: ECDSA
+  # Options: ECDSA, RSA
+  # ECDSA is recommended for better performance and smaller key sizes
+  key_algorithm: "ECDSA"
+
+  # Key size
+  # Default: P256
+  # For ECDSA: P256, P384, P521 (P256 recommended)
+  # For RSA: 2048, 3072, 4096 (3072 or 4096 recommended for production)
+  key_size: "P256"
+
+  # Certificate expiry in days
+  # Default: 365
+  # How many days certificates should be valid when generated
+  cert_expiry_days: 365
+
+# =============================================================================
+# Client Configuration
+# =============================================================================
+
+# gRPC client timeout
+# Default: 5s
+# Maximum time to wait for gRPC operations to complete
+# Valid units: ns, us, ms, s, m, h
+grpc_client_timeout: 5s
+
+# TUI tick interval
+# Default: 2s
+# How often the TUI refreshes daemon status
+# Valid units: ns, us, ms, s, m, h
+gaia_tui_tick_interval: 2s
+
+# Gaia client certificate file
+# Default: gaia_client.crt
+# Certificate used by Gaia CLI/TUI to connect to the daemon (relative to tls.certs_directory)
+gaia_client_cert_file: "gaia_client.crt"
+
+# Gaia client key file
+# Default: gaia_client.key
+# Private key used by Gaia CLI/TUI to connect to the daemon (relative to tls.certs_directory)
+gaia_client_key_file: "gaia_client.key"
+
+# =============================================================================
+# Example Configurations
+# =============================================================================
+
+# Example 1: Development Setup
+# ----------------------------
+# Use local directories and shorter timeouts for quick iteration
+#
+# daemon:
+#   listen_addr: "127.0.0.1:50051"
+#   db_file: "./dev/gaia.db"
+#   timeout: 5s
+# log:
+#   file_path: "./dev/gaia.log"
+#   level: "debug"
+# tls:
+#   certs_directory: "./dev/certs"
+#   key_algorithm: "ECDSA"
+#   key_size: "P256"
+#   cert_expiry_days: 30
+# grpc_client_timeout: 3s
+# gaia_tui_tick_interval: 1s
+
+# Example 2: Production Setup (Linux)
+# ------------------------------------
+# Use absolute paths and production-ready settings
+#
+# daemon:
+#   listen_addr: "0.0.0.0:50051"
+#   db_file: "/var/lib/gaia/gaia.db"
+#   timeout: 10s
+# log:
+#   file_path: "/var/log/gaia/gaia.log"
+#   max_size_mb: 50
+#   max_backups: 10
+#   max_age_days: 30
+#   level: "info"
+# tls:
+#   certs_directory: "/etc/gaia/certs"
+#   key_algorithm: "ECDSA"
+#   key_size: "P384"
+#   cert_expiry_days: 365
+# grpc_client_timeout: 10s
+# gaia_tui_tick_interval: 5s
+
+# Example 3: High Security Setup
+# ------------------------------
+# Use RSA 4096 keys for maximum security
+#
+# daemon:
+#   listen_addr: "127.0.0.1:50051"  # Only listen on localhost
+#   db_file: "gaia.db"
+#   timeout: 10s
+# log:
+#   level: "warn"  # Less verbose logging
+# tls:
+#   certs_directory: "./certs"
+#   key_algorithm: "RSA"
+#   key_size: "4096"
+#   cert_expiry_days: 180  # Shorter validity period
+# grpc_client_timeout: 5s
+
+# =============================================================================
+# Environment Variables
+# =============================================================================
+#
+# You can override configuration values using environment variables:
+#
+# GAIA_LISTEN_ADDR     - Override daemon.listen_addr
+# GAIA_DB_FILE         - Override daemon.db_file
+# GAIA_DAEMON_TIMEOUT  - Override daemon.timeout
+# GAIA_LOG_FILE        - Override log.file_path
+# GAIA_LOG_LEVEL       - Override log.level
+# GAIA_CERTS_DIR       - Override tls.certs_directory
+# GAIA_CLIENT_TIMEOUT  - Override grpc_client_timeout
+#
+# Example:
+#   export GAIA_LISTEN_ADDR="127.0.0.1:50052"
+#   export GAIA_DB_FILE="/tmp/test-gaia.db"
+#   export GAIA_LOG_LEVEL="debug"
+#   gaia daemon start
+#
+# Environment variables take precedence over config file settings.
+
+# =============================================================================
+# Notes
+# =============================================================================
+#
+# 1. If this file doesn't exist, Gaia will use built-in defaults
+# 2. All paths can be absolute or relative
+# 3. Relative paths are resolved from the current working directory
+# 4. Certificate files are relative to certs_directory
+# 5. Duration values support: ns, us, ms, s, m, h
+# 6. The daemon must be initialized before it can start:
+#      gaia init
+# 7. Certificates are generated during initialization
+# 8. The database is encrypted with your master passphrase
+# 9. Keep your certificates and database file secure!
+
