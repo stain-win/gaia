@@ -12,7 +12,8 @@ before:
 
 builds:
   - id: gaia
-    main: ./apps/gaia
+    dir: apps/gaia
+    main: .
     binary: gaia
     env:
       - CGO_ENABLED=0
