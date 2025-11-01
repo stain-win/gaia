@@ -17,7 +17,8 @@ const (
 	certManagement
 	createCerts
 	registerClient
-	listRecords // New screen
+	listRecords
+	unlockScreen
 )
 
 // A custom item type for our list.
@@ -52,8 +53,9 @@ type model struct {
 	daemonStatus            string
 	config                  *config.Config
 	//listRecords             listRecordsModel // New model state
-	inspector     *inspectorModel
-	statusMessage string
+	inspector       *inspectorModel
+	unlockFormModel *unlockFormModel
+	statusMessage   string
 }
 
 // menuItems defines the items for the main menu.
@@ -113,6 +115,7 @@ func initialModel(config *config.Config) *model {
 		help:                    help.New(),
 		addRecordFormModel:      newAddRecordFormModel(nil, nil),
 		registerClientFormModel: newRegisterClientFormModel(),
+		unlockFormModel:         newUnlockFormModel(),
 		daemonStatus:            "",
 		config:                  config,
 		inspector:               newInspectorModel(config),

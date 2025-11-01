@@ -2,12 +2,13 @@ package tui
 
 import (
 	"context"
+	"os"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stain-win/gaia/apps/gaia/config"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
-import tea "github.com/charmbracelet/bubbletea"
 
 // BackMsg is a custom message to signal returning to the previous menu.
 type BackMsg struct{}
@@ -56,6 +57,20 @@ type secretsForClientLoadedMsg struct {
 	clientName string
 	namespaces []*pb.Namespace
 	err        error
+}
+
+// clientRegisteredMsg is sent when RegisterClient RPC is complete.
+type clientRegisteredMsg struct {
+	clientName string
+	certPath   string
+	keyPath    string
+	err        error
+}
+
+// unlockResultMsg is sent when Unlock RPC is complete.
+type unlockResultMsg struct {
+	success bool
+	err     error
 }
 
 // A mock function to simulate fetching namespaces from the daemon.
@@ -196,5 +211,64 @@ func fetchSecretsForClientCmd(cfg *config.Config, clientName string) tea.Cmd {
 			return secretsForClientLoadedMsg{clientName: clientName, err: err}
 		}
 		return secretsForClientLoadedMsg{clientName: clientName, namespaces: res.Namespaces}
+	}
+}
+
+// registerClientCmd makes the gRPC call to register a client and save the certificates.
+func registerClientCmd(cfg *config.Config, clientName string) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return clientRegisteredMsg{clientName: clientName, err: err}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		res, err := client.RegisterClient(ctx, &pb.RegisterClientRequest{ClientName: clientName})
+		if err != nil {
+			return clientRegisteredMsg{clientName: clientName, err: err}
+		}
+
+		// Save certificate and key to disk
+		certPath := cfg.CertsDirectory + "/" + clientName + ".crt"
+		keyPath := cfg.CertsDirectory + "/" + clientName + ".key"
+
+		if err := os.WriteFile(certPath, []byte(res.Certificate), 0644); err != nil {
+			return clientRegisteredMsg{clientName: clientName, err: err}
+		}
+		if err := os.WriteFile(keyPath, []byte(res.PrivateKey), 0600); err != nil {
+			return clientRegisteredMsg{clientName: clientName, err: err}
+		}
+
+		return clientRegisteredMsg{
+			clientName: clientName,
+			certPath:   certPath,
+			keyPath:    keyPath,
+		}
+	}
+}
+
+// unlockDaemonCmd makes the gRPC call to unlock the daemon.
+func unlockDaemonCmd(cfg *config.Config, passphrase string) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return unlockResultMsg{success: false, err: err}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		res, err := client.Unlock(ctx, &pb.UnlockRequest{Passphrase: passphrase})
+		if err != nil {
+			return unlockResultMsg{success: false, err: err}
+		}
+
+		return unlockResultMsg{success: res.Success}
 	}
 }

@@ -20,10 +20,16 @@ GIT_VERSION := $(shell git describe --tags --always --dirty)
 
 # --- Commands ---
 
-.PHONY: all build protoc clean test cross-build
+.PHONY: all build protoc clean test cross-build protoc-client-go protoc-client-rust protoc-client-js build-js-client
 
 # Default command to run everything
 all: protoc build
+
+# Build the JavaScript/TypeScript client library
+build-js-client: protoc-client-js
+	@echo "Building JavaScript/TypeScript client library..."
+	cd $(LIBS_DIR)/js && npm install && npm run build
+	@echo "✓ JavaScript/TypeScript client library built successfully!"
 
 protoc-client-go:
 	@echo "Compiling client protobuf files for Go..."
@@ -43,9 +49,12 @@ protoc-client-rust:
 	protoc --proto_path=$(PROTO_DIR) --rust_out=$(LIBS_DIR)/rust $(PROTO_CLIENT_FILE)
 
 protoc-client-js:
-	@echo "Compiling client protobuf files for JavaScript..."
-	mkdir -p $(LIBS_DIR)/js
-	protoc --proto_path=$(PROTO_DIR) --js_out=import_style=commonjs,binary:$(LIBS_DIR)/js --grpc-web_out=import_style=typescript,mode=grpcwebtext:$(LIBS_DIR)/js $(PROTO_CLIENT_FILE)
+	@echo "Copying client protobuf files for JavaScript/TypeScript..."
+	@echo "Note: The JS/TS client uses @grpc/proto-loader for dynamic proto loading"
+	mkdir -p $(LIBS_DIR)/js/proto
+	cp $(PROTO_CLIENT_FILE) $(LIBS_DIR)/js/proto/
+	@echo "Proto file copied to $(LIBS_DIR)/js/proto/"
+	@echo "Run 'cd $(LIBS_DIR)/js && npm install && npm run build' to build the client library"
 
 # Compile the .proto files into Go code
 protoc:

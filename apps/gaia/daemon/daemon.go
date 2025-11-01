@@ -230,7 +230,16 @@ func (d *Daemon) Restart(ctx context.Context) error {
 }
 
 // Status returns the current operational status of the daemon.
+// Returns "locked", "unlocked", "starting", or "stopped"
 func (d *Daemon) Status() string {
+	// If daemon is running, return lock state
+	if d.status == StatusRunning {
+		if d.isLocked {
+			return "locked"
+		}
+		return "unlocked"
+	}
+	// Otherwise return the daemon status (starting, stopped, etc.)
 	return d.status
 }
 

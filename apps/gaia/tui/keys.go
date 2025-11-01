@@ -43,8 +43,8 @@ var keys = keyMap{
 		key.WithHelp("enter", "select"),
 	),
 	Back: key.NewBinding(
-		key.WithKeys("esc"),
-		key.WithHelp("esc", "back"),
+		key.WithKeys("b", "esc"),
+		key.WithHelp("b/esc", "back"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("q", "ctrl+c"),

@@ -47,6 +47,13 @@ func (m *registerClientFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var updatedForm tea.Model
 
+	// Check for escape key to go back (for forms, we only use esc, not 'b')
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+		return m, func() tea.Msg {
+			return BackMsg{}
+		}
+	}
+
 	updatedForm, cmd = m.form.Update(msg)
 	m.form = updatedForm.(*huh.Form)
 
@@ -55,12 +62,6 @@ func (m *registerClientFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return RegisterClientMsg{
 				ClientName: strings.TrimSpace(m.form.GetString("clientName")),
 			}
-		}
-	}
-
-	if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "b" {
-		return m, func() tea.Msg {
-			return BackMsg{}
 		}
 	}
 

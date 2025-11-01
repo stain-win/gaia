@@ -2,18 +2,19 @@ package tui
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stain-win/gaia/apps/gaia/certs"
-	"github.com/stain-win/gaia/apps/gaia/daemon"
 )
 
 func (m *model) Init() tea.Cmd {
+	// Rebuild menu immediately with empty status (will be updated when status arrives)
+	m.rebuildMainMenu()
 	return tea.Batch(
 		checkStatusCmd(m.config),
 		tea.Tick(m.config.GaiaTuiTickInterval, func(t time.Time) tea.Msg {
@@ -27,7 +28,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Global handling for messages that apply to all screens
 	switch msg := msg.(type) {
 	case time.Time:
-		return m, checkStatusCmd(m.config)
+		// Check status and schedule next tick
+		return m, tea.Batch(
+			checkStatusCmd(m.config),
+			tea.Tick(m.config.GaiaTuiTickInterval, func(t time.Time) tea.Msg {
+				return t
+			}),
+		)
 	case tea.WindowSizeMsg:
 		h, v := lipgloss.NewStyle().Margin(8, 2).GetFrameSize()
 		m.mainMenu.SetSize(msg.Width-h, min(len(m.mainMenu.Items())*5, msg.Height-v))
@@ -49,11 +56,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case statusUpdatedMsg:
-		if msg.err != nil {
-			m.daemonStatus = fmt.Sprintf("%s - %s", msg.status, "could not connect to daemon")
-		} else {
-			m.daemonStatus = msg.status
-		}
+		// Set status - when err is present, status is already "offline"
+		m.daemonStatus = msg.status
+		// Rebuild main menu based on daemon state (locked/offline/unlocked)
+		m.rebuildMainMenu()
 		return m, nil
 	case backToDataManagementMsg:
 		m.activeScreen = dataManagement
@@ -78,6 +84,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.inspector, cmd = m.inspector.Update(msg)
 		return m, cmd
+	case unlockScreen:
+		return m.updateUnlockScreen(msg)
 	}
 
 	return m, nil
@@ -89,7 +97,20 @@ func (m *model) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
 		selected := m.mainMenu.SelectedItem().(menuItem)
 		switch selected.title {
-		case "Manage Data":
+		case "Unlock Gaia":
+			m.unlockFormModel = newUnlockFormModel()
+			m.activeScreen = unlockScreen
+			m.statusMessage = ""
+			return m, m.unlockFormModel.Init()
+		case "Manage Data", "Manage Data (Locked)", "Manage Data (Offline)":
+			if isDaemonLocked(m.daemonStatus) {
+				m.statusMessage = "⚠️ Cannot access data - Gaia is locked. Please unlock first."
+				return m, nil
+			}
+			if isOffline(m.daemonStatus) {
+				m.statusMessage = "⚠️ Cannot access data - Daemon is not running. Please start the daemon."
+				return m, nil
+			}
 			m.activeScreen = dataManagement
 		case "Manage Certificates":
 			m.activeScreen = certManagement
@@ -115,11 +136,33 @@ func (m *model) updateDataManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 			selected := m.dataMenu.SelectedItem().(menuItem)
 			switch selected.title {
 			case "Add New Record":
+				// Check if daemon is locked or offline
+				if isDaemonLocked(m.daemonStatus) {
+					m.statusMessage = "⚠️ Cannot add records - Gaia is locked. Please unlock first."
+					m.activeScreen = mainMenu
+					return m, nil
+				}
+				if isOffline(m.daemonStatus) {
+					m.statusMessage = "⚠️ Cannot add records - Daemon is not running. Please start the daemon."
+					m.activeScreen = mainMenu
+					return m, nil
+				}
 				m.statusMessage = "Loading clients..."
 				// Fire the command to fetch the list of clients from the daemon.
 				return m, fetchClientsCmd(m.config)
 
 			case "List All Records":
+				// Check if daemon is locked or offline
+				if isDaemonLocked(m.daemonStatus) {
+					m.statusMessage = "⚠️ Cannot list records - Gaia is locked. Please unlock first."
+					m.activeScreen = mainMenu
+					return m, nil
+				}
+				if isOffline(m.daemonStatus) {
+					m.statusMessage = "⚠️ Cannot list records - Daemon is not running. Please start the daemon."
+					m.activeScreen = mainMenu
+					return m, nil
+				}
 				m.activeScreen = listRecords
 				return m, m.inspector.Init()
 
@@ -127,13 +170,6 @@ func (m *model) updateDataManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.activeScreen = mainMenu
 			}
 		}
-	case daemon.StatusMsg:
-		if msg.Err != nil || msg.Status != "running" {
-			m.daemonStatus = fmt.Sprintf("Error: Daemon not running (Status: %s)", msg.Status)
-			return m, nil
-		}
-		m.daemonStatus = "Daemon running. Fetching namespaces..."
-		return m, mockListNamespaces()
 
 	case clientsLoadedMsg:
 		if msg.err != nil {
@@ -173,9 +209,10 @@ func (m *model) updateAddRecord(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Handle the escape key specifically to exit the form.
-		if key.Matches(msg, keys.Back) { // Using the 'Back' keybinding
+		// Handle the escape key to exit the form (only 'esc', not 'b' since form needs input)
+		if msg.String() == "esc" {
 			m.activeScreen = dataManagement
+			m.statusMessage = ""
 			return m, nil
 		}
 	}
@@ -190,19 +227,27 @@ func (m *model) updateAddRecord(msg tea.Msg) (tea.Model, tea.Cmd) {
 // updateCertManagement handles updates for the certificate management screen.
 func (m *model) updateCertManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
-		selected := m.certMenu.SelectedItem().(menuItem)
-		switch selected.title {
-		case "Create New Certificates":
-			m.activeScreen = createCerts
-			return m, m.certForm.Init()
-		case "Register Client":
-			m.activeScreen = registerClient
-			return m, m.registerClientFormModel.Init()
-		case "List Existing Certificates":
-			// TODO: Implement list functionality
-		case "Back":
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "enter":
+			selected := m.certMenu.SelectedItem().(menuItem)
+			switch selected.title {
+			case "Create New Certificates":
+				m.activeScreen = createCerts
+				return m, m.certForm.Init()
+			case "Register Client":
+				m.registerClientFormModel = newRegisterClientFormModel()
+				m.activeScreen = registerClient
+				m.statusMessage = ""
+				return m, m.registerClientFormModel.Init()
+			case "List Existing Certificates":
+				// TODO: Implement list functionality
+			case "Back":
+				m.activeScreen = mainMenu
+			}
+		case "b", "esc":
 			m.activeScreen = mainMenu
+			return m, nil
 		}
 	}
 	m.certMenu, cmd = m.certMenu.Update(msg)
@@ -211,6 +256,13 @@ func (m *model) updateCertManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // updateCreateCerts handles updates for the 'Create Certificates' form screen.
 func (m *model) updateCreateCerts(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle escape key to go back (for forms, only use esc, not 'b')
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+		m.activeScreen = certManagement
+		m.statusMessage = ""
+		return m, nil
+	}
+
 	updatedForm, cmd := m.certForm.Update(msg)
 	m.certForm = updatedForm.(*huh.Form)
 
@@ -233,26 +285,34 @@ func (m *model) updateCreateCerts(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Error generating certificates: %v\n", err)
+			m.statusMessage = fmt.Sprintf("❌ Error generating certificates: %v", err)
 		} else {
-			fmt.Println("Certificates generated successfully!")
+			m.statusMessage = fmt.Sprintf("✓ Certificates generated successfully in %s/", outPath)
 		}
 
 		m.activeScreen = certManagement
-		return m, tea.ClearScreen
+		return m, nil
 	}
 	return m, cmd
 }
 
 // updateRegisterClient handles updates for the 'Register Client' form screen.
 func (m *model) updateRegisterClient(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if _, ok := msg.(BackMsg); ok {
+	switch msg := msg.(type) {
+	case BackMsg:
 		m.activeScreen = certManagement
+		m.statusMessage = ""
 		return m, nil
-	}
-	if regMsg, ok := msg.(RegisterClientMsg); ok {
-		// TODO: Call gRPC client to register the client.
-		fmt.Printf("Received RegisterClientMsg: ClientName=%s\n", regMsg.ClientName)
+	case RegisterClientMsg:
+		m.statusMessage = fmt.Sprintf("Registering client '%s'...", msg.ClientName)
+		return m, registerClientCmd(m.config, msg.ClientName)
+	case clientRegisteredMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error registering client: %v", msg.err)
+		} else {
+			m.statusMessage = fmt.Sprintf("✓ Client '%s' registered successfully!\nCert: %s\nKey: %s",
+				msg.clientName, msg.certPath, msg.keyPath)
+		}
 		m.activeScreen = certManagement
 		return m, nil
 	}
@@ -260,4 +320,74 @@ func (m *model) updateRegisterClient(msg tea.Msg) (tea.Model, tea.Cmd) {
 	updatedModel, cmd := m.registerClientFormModel.Update(msg)
 	m.registerClientFormModel = updatedModel.(*registerClientFormModel)
 	return m, cmd
+}
+
+// updateUnlockScreen handles updates for the unlock screen.
+func (m *model) updateUnlockScreen(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case BackMsg:
+		m.activeScreen = mainMenu
+		m.statusMessage = ""
+		return m, nil
+	case UnlockMsg:
+		m.statusMessage = "Unlocking Gaia..."
+		return m, unlockDaemonCmd(m.config, msg.Passphrase)
+	case unlockResultMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error unlocking: %v", msg.err)
+			// Stay on unlock screen to allow retry
+			m.unlockFormModel = newUnlockFormModel()
+			return m, m.unlockFormModel.Init()
+		}
+		if !msg.success {
+			m.statusMessage = "❌ Unlock failed: Invalid passphrase"
+			// Stay on unlock screen to allow retry
+			m.unlockFormModel = newUnlockFormModel()
+			return m, m.unlockFormModel.Init()
+		}
+		m.statusMessage = "✓ Gaia unlocked successfully!"
+		m.activeScreen = mainMenu
+		// Trigger a status check to update the daemon status
+		return m, checkStatusCmd(m.config)
+	}
+
+	updatedModel, cmd := m.unlockFormModel.Update(msg)
+	m.unlockFormModel = updatedModel.(*unlockFormModel)
+	return m, cmd
+}
+
+// rebuildMainMenu rebuilds the main menu items based on daemon state.
+func (m *model) rebuildMainMenu() {
+	// Common menu items that appear in all states
+	certItem := menuItem{"Manage Certificates", "View and manage your certificates"}
+	quitItem := menuItem{"Quit", "Exit the Gaia application (q)"}
+
+	var items []list.Item
+
+	switch {
+	case isDaemonLocked(m.daemonStatus):
+		// When locked, show Unlock Gaia first
+		items = []list.Item{
+			menuItem{"Unlock Gaia", "Unlock the daemon to access secrets"},
+			menuItem{"Manage Data (Locked)", "⚠️ Requires unlock - Add, view, or delete secret records"},
+			certItem,
+			quitItem,
+		}
+	case isOffline(m.daemonStatus):
+		// When offline/stopped/starting, show disabled menu
+		items = []list.Item{
+			menuItem{"Manage Data (Offline)", "⚠️ Daemon not running - Cannot access secret records"},
+			certItem,
+			quitItem,
+		}
+	default:
+		// When unlocked or any other state, show normal menu
+		items = []list.Item{
+			menuItem{"Manage Data", "Add, view, or delete secret records"},
+			certItem,
+			quitItem,
+		}
+	}
+
+	m.mainMenu.SetItems(items)
 }

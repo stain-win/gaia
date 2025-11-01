@@ -12,6 +12,15 @@
             </PendingDiffInfo>
           </value>
         </entry>
+        <entry key="$PROJECT_DIR$/libs/js/tsconfig.json">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/libs/js/tsconfig.json" />
+              <option name="originalContent" value="{&#10;  &quot;compilerOptions&quot;: {&#10;    &quot;target&quot;: &quot;ES2020&quot;,&#10;    &quot;module&quot;: &quot;commonjs&quot;,&#10;    &quot;lib&quot;: [&quot;ES2020&quot;],&#10;    &quot;declaration&quot;: true,&#10;    &quot;outDir&quot;: &quot;./dist&quot;,&#10;    &quot;rootDir&quot;: &quot;./src&quot;,&#10;    &quot;strict&quot;: true,&#10;    &quot;esModuleInterop&quot;: true,&#10;    &quot;skipLibCheck&quot;: true,&#10;    &quot;forceConsistentCasingInFileNames&quot;: true,&#10;    &quot;resolveJsonModule&quot;: true,&#10;    &quot;moduleResolution&quot;: &quot;node&quot;,&#10;    &quot;allowSyntheticDefaultImports&quot;: true&#10;  },&#10;  &quot;include&quot;: [&quot;src/**/*&quot;],&#10;  &quot;exclude&quot;: [&quot;node_modules&quot;, &quot;dist&quot;, &quot;**/*.test.ts&quot;]&#10;}&#10;" />
+              <option name="updatedContent" value="{&#10;  &quot;compilerOptions&quot;: {&#10;    &quot;target&quot;: &quot;ES2020&quot;,&#10;    &quot;module&quot;: &quot;commonjs&quot;,&#10;    &quot;lib&quot;: [&quot;ES2020&quot;],&#10;    &quot;declaration&quot;: true,&#10;    &quot;outDir&quot;: &quot;./dist&quot;,&#10;    &quot;rootDir&quot;: &quot;./src&quot;,&#10;    &quot;strict&quot;: true,&#10;    &quot;esModuleInterop&quot;: true,&#10;    &quot;skipLibCheck&quot;: true,&#10;    &quot;forceConsistentCasingInFileNames&quot;: true,&#10;    &quot;resolveJsonModule&quot;: true,&#10;    &quot;moduleResolution&quot;: &quot;node&quot;,&#10;    &quot;allowSyntheticDefaultImports&quot;: true&#10;  },&#10;  &quot;include&quot;: [&quot;src/**/*&quot;],&#10;  &quot;exclude&quot;: [&quot;node_modules&quot;, &quot;dist&quot;, &quot;**/*.test.ts&quot;]&#10;}&#10;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
       </map>
     </option>
   </component>
