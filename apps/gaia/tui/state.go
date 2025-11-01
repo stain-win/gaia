@@ -16,11 +16,6 @@ func isOffline(status string) bool {
 		status == DaemonStatusStarting
 }
 
-// isDaemonAccessible checks if daemon is in a state where data can be accessed
-func isDaemonAccessible(status string) bool {
-	return status == DaemonStatusUnlocked
-}
-
 // isDaemonLocked checks if daemon is locked
 func isDaemonLocked(status string) bool {
 	return status == DaemonStatusLocked

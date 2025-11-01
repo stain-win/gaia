@@ -99,7 +99,7 @@ Gaia is a **lightweight, secure, and self-hosted secrets management daemon** des
 Gaia uses a **client-server architecture**:
 
 ```
-┌─────────────┐         mTLS/gRPC         ┌──────────────┐
+┌─────────────┐         mTLS/gRPC          ┌──────────────┐
 │             │  ───────────────────────>  │              │
 │  Your App   │                            │ Gaia Daemon  │
 │  (Client)   │  <───────────────────────  │   (Server)   │
