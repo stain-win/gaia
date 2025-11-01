@@ -1,54 +1,110 @@
-# This is an example .goreleaser.yml file with some sensible defaults.
-# Make sure to check the documentation at https://goreleaser.com
-
-# The lines below are called `modelines`. See `:help modeline`
-# Feel free to remove those if you don't want/need to use them.
-# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+# GoReleaser configuration for Gaia
+# See: https://goreleaser.com
 
 version: 2
 
+project_name: gaia
+
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
-    - go generate ./...
+    - make protoc  # Generate protobuf code before build
 
 builds:
-  - env:
+  - id: gaia
+    main: ./apps/gaia
+    binary: gaia
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
-      - windows
       - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Set version info
+    ldflags:
+      - -s -w
+      - -X github.com/stain-win/gaia/apps/gaia/cmd.version={{.Version}}
+      - -X github.com/stain-win/gaia/apps/gaia/cmd.commit={{.Commit}}
+      - -X github.com/stain-win/gaia/apps/gaia/cmd.date={{.Date}}
 
 archives:
-  - formats: [tar.gz]
-    # this name template makes the OS and Arch compatible with the results of `uname`.
+  - id: gaia-archive
+    format: tar.gz
     name_template: >-
       {{ .ProjectName }}_
+      {{- .Version }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
     format_overrides:
       - goos: windows
-        formats: [zip]
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+      - documentation/*
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
+  use: github
   filters:
     exclude:
       - '^docs:'
       - '^test:'
       - '^chore:'
+      - '^ci:'
+      - '^build:'
+  groups:
+    - title: 'New Features'
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: 'Security Updates'
+      regexp: "^.*sec[(\\w)]*:+.*$"
+      order: 2
+    - title: 'Other Changes'
+      order: 999
 
 release:
-  footer: >-
-
+  github:
+    owner: stain-win
+    name: gaia
+  draft: false
+  prerelease: auto
+  name_template: "Gaia {{.Version}}"
+  header: |
+    ## Gaia {{.Version}}
+    
+    Lightweight, secure, self-hosted secrets management daemon.
+    
+    ### Installation
+    
+    Download the appropriate binary for your system below, extract it, and add it to your PATH.
+    
+    ### What's Changed
+  footer: |
     ---
-
-    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
+    
+    **Full Changelog**: https://github.com/stain-win/gaia/compare/{{ .PreviousTag }}...{{ .Tag }}
+    
+    ### Verifying Downloads
+    
+    All binaries are checksummed. Verify with:
+    ```bash
+    sha256sum -c checksums.txt
+    ```
+    
+    Released by [GoReleaser](https://github.com/goreleaser/goreleaser)

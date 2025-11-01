@@ -165,13 +165,20 @@ This design minimizes the window for memory-scraping attacks.
 ### 1. Install Gaia
 
 ```bash
-# Download the latest release
-wget https://github.com/stain-win/gaia/releases/latest/download/gaia-linux-amd64
+# Download the latest release (Linux amd64)
+VERSION=$(curl -s https://api.github.com/repos/stain-win/gaia/releases/latest | grep tag_name | cut -d '"' -f 4)
+wget https://github.com/stain-win/gaia/releases/download/${VERSION}/gaia_${VERSION}_Linux_x86_64.tar.gz
 
-# Make it executable
-chmod +x gaia-linux-amd64
-sudo mv gaia-linux-amd64 /usr/local/bin/gaia
+# Extract and install
+tar -xzf gaia_${VERSION}_Linux_x86_64.tar.gz
+chmod +x gaia
+sudo mv gaia /usr/local/bin/
+
+# Verify installation
+gaia version
 ```
+
+For other platforms, see the [Installation](#installation) section.
 
 ### 2. Initialize
 
@@ -217,23 +224,98 @@ In the TUI:
 
 ### Pre-built Binaries
 
-Download from the [releases page](https://github.com/stain-win/gaia/releases):
+Download from the [releases page](https://github.com/stain-win/gaia/releases).
+
+#### Linux (amd64)
 
 ```bash
-# Linux (amd64)
-wget https://github.com/stain-win/gaia/releases/latest/download/gaia-linux-amd64
-chmod +x gaia-linux-amd64
-sudo mv gaia-linux-amd64 /usr/local/bin/gaia
+# Download the latest version
+VERSION=$(curl -s https://api.github.com/repos/stain-win/gaia/releases/latest | grep tag_name | cut -d '"' -f 4)
+wget https://github.com/stain-win/gaia/releases/download/${VERSION}/gaia_${VERSION}_Linux_x86_64.tar.gz
 
-# macOS (arm64 - M1/M2)
-wget https://github.com/stain-win/gaia/releases/latest/download/gaia-darwin-arm64
-chmod +x gaia-darwin-arm64
-sudo mv gaia-darwin-arm64 /usr/local/bin/gaia
+# Extract
+tar -xzf gaia_${VERSION}_Linux_x86_64.tar.gz
 
-# macOS (amd64 - Intel)
-wget https://github.com/stain-win/gaia/releases/latest/download/gaia-darwin-amd64
-chmod +x gaia-darwin-amd64
-sudo mv gaia-darwin-amd64 /usr/local/bin/gaia
+# Install
+chmod +x gaia
+sudo mv gaia /usr/local/bin/
+
+# Verify
+gaia version
+```
+
+#### Linux (arm64)
+
+```bash
+# Download the latest version
+VERSION=$(curl -s https://api.github.com/repos/stain-win/gaia/releases/latest | grep tag_name | cut -d '"' -f 4)
+wget https://github.com/stain-win/gaia/releases/download/${VERSION}/gaia_${VERSION}_Linux_arm64.tar.gz
+
+# Extract and install
+tar -xzf gaia_${VERSION}_Linux_arm64.tar.gz
+chmod +x gaia
+sudo mv gaia /usr/local/bin/
+```
+
+#### macOS (Apple Silicon - M1/M2/M3)
+
+```bash
+# Download the latest version
+VERSION=$(curl -s https://api.github.com/repos/stain-win/gaia/releases/latest | grep tag_name | cut -d '"' -f 4)
+curl -LO https://github.com/stain-win/gaia/releases/download/${VERSION}/gaia_${VERSION}_Darwin_arm64.tar.gz
+
+# Extract and install
+tar -xzf gaia_${VERSION}_Darwin_arm64.tar.gz
+chmod +x gaia
+sudo mv gaia /usr/local/bin/
+```
+
+#### macOS (Intel)
+
+```bash
+# Download the latest version
+VERSION=$(curl -s https://api.github.com/repos/stain-win/gaia/releases/latest | grep tag_name | cut -d '"' -f 4)
+curl -LO https://github.com/stain-win/gaia/releases/download/${VERSION}/gaia_${VERSION}_Darwin_x86_64.tar.gz
+
+# Extract and install
+tar -xzf gaia_${VERSION}_Darwin_x86_64.tar.gz
+chmod +x gaia
+sudo mv gaia /usr/local/bin/
+```
+
+#### Windows (amd64)
+
+Download the `.zip` file from the [releases page](https://github.com/stain-win/gaia/releases/latest) and extract it to a directory in your PATH.
+
+Or using PowerShell:
+
+```powershell
+# Get latest version
+$VERSION = (Invoke-RestMethod -Uri "https://api.github.com/repos/stain-win/gaia/releases/latest").tag_name
+
+# Download
+Invoke-WebRequest -Uri "https://github.com/stain-win/gaia/releases/download/$VERSION/gaia_${VERSION}_Windows_x86_64.zip" -OutFile "gaia.zip"
+
+# Extract
+Expand-Archive -Path gaia.zip -DestinationPath .
+
+# Move to a directory in your PATH
+Move-Item gaia.exe C:\Windows\System32\
+```
+
+#### Verifying Downloads
+
+All releases include checksums. Verify your download:
+
+```bash
+# Download checksums
+wget https://github.com/stain-win/gaia/releases/download/${VERSION}/checksums.txt
+
+# Verify (Linux/macOS)
+sha256sum -c checksums.txt 2>&1 | grep gaia
+
+# Or verify specific file
+sha256sum gaia_${VERSION}_Linux_x86_64.tar.gz
 ```
 
 ### From Source
