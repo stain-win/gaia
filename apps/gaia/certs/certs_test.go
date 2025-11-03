@@ -414,9 +414,11 @@ func TestLoadCA_MissingFiles(t *testing.T) {
 func TestGenerateCA_Integration(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := &config.Config{
-		CertsDirectory: tempDir,
-		CACertFile:     "ca.crt",
-		CertExpiryDays: 365,
+		TLS: config.TLSConfig{
+			CertsDirectory: tempDir,
+			CACert:         "ca.crt",
+			CertExpiryDays: 365,
+		},
 	}
 
 	// Generate CA
@@ -459,11 +461,13 @@ func TestGenerateCA_Integration(t *testing.T) {
 func TestGenerateServerCertificate_Integration(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := &config.Config{
-		CertsDirectory: tempDir,
-		CACertFile:     "ca.crt",
-		ServerCertFile: "server.crt",
-		ServerKeyFile:  "server.key",
-		CertExpiryDays: 365,
+		TLS: config.TLSConfig{
+			CertsDirectory: tempDir,
+			CACert:         "ca.crt",
+			ServerCert:     "server.crt",
+			ServerKey:      "server.key",
+			CertExpiryDays: 365,
+		},
 	}
 
 	// Generate CA first
@@ -520,9 +524,11 @@ func TestGenerateServerCertificate_Integration(t *testing.T) {
 func TestGenerateClientCertificate_Integration(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := &config.Config{
-		CertsDirectory: tempDir,
-		CACertFile:     "ca.crt",
-		CertExpiryDays: 365,
+		TLS: config.TLSConfig{
+			CertsDirectory: tempDir,
+			CACert:         "ca.crt",
+			CertExpiryDays: 365,
+		},
 	}
 
 	// Generate CA first

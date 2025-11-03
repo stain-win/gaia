@@ -1,0 +1,40 @@
+[package]
+name = "gaia-client"
+version = "0.1.0"
+authors = ["Gaia Team"]
+edition = "2021"
+description = "Rust client library for Gaia secret management daemon"
+license = "MIT"
+repository = "https://github.com/stain-win/gaia"
+documentation = "https://docs.rs/gaia-client"
+keywords = ["gaia", "secrets", "credentials", "grpc", "client"]
+categories = ["api-bindings", "authentication"]
+readme = "README.md"
+
+[lib]
+name = "gaia_client"
+path = "src/lib.rs"
+
+[dependencies]
+tonic = { version = "0.11", features = ["tls"] }
+prost = "0.12"
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[build-dependencies]
+tonic-build = "0.11"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["full"] }
+tempfile = "3.8"
+
+[[example]]
+name = "simple_client"
+path = "examples/simple_client.rs"
+
+[[example]]
+name = "fetch_secrets"
+path = "examples/fetch_secrets.rs"
+

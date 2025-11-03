@@ -1,0 +1,30 @@
+# Rust build artifacts
+target/
+debug/
+release/
+# Cargo.lock should be committed for binary projects,
+# but not for libraries (per Rust best practices)
+Cargo.lock
+# Generated files from build.rs
+# The proto code is generated at build time from ../../proto/
+# so we don't commit it
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.iml
+# OS files
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+# Test artifacts
+*.profraw
+*.profdata
+# Documentation build
+doc/
+# Backup files
+*.bak
+*.tmp

@@ -22,8 +22,8 @@ func TestUnlockDB_InvalidPassphrase(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test_gaia.db")
 
 	cfg := config.NewDefaultConfig()
-	cfg.DBFile = dbPath
-	cfg.CertsDirectory = tmpDir
+	cfg.Daemon.DBFile = dbPath
+	cfg.TLS.CertsDirectory = tmpDir
 
 	d := NewDaemon(cfg)
 

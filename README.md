@@ -28,6 +28,7 @@ Gaia is a **lightweight, secure, and self-hosted secrets management daemon** des
 - [Client Libraries](#client-libraries)
   - [Go Client](#go-client)
   - [JavaScript/TypeScript Client](#javascripttypescript-client)
+  - [Rust Client](#rust-client)
 - [CLI Reference](#cli-reference)
 - [Production Deployment](#production-deployment)
 - [Architecture & Security](#architecture--security)
@@ -78,6 +79,7 @@ Gaia is a **lightweight, secure, and self-hosted secrets management daemon** des
 
 - **Go Client Library** - First-class Go support
 - **JavaScript/TypeScript Client** - Full-featured npm package
+- **Rust Client Library** - High-performance async Rust support
 - **Environment Injection** - Replace `.env` files seamlessly
 - **Simple gRPC API** - Clean, strongly-typed interface
 - **Multiple Namespaces** - Organize secrets logically
@@ -640,6 +642,164 @@ interface GaiaClientConfig {
   clientKeyFile?: string;      // Required for mTLS
   timeout?: number;            // Optional: default 5000ms
   insecure?: boolean;          // Optional: dev only, default false
+}
+```
+
+---
+
+### Rust Client
+
+#### Installation
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+gaia-client = "0.1"
+tokio = { version = "1.0", features = ["full"] }
+```
+
+#### Basic Usage
+
+```rust
+use gaia_client::{GaiaClient, GaiaClientConfig};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Configure client
+    let config = GaiaClientConfig::new(
+        "localhost:50051",
+        "/etc/gaia/certs/ca.crt",
+        "/etc/gaia/certs/client.crt",
+        "/etc/gaia/certs/client.key",
+    );
+
+    // Connect to Gaia daemon
+    let mut client = GaiaClient::connect(config).await?;
+
+    // Check if daemon is ready
+    if !client.is_unlocked().await? {
+        eprintln!("Daemon is locked. Please unlock it first.");
+        return Ok(());
+    }
+
+    // Fetch a secret
+    let secret = client.get_secret("production", "database_url").await?;
+    println!("Database URL: {}", secret.value);
+
+    // Get all common secrets
+    let common_secrets = client.get_common_secrets(None).await?;
+    for namespace in common_secrets {
+        println!("Namespace: {}", namespace.name);
+        for secret in namespace.secrets {
+            println!("  {}: {}", secret.id, secret.value);
+        }
+    }
+
+    Ok(())
+}
+```
+
+#### Configuration from Environment
+
+```rust
+use gaia_client::GaiaClientConfig;
+
+// Reads from environment variables:
+// - GAIA_SERVER_ADDRESS (default: "localhost:50051")
+// - GAIA_CA_CERT (default: "/etc/gaia/certs/ca.crt")
+// - GAIA_CLIENT_CERT (default: "/etc/gaia/certs/client.crt")
+// - GAIA_CLIENT_KEY (default: "/etc/gaia/certs/client.key")
+let config = GaiaClientConfig::from_env();
+
+let mut client = GaiaClient::connect(config).await?;
+```
+
+#### Error Handling
+
+```rust
+use gaia_client::GaiaError;
+
+match client.get_secret("production", "api_key").await {
+    Ok(secret) => println!("API Key: {}", secret.value),
+    Err(GaiaError::DaemonLocked) => {
+        eprintln!("Daemon is locked. Unlock it first.");
+    }
+    Err(GaiaError::SecretNotFound(ns, id)) => {
+        eprintln!("Secret {}/{} not found", ns, id);
+    }
+    Err(GaiaError::DaemonOffline) => {
+        eprintln!("Daemon is offline. Start it first.");
+    }
+    Err(e) => {
+        eprintln!("Error: {}", e);
+    }
+}
+```
+
+#### API Reference
+
+```rust
+// Connect to Gaia daemon
+pub async fn connect(config: GaiaClientConfig) -> Result<GaiaClient>
+
+// Get daemon status
+pub async fn get_status(&mut self) -> Result<StatusResponse>
+
+// Check if daemon is unlocked
+pub async fn is_unlocked(&mut self) -> Result<bool>
+
+// Get a single secret
+pub async fn get_secret(&mut self, namespace: &str, id: &str) -> Result<Secret>
+
+// List all namespaces
+pub async fn get_namespaces(&mut self) -> Result<NamespaceResponse>
+
+// Get all common secrets (optionally filtered by namespace)
+pub async fn get_common_secrets(&mut self, namespace: Option<String>) -> Result<Vec<Namespace>>
+
+// Get secrets from a specific common namespace
+pub async fn get_common_namespace_secrets(&mut self, namespace: &str) -> Result<Vec<Secret>>
+```
+
+#### Actix Web Integration
+
+```rust
+use actix_web::{web, App, HttpServer};
+use gaia_client::{GaiaClient, GaiaClientConfig};
+use std::sync::Mutex;
+
+struct AppState {
+    gaia_client: Mutex<GaiaClient>,
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    // Initialize Gaia client
+    let config = GaiaClientConfig::from_env();
+    let gaia_client = GaiaClient::connect(config).await
+        .expect("Failed to connect to Gaia");
+
+    let app_state = web::Data::new(AppState {
+        gaia_client: Mutex::new(gaia_client),
+    });
+
+    HttpServer::new(move || {
+        App::new()
+            .app_data(app_state.clone())
+            .route("/api/secret", web::get().to(get_secret))
+    })
+    .bind(("127.0.0.1", 8080))?
+    .run()
+    .await
+}
+
+async fn get_secret(state: web::Data<AppState>) -> String {
+    let mut client = state.gaia_client.lock().unwrap();
+    match client.get_secret("production", "api_key").await {
+        Ok(secret) => secret.value,
+        Err(e) => format!("Error: {}", e),
+    }
 }
 ```
 
