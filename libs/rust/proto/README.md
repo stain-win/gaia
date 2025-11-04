@@ -9,7 +9,9 @@ The Rust code for these proto files is **automatically generated at build time**
 ### How It Works
 
 1. When you run `cargo build`, the `build.rs` script executes
-2. It uses `tonic-build` to compile the proto files from `../../proto/gaia-client.proto`
+2. It uses `tonic-build` to compile the proto files
+   - **Development mode**: Uses `../../proto/gaia-client.proto` (root directory)
+   - **Published crate**: Uses `proto/gaia-client.proto` (this directory)
 3. Generated Rust code is placed in `target/` directory
 4. The library imports the generated code via `tonic::include_proto!("gaia")`
 
@@ -18,10 +20,13 @@ The Rust code for these proto files is **automatically generated at build time**
 - **Reference**: Developers can see what proto definitions the library uses
 - **Documentation**: Makes it clear what the gRPC API looks like
 - **Versioning**: Proto files are versioned with the library code
+- **Publishing**: These files are included in the published crate so it can build standalone
 
-### Note
+### Development vs Published
 
-The **source of truth** for proto files is in the root `../../proto/` directory. The files here are copies for reference. The build process always uses the files from the root proto directory.
+- **Development**: The build script prefers `../../proto/` (source of truth in repository)
+- **Published**: The build script uses `proto/` (included in the crate package)
+- **Automatic**: The `build.rs` script automatically detects which location to use
 
 ## Proto File
 

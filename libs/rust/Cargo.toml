@@ -10,6 +10,14 @@ documentation = "https://docs.rs/gaia-client"
 keywords = ["gaia", "secrets", "credentials", "grpc", "client"]
 categories = ["api-bindings", "authentication"]
 readme = "README.md"
+include = [
+    "src/**/*",
+    "proto/**/*",
+    "build.rs",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE"
+]
 
 [lib]
 name = "gaia_client"
