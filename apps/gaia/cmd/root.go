@@ -81,6 +81,9 @@ func init() {
 	rootCmd.AddCommand(unlockCmd)
 	rootCmd.AddCommand(versionCmd)
 
+	// Add persistent flags that apply to all subcommands
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file path (default: searches standard locations)")
+
 	// Cobra automatically adds the -v / --version flag to the rootCmd
 	// if we set the Version field. This provides a convenient shortcut.
 	rootCmd.Version = version

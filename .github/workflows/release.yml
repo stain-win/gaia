@@ -42,9 +42,44 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  check-libs-changes:
+    name: Check for libs changes
+    runs-on: ubuntu-latest
+    outputs:
+      libs_changed: ${{ steps.changes.outputs.libs_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes in libs directory
+        id: changes
+        run: |
+          # Get the previous tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "No previous tag found, will publish libs"
+            echo "libs_changed=true" >> $GITHUB_OUTPUT
+          else
+            # Check if there are any changes in libs/ between previous tag and current tag
+            CHANGES=$(git diff --name-only $PREVIOUS_TAG HEAD -- libs/ || echo "changed")
+            
+            if [ -n "$CHANGES" ]; then
+              echo "Changes detected in libs/ directory:"
+              echo "$CHANGES"
+              echo "libs_changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "No changes in libs/ directory, skipping library publishing"
+              echo "libs_changed=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
   publish-npm:
     name: Publish to npm
-    needs: release
+    needs: [release, check-libs-changes]
+    if: needs.check-libs-changes.outputs.libs_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -85,7 +120,8 @@ jobs:
 
   publish-crates:
     name: Publish to crates.io
-    needs: release
+    needs: [release, check-libs-changes]
+    if: needs.check-libs-changes.outputs.libs_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

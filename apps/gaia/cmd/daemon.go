@@ -4,22 +4,19 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/stain-win/gaia/apps/gaia/daemon"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
-	"gopkg.in/yaml.v3"
 )
 
 const DaemonStopTimeout = 5 * time.Second
 
 var (
-	grpcPort   string
-	dbFile     string
-	certsDir   string
-	configFile string
+	grpcPort string
+	dbFile   string
+	certsDir string
 )
 
 // startCmd is the Cobra command for `gaia start`.
@@ -45,15 +42,6 @@ For example:
 		fmt.Println("Starting Gaia daemon. Press Ctrl+C to stop.")
 
 		cfg := gaiaDaemon.GetConfig()
-		if configFile != "" {
-			data, err := os.ReadFile(configFile)
-			if err != nil {
-				log.Fatalf("failed to read config file '%s': %v", configFile, err)
-			}
-			if err := yaml.Unmarshal(data, cfg); err != nil {
-				log.Fatalf("failed to unmarshal config from file '%s': %v", configFile, err)
-			}
-		}
 
 		// Override with flags if set
 		if grpcPort != "" {
@@ -170,6 +158,5 @@ var statusCmd = &cobra.Command{
 func init() {
 	startCmd.Flags().StringVarP(&grpcPort, "port", "p", "", "The port to run the gRPC server on")
 	startCmd.Flags().StringVarP(&dbFile, "db-file", "d", "", "The path to the BoltDB file")
-	startCmd.Flags().StringVarP(&certsDir, "certs-dir", "c", "", "The directory containing TLS certificates")
-	startCmd.Flags().StringVar(&configFile, "config", "", "Path to the configuration file (YAML)")
+	startCmd.Flags().StringVarP(&certsDir, "certs-dir", "C", "", "The directory containing TLS certificates")
 }
