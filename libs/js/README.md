@@ -1,17 +1,17 @@
-# @gaia/client
+# '@stain-win/gaia-client'
 
 TypeScript/JavaScript client library for [Gaia](https://github.com/stain-win/gaia) - a secure, self-hosted secret management daemon.
 
 ## Installation
 
 ```bash
-npm install @gaia/client
+npm install '@stain-win/gaia-client'
 ```
 
 ## Quick Start
 
 ```typescript
-import { createClient } from '@gaia/client';
+import { createClient } from @stain-win/gaia-client';
 
 // Connect to Gaia daemon
 const client = await createClient({
@@ -210,7 +210,7 @@ type SecretsMap = Record<string, Record<string, string>>;
 ### Manual Connection Management
 
 ```typescript
-import { GaiaClient } from '@gaia/client';
+import { GaiaClient } from ''@stain-win/gaia-client'';
 
 const client = new GaiaClient({
   address: 'localhost:50051',
@@ -261,7 +261,7 @@ try {
 
 ```typescript
 import express from 'express';
-import { createClient } from '@gaia/client';
+import { createClient } from ''@stain-win/gaia-client'';
 
 const app = express();
 

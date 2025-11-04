@@ -519,13 +519,13 @@ func (c *Client) Close() error
 #### Installation
 
 ```bash
-npm install @gaia/client
+npm install @stain-win/gaia
 ```
 
 #### Basic Usage (TypeScript)
 
 ```typescript
-import { createClient } from '@gaia/client';
+import { createClient } from '@stain-win/gaia-client';
 
 async function main() {
   // Connect to Gaia
@@ -556,7 +556,7 @@ main();
 #### Load Environment Variables
 
 ```typescript
-import { createClient } from '@gaia/client';
+import { createClient } from '@stain-win/gaia-client';
 
 const client = await createClient({ /* config */ });
 
@@ -572,7 +572,7 @@ const apiKey = process.env.GAIA_PRODUCTION_API_KEY;
 
 ```typescript
 import express from 'express';
-import { createClient } from '@gaia/client';
+import { createClient } from '@stain-win/gaia-client';
 
 const app = express();
 

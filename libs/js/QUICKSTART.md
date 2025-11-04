@@ -18,7 +18,7 @@ make build-js-client
 ### From npm (Once Published)
 
 ```bash
-npm install @gaia/client
+npm install @stain-win/gaia-client
 ```
 
 ## 5-Minute Quick Start
@@ -26,13 +26,13 @@ npm install @gaia/client
 ### 1. Import the Library
 
 ```typescript
-import { createClient } from '@gaia/client';
+import { createClient } from '@stain-win/gaia-client';
 ```
 
 Or with CommonJS:
 
 ```javascript
-const { createClient } = require('@gaia/client');
+const { createClient } = require('@stain-win/gaia-client');
 ```
 
 ### 2. Connect to Gaia
@@ -70,7 +70,7 @@ try {
 ## Complete Example
 
 ```typescript
-import { createClient } from '@gaia/client';
+import { createClient } from '@stain-win/gaia-client';
 
 async function main() {
   // Connect
@@ -111,7 +111,7 @@ main();
 
 ```typescript
 import express from 'express';
-import { createClient } from '@gaia/client';
+import { createClient } from '@stain-win/gaia-client';
 
 const app = express();
 let gaiaClient;
@@ -148,7 +148,7 @@ init().then(() => {
 ### With Error Handling
 
 ```typescript
-import { createClient } from '@gaia/client';
+import { createClient } from '@stain-win/gaia-client';
 import * as grpc from '@grpc/grpc-js';
 
 const client = await createClient({ /* config */ });
