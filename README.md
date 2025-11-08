@@ -30,6 +30,12 @@ Gaia is a **lightweight, secure, and self-hosted secrets management daemon** des
   - [JavaScript/TypeScript Client](#javascripttypescript-client)
   - [Rust Client](#rust-client)
 - [CLI Reference](#cli-reference)
+  - [Daemon Management](#daemon-management)
+  - [Initialization](#initialization)
+  - [Certificate Management](#certificate-management)
+  - [Client Management](#client-management)
+  - [Secret Management](#secret-management)
+  - [Bulk Import/Export](#bulk-importexport)
 - [Production Deployment](#production-deployment)
 - [Architecture & Security](#architecture--security)
 - [Building from Source](#building-from-source)
@@ -52,9 +58,10 @@ Gaia is a **lightweight, secure, and self-hosted secrets management daemon** des
 ✅ **Simple to set up** - Single binary, one command to start  
 ✅ **Secure by default** - AES-256-GCM encryption, mTLS authentication  
 ✅ **Easy to use** - Beautiful TUI, simple CLI, clean API  
-✅ **Developer-friendly** - Client libraries for Go and Node.js  
+✅ **Developer-friendly** - Client libraries for Go, Node.js, and Rust  
 ✅ **Self-hosted** - Your secrets stay on your infrastructure  
 ✅ **Lightweight** - Minimal resource usage, perfect for small VPS  
+✅ **Backup & Migration** - Built-in import/export for easy backups and migrations  
 
 ---
 
@@ -89,6 +96,9 @@ Gaia is a **lightweight, secure, and self-hosted secrets management daemon** des
 - **Systemd Support** - Run as a system service
 - **Audit Logging** - Track all secret access
 - **Cross-Platform** - Linux, macOS, Windows support
+- **Bulk Import/Export** - Backup, migrate, and clone environments
+- **Easy Backup** - Single encrypted database file
+- **Certificate Management** - Built-in mTLS cert generation
 - **Easy Backup** - Single encrypted database file
 - **Certificate Management** - Built-in mTLS cert generation
 
@@ -882,6 +892,62 @@ gaia secrets list <client>
 
 # Delete a secret
 gaia secrets delete <client> <namespace> <key>
+```
+
+### Bulk Import/Export
+
+```bash
+# Export all secrets to JSON
+gaia secrets export > backup.json
+
+# Export all secrets to YAML
+gaia secrets export --format yaml > backup.yaml
+
+# Export secrets for a specific client
+gaia secrets export --client myapp > myapp-secrets.json
+
+# Export secrets from a specific namespace
+gaia secrets export --client myapp --namespace production > prod-secrets.json
+
+# Import secrets from a file
+gaia secrets import backup.json
+
+# Import with overwrite (update existing secrets)
+gaia secrets import --overwrite backup.json
+```
+
+**Common Use Cases:**
+
+```bash
+# Daily backup
+gaia secrets export > /backup/gaia-backup-$(date +%Y%m%d).json
+
+# Migrate to new instance
+gaia secrets export > export.json
+scp export.json new-server:/tmp/
+# On new server:
+gaia secrets import /tmp/export.json
+
+# Clone environment (production → staging)
+gaia secrets export --client myapp --namespace production > prod.json
+sed 's/"production"/"staging"/g' prod.json > staging.json
+gaia secrets import staging.json
+
+# Encrypted backup
+gaia secrets export | gpg -e -r admin@company.com > backup.json.gpg
+# Restore:
+gpg -d backup.json.gpg | gaia secrets import /dev/stdin
+```
+
+**Export Format:**
+```json
+{
+  "client-name": {
+    "namespace": {
+      "secret-key": "secret-value"
+    }
+  }
+}
 ```
 
 ### State Management

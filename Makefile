@@ -18,12 +18,34 @@ VERSION_PKG := github.com/stain-win/gaia/apps/gaia/cmd
 
 GIT_VERSION := $(shell git describe --tags --always --dirty)
 
+LDFLAGS := -s -w -X '$(VERSION_PKG).version=$(GIT_VERSION)'
+
 # --- Commands ---
 
-.PHONY: all build protoc clean test cross-build protoc-client-go protoc-client-rust protoc-client-js build-js-client
+.PHONY: all build protoc clean test cross-build protoc-client-go protoc-client-rust protoc-client-js build-js-client help
 
 # Default command to run everything
 all: protoc build
+
+# Show help
+help:
+	@echo "Gaia Makefile - Available Targets:"
+	@echo ""
+	@echo "  make all              - Build protobuf and Gaia binary"
+	@echo "  make build            - Build Gaia binary"
+	@echo "  make test             - Run all tests"
+	@echo "  make protoc           - Compile protobuf files"
+	@echo "  make cross-build      - Build for multiple platforms"
+	@echo "  make clean            - Remove build artifacts"
+	@echo ""
+	@echo "Client Libraries:"
+	@echo "  make build-js-client  - Build JavaScript/TypeScript client"
+	@echo "  make protoc-client-go - Generate Go client proto"
+	@echo "  make protoc-client-js - Copy proto for JS client"
+	@echo ""
+	@echo "Other:"
+	@echo "  make debug_build      - Build with debug flags"
+	@echo ""
 
 # Build the JavaScript/TypeScript client library
 build-js-client: protoc-client-js
@@ -64,7 +86,7 @@ protoc:
 # Build the application for the current OS
 build: protoc
 	@echo "Building Gaia for $(shell go env GOOS)/$(shell go env GOARCH)..."
-	cd $(APP_DIR) && go build -ldflags="-X '$(VERSION_PKG).version=$(GIT_VERSION)'" -o ../../$(GO_BIN_DIR)/$(GAIA_BIN_NAME) ./main.go
+	cd $(APP_DIR) && go build -ldflags="$(LDFLAGS)" -o ../../$(GO_BIN_DIR)/$(GAIA_BIN_NAME) ./main.go
 
 # Run tests
 test:

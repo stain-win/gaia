@@ -281,7 +281,7 @@ func handleCertificateSetup(cfg *config.Config) (bool, error) {
 
 	// Generate admin client certificate
 	fmt.Print(infoStyle.Render("  • Creating admin client certificate... "))
-	if err := certs.GenerateClientCertificate(cfg, "gaia-admin"); err != nil {
+	if err := certs.GenerateClientCertificate(cfg, "gaia_client"); err != nil {
 		fmt.Println(errorStyle.Render("✗"))
 		return false, fmt.Errorf("failed to generate client certificate: %w", err)
 	}
@@ -330,7 +330,7 @@ func printSuccessSummary(cfg *config.Config, certsGenerated bool) {
 		fmt.Println("  Files:")
 		fmt.Println("    • ca.crt, ca.key          (Certificate Authority)")
 		fmt.Println("    • server.crt, server.key  (Server certificate)")
-		fmt.Println("    • gaia-admin.crt, .key    (Admin client)")
+		fmt.Println("    • gaia_client.crt, .key    (Admin client)")
 		fmt.Println()
 		fmt.Println(warningStyle.Render("  ⚠  Keep ca.key and *.key files secure!"))
 		fmt.Println()
@@ -345,10 +345,10 @@ func printSuccessSummary(cfg *config.Config, certsGenerated bool) {
 	fmt.Println(stepStyle.Render("Next Steps"))
 	fmt.Println()
 	fmt.Println("  1. Start the daemon:")
-	fmt.Println(infoStyle.Render("     gaia daemon start"))
+	fmt.Println(infoStyle.Render("     gaia start"))
 	fmt.Println()
 	fmt.Println("  2. Unlock with your passphrase:")
-	fmt.Println(infoStyle.Render("     gaia state unlock"))
+	fmt.Println(infoStyle.Render("     gaia unlock"))
 	fmt.Println()
 	fmt.Println("  3. Register your first client:")
 	fmt.Println(infoStyle.Render("     gaia clients register my-app"))
