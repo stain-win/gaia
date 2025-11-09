@@ -77,6 +77,7 @@ func init() {
 	rootCmd.AddCommand(certsCmd)
 	rootCmd.AddCommand(clientsCmd)
 	rootCmd.AddCommand(secretsCmd)
+	rootCmd.AddCommand(policyCmd)
 	rootCmd.AddCommand(lockCmd)
 	rootCmd.AddCommand(unlockCmd)
 	rootCmd.AddCommand(versionCmd)

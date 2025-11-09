@@ -1484,6 +1484,479 @@ func (x *ListSecretsRequest) GetClientName() string {
 	return ""
 }
 
+// Policy messages
+type Policy struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientName    string                 `protobuf:"bytes,1,opt,name=client_name,json=clientName,proto3" json:"client_name,omitempty"`
+	Rules         []*PolicyRule          `protobuf:"bytes,2,rep,name=rules,proto3" json:"rules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Policy) Reset() {
+	*x = Policy{}
+	mi := &file_gaia_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Policy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Policy) ProtoMessage() {}
+
+func (x *Policy) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Policy.ProtoReflect.Descriptor instead.
+func (*Policy) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *Policy) GetClientName() string {
+	if x != nil {
+		return x.ClientName
+	}
+	return ""
+}
+
+func (x *Policy) GetRules() []*PolicyRule {
+	if x != nil {
+		return x.Rules
+	}
+	return nil
+}
+
+type PolicyRule struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Capabilities  []string               `protobuf:"bytes,2,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PolicyRule) Reset() {
+	*x = PolicyRule{}
+	mi := &file_gaia_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PolicyRule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PolicyRule) ProtoMessage() {}
+
+func (x *PolicyRule) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PolicyRule.ProtoReflect.Descriptor instead.
+func (*PolicyRule) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *PolicyRule) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *PolicyRule) GetCapabilities() []string {
+	if x != nil {
+		return x.Capabilities
+	}
+	return nil
+}
+
+func (x *PolicyRule) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+type ListPoliciesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPoliciesRequest) Reset() {
+	*x = ListPoliciesRequest{}
+	mi := &file_gaia_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPoliciesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPoliciesRequest) ProtoMessage() {}
+
+func (x *ListPoliciesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPoliciesRequest.ProtoReflect.Descriptor instead.
+func (*ListPoliciesRequest) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{32}
+}
+
+type ListPoliciesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Policies      []*Policy              `protobuf:"bytes,1,rep,name=policies,proto3" json:"policies,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPoliciesResponse) Reset() {
+	*x = ListPoliciesResponse{}
+	mi := &file_gaia_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPoliciesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPoliciesResponse) ProtoMessage() {}
+
+func (x *ListPoliciesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPoliciesResponse.ProtoReflect.Descriptor instead.
+func (*ListPoliciesResponse) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *ListPoliciesResponse) GetPolicies() []*Policy {
+	if x != nil {
+		return x.Policies
+	}
+	return nil
+}
+
+type GetPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientName    string                 `protobuf:"bytes,1,opt,name=client_name,json=clientName,proto3" json:"client_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPolicyRequest) Reset() {
+	*x = GetPolicyRequest{}
+	mi := &file_gaia_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPolicyRequest) ProtoMessage() {}
+
+func (x *GetPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPolicyRequest.ProtoReflect.Descriptor instead.
+func (*GetPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *GetPolicyRequest) GetClientName() string {
+	if x != nil {
+		return x.ClientName
+	}
+	return ""
+}
+
+type GetPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Policy        *Policy                `protobuf:"bytes,1,opt,name=policy,proto3" json:"policy,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPolicyResponse) Reset() {
+	*x = GetPolicyResponse{}
+	mi := &file_gaia_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPolicyResponse) ProtoMessage() {}
+
+func (x *GetPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPolicyResponse.ProtoReflect.Descriptor instead.
+func (*GetPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *GetPolicyResponse) GetPolicy() *Policy {
+	if x != nil {
+		return x.Policy
+	}
+	return nil
+}
+
+type SetPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Policy        *Policy                `protobuf:"bytes,1,opt,name=policy,proto3" json:"policy,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPolicyRequest) Reset() {
+	*x = SetPolicyRequest{}
+	mi := &file_gaia_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPolicyRequest) ProtoMessage() {}
+
+func (x *SetPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPolicyRequest.ProtoReflect.Descriptor instead.
+func (*SetPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *SetPolicyRequest) GetPolicy() *Policy {
+	if x != nil {
+		return x.Policy
+	}
+	return nil
+}
+
+type SetPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPolicyResponse) Reset() {
+	*x = SetPolicyResponse{}
+	mi := &file_gaia_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPolicyResponse) ProtoMessage() {}
+
+func (x *SetPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPolicyResponse.ProtoReflect.Descriptor instead.
+func (*SetPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *SetPolicyResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *SetPolicyResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type DeletePolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientName    string                 `protobuf:"bytes,1,opt,name=client_name,json=clientName,proto3" json:"client_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeletePolicyRequest) Reset() {
+	*x = DeletePolicyRequest{}
+	mi := &file_gaia_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeletePolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeletePolicyRequest) ProtoMessage() {}
+
+func (x *DeletePolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeletePolicyRequest.ProtoReflect.Descriptor instead.
+func (*DeletePolicyRequest) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *DeletePolicyRequest) GetClientName() string {
+	if x != nil {
+		return x.ClientName
+	}
+	return ""
+}
+
+type DeletePolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeletePolicyResponse) Reset() {
+	*x = DeletePolicyResponse{}
+	mi := &file_gaia_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeletePolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeletePolicyResponse) ProtoMessage() {}
+
+func (x *DeletePolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeletePolicyResponse.ProtoReflect.Descriptor instead.
+func (*DeletePolicyResponse) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *DeletePolicyResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *DeletePolicyResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_gaia_proto protoreflect.FileDescriptor
 
 const file_gaia_proto_rawDesc = "" +
@@ -1578,7 +2051,35 @@ const file_gaia_proto_rawDesc = "" +
 	"namespaces\"5\n" +
 	"\x12ListSecretsRequest\x12\x1f\n" +
 	"\vclient_name\x18\x01 \x01(\tR\n" +
-	"clientName2\x96\x06\n" +
+	"clientName\"Q\n" +
+	"\x06Policy\x12\x1f\n" +
+	"\vclient_name\x18\x01 \x01(\tR\n" +
+	"clientName\x12&\n" +
+	"\x05rules\x18\x02 \x03(\v2\x10.gaia.PolicyRuleR\x05rules\"f\n" +
+	"\n" +
+	"PolicyRule\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\"\n" +
+	"\fcapabilities\x18\x02 \x03(\tR\fcapabilities\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\"\x15\n" +
+	"\x13ListPoliciesRequest\"@\n" +
+	"\x14ListPoliciesResponse\x12(\n" +
+	"\bpolicies\x18\x01 \x03(\v2\f.gaia.PolicyR\bpolicies\"3\n" +
+	"\x10GetPolicyRequest\x12\x1f\n" +
+	"\vclient_name\x18\x01 \x01(\tR\n" +
+	"clientName\"9\n" +
+	"\x11GetPolicyResponse\x12$\n" +
+	"\x06policy\x18\x01 \x01(\v2\f.gaia.PolicyR\x06policy\"8\n" +
+	"\x10SetPolicyRequest\x12$\n" +
+	"\x06policy\x18\x01 \x01(\v2\f.gaia.PolicyR\x06policy\"G\n" +
+	"\x11SetPolicyResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"6\n" +
+	"\x13DeletePolicyRequest\x12\x1f\n" +
+	"\vclient_name\x18\x01 \x01(\tR\n" +
+	"clientName\"J\n" +
+	"\x14DeletePolicyResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\xa0\b\n" +
 	"\tGaiaAdmin\x12<\n" +
 	"\tAddSecret\x12\x16.gaia.AddSecretRequest\x1a\x17.gaia.AddSecretResponse\x12E\n" +
 	"\fDeleteSecret\x12\x19.gaia.DeleteSecretRequest\x1a\x1a.gaia.DeleteSecretResponse\x12B\n" +
@@ -1591,7 +2092,11 @@ const file_gaia_proto_rawDesc = "" +
 	"\vListClients\x12\x18.gaia.ListClientsRequest\x1a\x19.gaia.ListClientsResponse\x12K\n" +
 	"\x0eListNamespaces\x12\x1b.gaia.ListNamespacesRequest\x1a\x1c.gaia.ListNamespacesResponse\x12E\n" +
 	"\fRevokeClient\x12\x19.gaia.RevokeClientRequest\x1a\x1a.gaia.RevokeClientResponse\x12J\n" +
-	"\rImportSecrets\x12\x1a.gaia.ImportSecretsRequest\x1a\x1b.gaia.ImportSecretsResponse(\x012?\n" +
+	"\rImportSecrets\x12\x1a.gaia.ImportSecretsRequest\x1a\x1b.gaia.ImportSecretsResponse(\x01\x12E\n" +
+	"\fListPolicies\x12\x19.gaia.ListPoliciesRequest\x1a\x1a.gaia.ListPoliciesResponse\x12<\n" +
+	"\tGetPolicy\x12\x16.gaia.GetPolicyRequest\x1a\x17.gaia.GetPolicyResponse\x12<\n" +
+	"\tSetPolicy\x12\x16.gaia.SetPolicyRequest\x1a\x17.gaia.SetPolicyResponse\x12E\n" +
+	"\fDeletePolicy\x12\x19.gaia.DeletePolicyRequest\x1a\x1a.gaia.DeletePolicyResponse2?\n" +
 	"\n" +
 	"GaiaClient\x121\n" +
 	"\tGetSecret\x12\x16.gaia.GetSecretRequest\x1a\f.gaia.SecretB+Z)github.com/stain-win/gaia/apps/gaia/protob\x06proto3"
@@ -1608,7 +2113,7 @@ func file_gaia_proto_rawDescGZIP() []byte {
 	return file_gaia_proto_rawDescData
 }
 
-var file_gaia_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_gaia_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_gaia_proto_goTypes = []any{
 	(*Secret)(nil),                 // 0: gaia.Secret
 	(*Namespace)(nil),              // 1: gaia.Namespace
@@ -1640,6 +2145,16 @@ var file_gaia_proto_goTypes = []any{
 	(*ImportSecretsResponse)(nil),  // 27: gaia.ImportSecretsResponse
 	(*ListSecretsResponse)(nil),    // 28: gaia.ListSecretsResponse
 	(*ListSecretsRequest)(nil),     // 29: gaia.ListSecretsRequest
+	(*Policy)(nil),                 // 30: gaia.Policy
+	(*PolicyRule)(nil),             // 31: gaia.PolicyRule
+	(*ListPoliciesRequest)(nil),    // 32: gaia.ListPoliciesRequest
+	(*ListPoliciesResponse)(nil),   // 33: gaia.ListPoliciesResponse
+	(*GetPolicyRequest)(nil),       // 34: gaia.GetPolicyRequest
+	(*GetPolicyResponse)(nil),      // 35: gaia.GetPolicyResponse
+	(*SetPolicyRequest)(nil),       // 36: gaia.SetPolicyRequest
+	(*SetPolicyResponse)(nil),      // 37: gaia.SetPolicyResponse
+	(*DeletePolicyRequest)(nil),    // 38: gaia.DeletePolicyRequest
+	(*DeletePolicyResponse)(nil),   // 39: gaia.DeletePolicyResponse
 }
 var file_gaia_proto_depIdxs = []int32{
 	0,  // 0: gaia.Namespace.secrets:type_name -> gaia.Secret
@@ -1647,37 +2162,49 @@ var file_gaia_proto_depIdxs = []int32{
 	24, // 2: gaia.ImportSecretsRequest.config:type_name -> gaia.ImportSecretsConfig
 	25, // 3: gaia.ImportSecretsRequest.item:type_name -> gaia.ImportSecretItem
 	1,  // 4: gaia.ListSecretsResponse.namespaces:type_name -> gaia.Namespace
-	2,  // 5: gaia.GaiaAdmin.AddSecret:input_type -> gaia.AddSecretRequest
-	22, // 6: gaia.GaiaAdmin.DeleteSecret:input_type -> gaia.DeleteSecretRequest
-	29, // 7: gaia.GaiaAdmin.ListSecrets:input_type -> gaia.ListSecretsRequest
-	5,  // 8: gaia.GaiaAdmin.GetStatus:input_type -> gaia.GetStatusRequest
-	7,  // 9: gaia.GaiaAdmin.Stop:input_type -> gaia.StopRequest
-	9,  // 10: gaia.GaiaAdmin.Unlock:input_type -> gaia.UnlockRequest
-	11, // 11: gaia.GaiaAdmin.Lock:input_type -> gaia.LockRequest
-	13, // 12: gaia.GaiaAdmin.RegisterClient:input_type -> gaia.RegisterClientRequest
-	16, // 13: gaia.GaiaAdmin.ListClients:input_type -> gaia.ListClientsRequest
-	18, // 14: gaia.GaiaAdmin.ListNamespaces:input_type -> gaia.ListNamespacesRequest
-	20, // 15: gaia.GaiaAdmin.RevokeClient:input_type -> gaia.RevokeClientRequest
-	26, // 16: gaia.GaiaAdmin.ImportSecrets:input_type -> gaia.ImportSecretsRequest
-	4,  // 17: gaia.GaiaClient.GetSecret:input_type -> gaia.GetSecretRequest
-	3,  // 18: gaia.GaiaAdmin.AddSecret:output_type -> gaia.AddSecretResponse
-	23, // 19: gaia.GaiaAdmin.DeleteSecret:output_type -> gaia.DeleteSecretResponse
-	28, // 20: gaia.GaiaAdmin.ListSecrets:output_type -> gaia.ListSecretsResponse
-	6,  // 21: gaia.GaiaAdmin.GetStatus:output_type -> gaia.GetStatusResponse
-	8,  // 22: gaia.GaiaAdmin.Stop:output_type -> gaia.StopResponse
-	10, // 23: gaia.GaiaAdmin.Unlock:output_type -> gaia.UnlockResponse
-	12, // 24: gaia.GaiaAdmin.Lock:output_type -> gaia.LockResponse
-	14, // 25: gaia.GaiaAdmin.RegisterClient:output_type -> gaia.RegisterClientResponse
-	17, // 26: gaia.GaiaAdmin.ListClients:output_type -> gaia.ListClientsResponse
-	19, // 27: gaia.GaiaAdmin.ListNamespaces:output_type -> gaia.ListNamespacesResponse
-	21, // 28: gaia.GaiaAdmin.RevokeClient:output_type -> gaia.RevokeClientResponse
-	27, // 29: gaia.GaiaAdmin.ImportSecrets:output_type -> gaia.ImportSecretsResponse
-	0,  // 30: gaia.GaiaClient.GetSecret:output_type -> gaia.Secret
-	18, // [18:31] is the sub-list for method output_type
-	5,  // [5:18] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	31, // 5: gaia.Policy.rules:type_name -> gaia.PolicyRule
+	30, // 6: gaia.ListPoliciesResponse.policies:type_name -> gaia.Policy
+	30, // 7: gaia.GetPolicyResponse.policy:type_name -> gaia.Policy
+	30, // 8: gaia.SetPolicyRequest.policy:type_name -> gaia.Policy
+	2,  // 9: gaia.GaiaAdmin.AddSecret:input_type -> gaia.AddSecretRequest
+	22, // 10: gaia.GaiaAdmin.DeleteSecret:input_type -> gaia.DeleteSecretRequest
+	29, // 11: gaia.GaiaAdmin.ListSecrets:input_type -> gaia.ListSecretsRequest
+	5,  // 12: gaia.GaiaAdmin.GetStatus:input_type -> gaia.GetStatusRequest
+	7,  // 13: gaia.GaiaAdmin.Stop:input_type -> gaia.StopRequest
+	9,  // 14: gaia.GaiaAdmin.Unlock:input_type -> gaia.UnlockRequest
+	11, // 15: gaia.GaiaAdmin.Lock:input_type -> gaia.LockRequest
+	13, // 16: gaia.GaiaAdmin.RegisterClient:input_type -> gaia.RegisterClientRequest
+	16, // 17: gaia.GaiaAdmin.ListClients:input_type -> gaia.ListClientsRequest
+	18, // 18: gaia.GaiaAdmin.ListNamespaces:input_type -> gaia.ListNamespacesRequest
+	20, // 19: gaia.GaiaAdmin.RevokeClient:input_type -> gaia.RevokeClientRequest
+	26, // 20: gaia.GaiaAdmin.ImportSecrets:input_type -> gaia.ImportSecretsRequest
+	32, // 21: gaia.GaiaAdmin.ListPolicies:input_type -> gaia.ListPoliciesRequest
+	34, // 22: gaia.GaiaAdmin.GetPolicy:input_type -> gaia.GetPolicyRequest
+	36, // 23: gaia.GaiaAdmin.SetPolicy:input_type -> gaia.SetPolicyRequest
+	38, // 24: gaia.GaiaAdmin.DeletePolicy:input_type -> gaia.DeletePolicyRequest
+	4,  // 25: gaia.GaiaClient.GetSecret:input_type -> gaia.GetSecretRequest
+	3,  // 26: gaia.GaiaAdmin.AddSecret:output_type -> gaia.AddSecretResponse
+	23, // 27: gaia.GaiaAdmin.DeleteSecret:output_type -> gaia.DeleteSecretResponse
+	28, // 28: gaia.GaiaAdmin.ListSecrets:output_type -> gaia.ListSecretsResponse
+	6,  // 29: gaia.GaiaAdmin.GetStatus:output_type -> gaia.GetStatusResponse
+	8,  // 30: gaia.GaiaAdmin.Stop:output_type -> gaia.StopResponse
+	10, // 31: gaia.GaiaAdmin.Unlock:output_type -> gaia.UnlockResponse
+	12, // 32: gaia.GaiaAdmin.Lock:output_type -> gaia.LockResponse
+	14, // 33: gaia.GaiaAdmin.RegisterClient:output_type -> gaia.RegisterClientResponse
+	17, // 34: gaia.GaiaAdmin.ListClients:output_type -> gaia.ListClientsResponse
+	19, // 35: gaia.GaiaAdmin.ListNamespaces:output_type -> gaia.ListNamespacesResponse
+	21, // 36: gaia.GaiaAdmin.RevokeClient:output_type -> gaia.RevokeClientResponse
+	27, // 37: gaia.GaiaAdmin.ImportSecrets:output_type -> gaia.ImportSecretsResponse
+	33, // 38: gaia.GaiaAdmin.ListPolicies:output_type -> gaia.ListPoliciesResponse
+	35, // 39: gaia.GaiaAdmin.GetPolicy:output_type -> gaia.GetPolicyResponse
+	37, // 40: gaia.GaiaAdmin.SetPolicy:output_type -> gaia.SetPolicyResponse
+	39, // 41: gaia.GaiaAdmin.DeletePolicy:output_type -> gaia.DeletePolicyResponse
+	0,  // 42: gaia.GaiaClient.GetSecret:output_type -> gaia.Secret
+	26, // [26:43] is the sub-list for method output_type
+	9,  // [9:26] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_gaia_proto_init() }
@@ -1695,7 +2222,7 @@ func file_gaia_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gaia_proto_rawDesc), len(file_gaia_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   30,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

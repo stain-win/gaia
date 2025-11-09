@@ -28,6 +28,7 @@ import (
 	"github.com/stain-win/gaia/apps/gaia/encrypt"
 	gaiaerrors "github.com/stain-win/gaia/apps/gaia/internal/errors"
 	gaialog "github.com/stain-win/gaia/apps/gaia/log"
+	"github.com/stain-win/gaia/apps/gaia/policy"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 	"go.etcd.io/bbolt"
 	"google.golang.org/grpc"
@@ -67,6 +68,7 @@ type Daemon struct {
 	config      *config.Config
 	server      *grpc.Server
 	db          *bbolt.DB
+	policyStore *policy.Store
 	key         []byte
 	caCert      *x509.Certificate
 	caKey       *rsa.PrivateKey
@@ -450,6 +452,16 @@ func (d *Daemon) RegisterClient(clientName string) error {
 		}
 
 		gaialog.Get().Info("client registered", slog.String("client_name", clientName), slog.String("client_id", newClient.ID))
+
+		// Create default policy for the new client
+		defaultPolicy := policy.CreateDefaultPolicy(clientName)
+		if err := d.policyStore.SetPolicy(defaultPolicy); err != nil {
+			gaialog.Get().Warn("failed to create default policy", slog.String("client", clientName), slog.String("error", err.Error()))
+			// Don't fail the registration if policy creation fails
+		} else {
+			gaialog.Get().Info("default policy created", slog.String("client", clientName))
+		}
+
 		return nil
 	})
 }
@@ -837,6 +849,14 @@ func (d *Daemon) openDB() error {
 	if err != nil {
 		return err
 	}
+
+	// Initialize policy store
+	d.policyStore, err = policy.NewStore(d.db)
+	if err != nil {
+		d.db.Close()
+		return fmt.Errorf("failed to initialize policy store: %w", err)
+	}
+
 	return nil
 }
 

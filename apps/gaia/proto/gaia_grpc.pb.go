@@ -31,6 +31,10 @@ const (
 	GaiaAdmin_ListNamespaces_FullMethodName = "/gaia.GaiaAdmin/ListNamespaces"
 	GaiaAdmin_RevokeClient_FullMethodName   = "/gaia.GaiaAdmin/RevokeClient"
 	GaiaAdmin_ImportSecrets_FullMethodName  = "/gaia.GaiaAdmin/ImportSecrets"
+	GaiaAdmin_ListPolicies_FullMethodName   = "/gaia.GaiaAdmin/ListPolicies"
+	GaiaAdmin_GetPolicy_FullMethodName      = "/gaia.GaiaAdmin/GetPolicy"
+	GaiaAdmin_SetPolicy_FullMethodName      = "/gaia.GaiaAdmin/SetPolicy"
+	GaiaAdmin_DeletePolicy_FullMethodName   = "/gaia.GaiaAdmin/DeletePolicy"
 )
 
 // GaiaAdminClient is the client API for GaiaAdmin service.
@@ -49,6 +53,11 @@ type GaiaAdminClient interface {
 	ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error)
 	RevokeClient(ctx context.Context, in *RevokeClientRequest, opts ...grpc.CallOption) (*RevokeClientResponse, error)
 	ImportSecrets(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[ImportSecretsRequest, ImportSecretsResponse], error)
+	// Policy management
+	ListPolicies(ctx context.Context, in *ListPoliciesRequest, opts ...grpc.CallOption) (*ListPoliciesResponse, error)
+	GetPolicy(ctx context.Context, in *GetPolicyRequest, opts ...grpc.CallOption) (*GetPolicyResponse, error)
+	SetPolicy(ctx context.Context, in *SetPolicyRequest, opts ...grpc.CallOption) (*SetPolicyResponse, error)
+	DeletePolicy(ctx context.Context, in *DeletePolicyRequest, opts ...grpc.CallOption) (*DeletePolicyResponse, error)
 }
 
 type gaiaAdminClient struct {
@@ -182,6 +191,46 @@ func (c *gaiaAdminClient) ImportSecrets(ctx context.Context, opts ...grpc.CallOp
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type GaiaAdmin_ImportSecretsClient = grpc.ClientStreamingClient[ImportSecretsRequest, ImportSecretsResponse]
 
+func (c *gaiaAdminClient) ListPolicies(ctx context.Context, in *ListPoliciesRequest, opts ...grpc.CallOption) (*ListPoliciesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPoliciesResponse)
+	err := c.cc.Invoke(ctx, GaiaAdmin_ListPolicies_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gaiaAdminClient) GetPolicy(ctx context.Context, in *GetPolicyRequest, opts ...grpc.CallOption) (*GetPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPolicyResponse)
+	err := c.cc.Invoke(ctx, GaiaAdmin_GetPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gaiaAdminClient) SetPolicy(ctx context.Context, in *SetPolicyRequest, opts ...grpc.CallOption) (*SetPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetPolicyResponse)
+	err := c.cc.Invoke(ctx, GaiaAdmin_SetPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gaiaAdminClient) DeletePolicy(ctx context.Context, in *DeletePolicyRequest, opts ...grpc.CallOption) (*DeletePolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeletePolicyResponse)
+	err := c.cc.Invoke(ctx, GaiaAdmin_DeletePolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GaiaAdminServer is the server API for GaiaAdmin service.
 // All implementations must embed UnimplementedGaiaAdminServer
 // for forward compatibility.
@@ -198,6 +247,11 @@ type GaiaAdminServer interface {
 	ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error)
 	RevokeClient(context.Context, *RevokeClientRequest) (*RevokeClientResponse, error)
 	ImportSecrets(grpc.ClientStreamingServer[ImportSecretsRequest, ImportSecretsResponse]) error
+	// Policy management
+	ListPolicies(context.Context, *ListPoliciesRequest) (*ListPoliciesResponse, error)
+	GetPolicy(context.Context, *GetPolicyRequest) (*GetPolicyResponse, error)
+	SetPolicy(context.Context, *SetPolicyRequest) (*SetPolicyResponse, error)
+	DeletePolicy(context.Context, *DeletePolicyRequest) (*DeletePolicyResponse, error)
 	mustEmbedUnimplementedGaiaAdminServer()
 }
 
@@ -243,6 +297,18 @@ func (UnimplementedGaiaAdminServer) RevokeClient(context.Context, *RevokeClientR
 }
 func (UnimplementedGaiaAdminServer) ImportSecrets(grpc.ClientStreamingServer[ImportSecretsRequest, ImportSecretsResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method ImportSecrets not implemented")
+}
+func (UnimplementedGaiaAdminServer) ListPolicies(context.Context, *ListPoliciesRequest) (*ListPoliciesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListPolicies not implemented")
+}
+func (UnimplementedGaiaAdminServer) GetPolicy(context.Context, *GetPolicyRequest) (*GetPolicyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPolicy not implemented")
+}
+func (UnimplementedGaiaAdminServer) SetPolicy(context.Context, *SetPolicyRequest) (*SetPolicyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetPolicy not implemented")
+}
+func (UnimplementedGaiaAdminServer) DeletePolicy(context.Context, *DeletePolicyRequest) (*DeletePolicyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeletePolicy not implemented")
 }
 func (UnimplementedGaiaAdminServer) mustEmbedUnimplementedGaiaAdminServer() {}
 func (UnimplementedGaiaAdminServer) testEmbeddedByValue()                   {}
@@ -470,6 +536,78 @@ func _GaiaAdmin_ImportSecrets_Handler(srv interface{}, stream grpc.ServerStream)
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type GaiaAdmin_ImportSecretsServer = grpc.ClientStreamingServer[ImportSecretsRequest, ImportSecretsResponse]
 
+func _GaiaAdmin_ListPolicies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPoliciesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaAdminServer).ListPolicies(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaAdmin_ListPolicies_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaAdminServer).ListPolicies(ctx, req.(*ListPoliciesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GaiaAdmin_GetPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaAdminServer).GetPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaAdmin_GetPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaAdminServer).GetPolicy(ctx, req.(*GetPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GaiaAdmin_SetPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaAdminServer).SetPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaAdmin_SetPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaAdminServer).SetPolicy(ctx, req.(*SetPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GaiaAdmin_DeletePolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeletePolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaAdminServer).DeletePolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaAdmin_DeletePolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaAdminServer).DeletePolicy(ctx, req.(*DeletePolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GaiaAdmin_ServiceDesc is the grpc.ServiceDesc for GaiaAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -520,6 +658,22 @@ var GaiaAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RevokeClient",
 			Handler:    _GaiaAdmin_RevokeClient_Handler,
+		},
+		{
+			MethodName: "ListPolicies",
+			Handler:    _GaiaAdmin_ListPolicies_Handler,
+		},
+		{
+			MethodName: "GetPolicy",
+			Handler:    _GaiaAdmin_GetPolicy_Handler,
+		},
+		{
+			MethodName: "SetPolicy",
+			Handler:    _GaiaAdmin_SetPolicy_Handler,
+		},
+		{
+			MethodName: "DeletePolicy",
+			Handler:    _GaiaAdmin_DeletePolicy_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

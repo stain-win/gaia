@@ -1,0 +1,31 @@
+{
+  "client_name": "api-gateway",
+  "rules": [
+    {
+      "path": "common/*",
+      "capabilities": ["read"],
+      "description": "Read common secrets"
+    },
+    {
+      "path": "api-gateway/*",
+      "capabilities": ["read", "write", "delete", "list"],
+      "description": "Full access to own namespace"
+    },
+    {
+      "path": "user-service/production/*",
+      "capabilities": ["read"],
+      "description": "Read user service production secrets"
+    },
+    {
+      "path": "payment-service/production/*",
+      "capabilities": ["read"],
+      "description": "Read payment service production secrets"
+    },
+    {
+      "path": "auth-service/production/*",
+      "capabilities": ["read"],
+      "description": "Read auth service production secrets"
+    }
+  ]
+}
+

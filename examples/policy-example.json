@@ -1,0 +1,21 @@
+{
+  "client_name": "example-app",
+  "rules": [
+    {
+      "path": "common/*",
+      "capabilities": ["read", "list"],
+      "description": "Read-only access to common secrets"
+    },
+    {
+      "path": "example-app/*",
+      "capabilities": ["read", "write", "delete", "list"],
+      "description": "Full access to own namespace"
+    },
+    {
+      "path": "shared-service/production/*",
+      "capabilities": ["read"],
+      "description": "Read production secrets from shared service"
+    }
+  ]
+}
+

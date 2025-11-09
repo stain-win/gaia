@@ -34,6 +34,7 @@ Gaia is a **lightweight, secure, and self-hosted secrets management daemon** des
   - [Initialization](#initialization)
   - [Certificate Management](#certificate-management)
   - [Client Management](#client-management)
+  - [Policy Management](#policy-management)
   - [Secret Management](#secret-management)
   - [Bulk Import/Export](#bulk-importexport)
 - [Production Deployment](#production-deployment)
@@ -874,6 +875,46 @@ gaia clients list
 # Remove a client
 gaia clients remove <client-name>
 ```
+
+### Policy Management
+
+```bash
+# List all policies
+gaia policy list
+
+# Get policy for a client
+gaia policy get <client-name>
+
+# Set policy from JSON file
+gaia policy set <client-name> <policy-file>
+
+# Delete a policy
+gaia policy delete <client-name>
+
+# Validate policy file
+gaia policy validate <policy-file>
+```
+
+**Example Policy File:**
+```json
+{
+  "client_name": "myapp",
+  "rules": [
+    {
+      "path": "common/*",
+      "capabilities": ["read", "list"],
+      "description": "Read common secrets"
+    },
+    {
+      "path": "myapp/*",
+      "capabilities": ["read", "write", "delete", "list"],
+      "description": "Full access to own namespace"
+    }
+  ]
+}
+```
+
+See `examples/policy-*.json` for more policy examples.
 
 ### Secret Management
 

@@ -25,6 +25,7 @@ var (
 	ErrNoPeerContext        = errors.New("could not get peer from context")
 	ErrNotTLS               = errors.New("peer auth info is not TLS")
 	ErrNoPeerCertificates   = errors.New("no peer certificates found")
+	ErrPermissionDenied     = errors.New("permission denied")
 )
 
 // ValidationError represents a validation failure with detailed context.

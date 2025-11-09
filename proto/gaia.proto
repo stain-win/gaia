@@ -17,6 +17,12 @@ service GaiaAdmin {
   rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse);
   rpc RevokeClient(RevokeClientRequest) returns (RevokeClientResponse);
   rpc ImportSecrets(stream ImportSecretsRequest) returns (ImportSecretsResponse);
+
+  // Policy management
+  rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse);
+  rpc GetPolicy(GetPolicyRequest) returns (GetPolicyResponse);
+  rpc SetPolicy(SetPolicyRequest) returns (SetPolicyResponse);
+  rpc DeletePolicy(DeletePolicyRequest) returns (DeletePolicyResponse);
 }
 
 
@@ -155,3 +161,48 @@ message ListSecretsResponse {
 message ListSecretsRequest {
   string client_name = 1;
 }
+
+// Policy messages
+message Policy {
+  string client_name = 1;
+  repeated PolicyRule rules = 2;
+}
+
+message PolicyRule {
+  string path = 1;
+  repeated string capabilities = 2;
+  string description = 3;
+}
+
+message ListPoliciesRequest {}
+
+message ListPoliciesResponse {
+  repeated Policy policies = 1;
+}
+
+message GetPolicyRequest {
+  string client_name = 1;
+}
+
+message GetPolicyResponse {
+  Policy policy = 1;
+}
+
+message SetPolicyRequest {
+  Policy policy = 1;
+}
+
+message SetPolicyResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message DeletePolicyRequest {
+  string client_name = 1;
+}
+
+message DeletePolicyResponse {
+  bool success = 1;
+  string message = 2;
+}
+
