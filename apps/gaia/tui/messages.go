@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stain-win/gaia/apps/gaia/config"
+	"github.com/stain-win/gaia/apps/gaia/policy"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
 
@@ -71,6 +72,66 @@ type clientRegisteredMsg struct {
 type unlockResultMsg struct {
 	success bool
 	err     error
+}
+
+// Policy-related message types
+
+type policiesLoadedMsg struct {
+	policies []policyListItem
+	err      error
+}
+
+// fetchPoliciesCmd fetches all policies from the daemon.
+func fetchPoliciesCmd(cfg *config.Config) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return policiesLoadedMsg{err: err}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		res, err := client.ListPolicies(ctx, &pb.ListPoliciesRequest{})
+		if err != nil {
+			return policiesLoadedMsg{err: err}
+		}
+
+		// Convert protobuf policies to TUI policy list items
+		policies := make([]policyListItem, len(res.Policies))
+		for i, p := range res.Policies {
+			pol := protoToPolicy(p)
+			policies[i] = policyListItem{
+				clientName: pol.ClientName,
+				ruleCount:  len(pol.Rules),
+				summary:    buildAccessSummary(pol),
+			}
+		}
+
+		return policiesLoadedMsg{policies: policies}
+	}
+}
+
+// protoToPolicy converts a protobuf policy to a domain policy
+func protoToPolicy(p *pb.Policy) policy.Policy {
+	rules := make([]policy.PolicyRule, len(p.Rules))
+	for i, r := range p.Rules {
+		caps := make([]policy.Capability, len(r.Capabilities))
+		for j, c := range r.Capabilities {
+			caps[j] = policy.Capability(c)
+		}
+		rules[i] = policy.PolicyRule{
+			Path:         r.Path,
+			Capabilities: caps,
+			Description:  r.Description,
+		}
+	}
+	return policy.Policy{
+		ClientName: p.ClientName,
+		Rules:      rules,
+	}
 }
 
 // fetchClientsCmd is a command that fetches the list of registered clients.

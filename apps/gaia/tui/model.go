@@ -14,11 +14,16 @@ const (
 	mainMenu screen = iota
 	dataManagement
 	addRecord
-	certManagement
+	accessManagement // Renamed from certManagement
+	certManagement   // Submenu for certificates
+	policyManagement // New: Submenu for policies
 	createCerts
 	registerClient
 	listRecords
 	unlockScreen
+	listPolicies // New: List all policies
+	viewPolicy   // New: View specific policy
+	createPolicy // New: Create/edit policy
 )
 
 // A custom item type for our list.
@@ -36,7 +41,9 @@ type model struct {
 	activeScreen            screen
 	mainMenu                list.Model
 	dataMenu                list.Model
+	accessMenu              list.Model // New: Access management menu
 	certMenu                list.Model
+	policyMenu              list.Model // New: Policy management menu
 	addRecordFormModel      *addRecordFormModel
 	registerClientFormModel *registerClientFormModel
 	quitting                bool
@@ -51,16 +58,19 @@ type model struct {
 	clients                 []string
 	daemonStatus            string
 	config                  *config.Config
-	//listRecords             listRecordsModel // New model state
-	inspector       *inspectorModel
-	unlockFormModel *unlockFormModel
-	statusMessage   string
+	inspector               *inspectorModel
+	unlockFormModel         *unlockFormModel
+	statusMessage           string
+	// Policy management state
+	policies        []policyListItem
+	selectedPolicy  *policyDetailModel
+	policyFormModel *policyFormModel
 }
 
 // menuItems defines the items for the main menu.
 var menuItems = []list.Item{
 	menuItem{"Manage Data", "Add, view, or delete secret records"},
-	menuItem{"Manage Certificates", "View and manage your certificates"},
+	menuItem{"Manage Access", "Manage certificates and authorization policies"},
 	menuItem{"Quit", "Exit the Gaia application (q)"},
 }
 
@@ -71,12 +81,28 @@ var dataMenuItems = []list.Item{
 	menuItem{"Back", "Return to the main menu (b)"},
 }
 
+// accessMenuItems defines the items for the access management menu.
+var accessMenuItems = []list.Item{
+	menuItem{"Manage Certificates", "View and manage mTLS certificates"},
+	menuItem{"Manage Policies", "View and manage authorization policies"},
+	menuItem{"Back", "Return to the main menu (b)"},
+}
+
 // certMenuItems defines the items for the certificate management menu.
 var certMenuItems = []list.Item{
 	menuItem{"Create New Certificates", "Generate a new set of mTLS certificates"},
 	menuItem{"Register Client", "Register a new client for namespacing and mTLS"},
 	menuItem{"List Existing Certificates", "View all certificates known to Gaia"},
-	menuItem{"Back", "Return to the main menu (b)"},
+	menuItem{"Back", "Return to access management (b)"},
+}
+
+// policyMenuItems defines the items for the policy management menu.
+var policyMenuItems = []list.Item{
+	menuItem{"List All Policies", "View all authorization policies"},
+	menuItem{"View/Edit Policy", "View or edit a specific policy"},
+	menuItem{"Create New Policy", "Create a new authorization policy"},
+	menuItem{"Delete Policy", "Remove an authorization policy"},
+	menuItem{"Back", "Return to access management (b)"},
 }
 
 // initialModel creates the starting state of the TUI.
@@ -97,20 +123,37 @@ func initialModel(config *config.Config) *model {
 	dataList.SetShowStatusBar(false)
 	dataList.SetFilteringEnabled(false)
 
+	accessList := list.New(accessMenuItems, list.NewDefaultDelegate(), 0, 0)
+	accessList.Title = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FF8C00")).
+		Render("Access Management")
+	accessList.SetShowStatusBar(false)
+	accessList.SetFilteringEnabled(false)
+
 	certList := list.New(certMenuItems, list.NewDefaultDelegate(), 0, 0)
 	certList.Title = lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("#FF8C00")).
 		Render("Certificate Management")
-
 	certList.SetShowStatusBar(false)
 	certList.SetFilteringEnabled(false)
+
+	policyList := list.New(policyMenuItems, list.NewDefaultDelegate(), 0, 0)
+	policyList.Title = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FF8C00")).
+		Render("Policy Management")
+	policyList.SetShowStatusBar(false)
+	policyList.SetFilteringEnabled(false)
 
 	m := model{
 		activeScreen:            mainMenu,
 		mainMenu:                mainList,
 		dataMenu:                dataList,
+		accessMenu:              accessList,
 		certMenu:                certList,
+		policyMenu:              policyList,
 		help:                    help.New(),
 		addRecordFormModel:      newAddRecordFormModel(nil),
 		registerClientFormModel: newRegisterClientFormModel(),

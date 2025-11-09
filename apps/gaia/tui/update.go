@@ -39,7 +39,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h, v := lipgloss.NewStyle().Margin(8, 2).GetFrameSize()
 		m.mainMenu.SetSize(msg.Width-h, min(len(m.mainMenu.Items())*5, msg.Height-v))
 		m.dataMenu.SetSize(msg.Width-h, min(len(m.dataMenu.Items())*5, msg.Height-v))
+		m.accessMenu.SetSize(msg.Width-h, min(len(m.accessMenu.Items())*5, msg.Height-v))
 		m.certMenu.SetSize(msg.Width-h, min(len(m.certMenu.Items())*5, msg.Height-v))
+		m.policyMenu.SetSize(msg.Width-h, min(len(m.policyMenu.Items())*5, msg.Height-v))
 
 		m.width = msg.Width
 		m.height = msg.Height
@@ -72,8 +74,16 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateMainMenu(msg)
 	case dataManagement:
 		return m.updateDataManagement(msg)
+	case accessManagement:
+		return m.updateAccessManagement(msg)
 	case certManagement:
 		return m.updateCertManagement(msg)
+	case policyManagement:
+		return m.updatePolicyManagement(msg)
+	case listPolicies:
+		return m.updateListPolicies(msg)
+	case viewPolicy:
+		return m.updateViewPolicy(msg)
 	case addRecord:
 		return m.updateAddRecord(msg)
 	case createCerts:
@@ -112,8 +122,8 @@ func (m *model) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			m.activeScreen = dataManagement
-		case "Manage Certificates":
-			m.activeScreen = certManagement
+		case "Manage Access":
+			m.activeScreen = accessManagement
 		case "Quit":
 			m.quitting = true
 			return m, tea.Quit
@@ -243,10 +253,10 @@ func (m *model) updateCertManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "List Existing Certificates":
 				// TODO: Implement list functionality
 			case "Back":
-				m.activeScreen = mainMenu
+				m.activeScreen = accessManagement
 			}
 		case "b", "esc":
-			m.activeScreen = mainMenu
+			m.activeScreen = accessManagement
 			return m, nil
 		}
 	}
@@ -359,7 +369,7 @@ func (m *model) updateUnlockScreen(msg tea.Msg) (tea.Model, tea.Cmd) {
 // rebuildMainMenu rebuilds the main menu items based on the daemon state.
 func (m *model) rebuildMainMenu() {
 	// Common menu items that appear in all states
-	certItem := menuItem{"Manage Certificates", "View and manage your certificates"}
+	accessItem := menuItem{"Manage Access", "Manage certificates and authorization policies"}
 	quitItem := menuItem{"Quit", "Exit the Gaia application (q)"}
 
 	var items []list.Item
@@ -370,24 +380,141 @@ func (m *model) rebuildMainMenu() {
 		items = []list.Item{
 			menuItem{"Unlock Gaia", "Unlock the daemon to access secrets"},
 			menuItem{"Manage Data (Locked)", "⚠️ Requires unlock - Add, view, or delete secret records"},
-			certItem,
+			accessItem,
 			quitItem,
 		}
 	case isOffline(m.daemonStatus):
 		// When offline/stopped/starting, show a disabled menu
 		items = []list.Item{
 			menuItem{"Manage Data (Offline)", "⚠️ Daemon not running - Cannot access secret records"},
-			certItem,
+			accessItem,
 			quitItem,
 		}
 	default:
 		// When unlocked or any other state, show a normal menu
 		items = []list.Item{
 			menuItem{"Manage Data", "Add, view, or delete secret records"},
-			certItem,
+			accessItem,
 			quitItem,
 		}
 	}
 
 	m.mainMenu.SetItems(items)
+}
+
+// updateAccessManagement handles updates for the access management menu screen.
+func (m *model) updateAccessManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "enter":
+			selected := m.accessMenu.SelectedItem().(menuItem)
+			switch selected.title {
+			case "Manage Certificates":
+				m.activeScreen = certManagement
+			case "Manage Policies":
+				m.activeScreen = policyManagement
+			case "Back":
+				m.activeScreen = mainMenu
+			}
+		case "b", "esc":
+			m.activeScreen = mainMenu
+			return m, nil
+		}
+	}
+	m.accessMenu, cmd = m.accessMenu.Update(msg)
+	return m, cmd
+}
+
+// updatePolicyManagement handles updates for the policy management menu screen.
+func (m *model) updatePolicyManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "enter":
+			selected := m.policyMenu.SelectedItem().(menuItem)
+			switch selected.title {
+			case "List All Policies":
+				if isDaemonLocked(m.daemonStatus) {
+					m.statusMessage = "⚠️ Cannot access policies - Gaia is locked. Please unlock first."
+					return m, nil
+				}
+				if isOffline(m.daemonStatus) {
+					m.statusMessage = "⚠️ Cannot access policies - Daemon is not running."
+					return m, nil
+				}
+				m.statusMessage = "Loading policies..."
+				return m, fetchPoliciesCmd(m.config)
+			case "View/Edit Policy":
+				// TODO: Implement view/edit
+				m.statusMessage = "View/Edit policy - Coming soon"
+			case "Create New Policy":
+				// TODO: Implement create
+				m.statusMessage = "Create policy - Coming soon"
+			case "Delete Policy":
+				// TODO: Implement delete
+				m.statusMessage = "Delete policy - Coming soon"
+			case "Back":
+				m.activeScreen = accessManagement
+			}
+		case "b", "esc":
+			m.activeScreen = accessManagement
+			return m, nil
+		}
+	}
+	m.policyMenu, cmd = m.policyMenu.Update(msg)
+	return m, cmd
+}
+
+// updateListPolicies handles updates for the list policies screen.
+func (m *model) updateListPolicies(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "b", "esc":
+			m.activeScreen = policyManagement
+			m.statusMessage = ""
+			return m, nil
+		case "enter":
+			if len(m.policies) > 0 {
+				// TODO: Show policy details
+				m.statusMessage = "View policy details - Coming soon"
+			}
+			return m, nil
+		}
+	case policiesLoadedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error loading policies: %v", msg.err)
+			m.activeScreen = policyManagement
+			return m, nil
+		}
+		m.policies = msg.policies
+		m.activeScreen = listPolicies
+		m.statusMessage = fmt.Sprintf("Loaded %d policies", len(m.policies))
+		return m, nil
+	}
+	return m, nil
+}
+
+// updateViewPolicy handles updates for viewing a specific policy.
+func (m *model) updateViewPolicy(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "b", "esc":
+			m.activeScreen = listPolicies
+			m.statusMessage = ""
+			return m, nil
+		}
+
+		// Pass viewport controls to the policy detail model
+		if m.selectedPolicy != nil {
+			m.selectedPolicy.viewport, _ = m.selectedPolicy.viewport.Update(msg)
+		}
+	case tea.WindowSizeMsg:
+		if m.selectedPolicy != nil && !m.selectedPolicy.ready {
+			m.selectedPolicy.setSize(msg.Width, msg.Height)
+		}
+	}
+	return m, nil
 }

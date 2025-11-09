@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -70,14 +71,26 @@ func (m *model) View() string {
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.dataMenu.View())
 	case addRecord:
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.addRecordFormModel.View())
+	case accessManagement:
+		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.accessMenu.View())
 	case certManagement:
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.certMenu.View())
+	case policyManagement:
+		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.policyMenu.View())
 	case createCerts:
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.certForm.View())
 	case registerClient:
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.registerClientFormModel.View())
 	case listRecords:
 		screenView = m.inspector.View()
+	case listPolicies:
+		screenView = m.renderPolicyListView()
+	case viewPolicy:
+		if m.selectedPolicy != nil {
+			screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.selectedPolicy.viewport.View())
+		} else {
+			screenView = lipgloss.JoinVertical(lipgloss.Center, logo, "No policy selected")
+		}
 	case unlockScreen:
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.unlockFormModel.View())
 	}
@@ -95,4 +108,34 @@ func (m *model) View() string {
 		lipgloss.WithWhitespaceChars(" "),
 		lipgloss.WithWhitespaceForeground(lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}),
 	)
+}
+
+func (m *model) renderPolicyListView() string {
+	if len(m.policies) == 0 {
+		emptyStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888")).
+			Padding(2).
+			Align(lipgloss.Center)
+
+		return lipgloss.JoinVertical(
+			lipgloss.Center,
+			emptyStyle.Render("No policies found"),
+			emptyStyle.Render("Press 'b' to go back"),
+		)
+	}
+
+	items := make([]list.Item, len(m.policies))
+	for i, p := range m.policies {
+		items[i] = p
+	}
+
+	l := list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-10)
+	l.Title = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FF8C00")).
+		Render("Authorization Policies")
+	l.SetShowStatusBar(true)
+	l.SetFilteringEnabled(true)
+
+	return lipgloss.JoinVertical(lipgloss.Center, l.View())
 }
