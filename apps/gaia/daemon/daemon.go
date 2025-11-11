@@ -935,10 +935,3 @@ func (d *Daemon) loadCACredentials() error {
 
 	return nil
 }
-
-// wipeBytes securely zeros a byte slice to remove sensitive data from memory.
-func wipeBytes(b []byte) {
-	for i := range b {
-		b[i] = 0
-	}
-}

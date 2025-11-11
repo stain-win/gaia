@@ -13,6 +13,7 @@ import (
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/daemon"
 	"github.com/stain-win/gaia/apps/gaia/encrypt"
+	"github.com/stain-win/gaia/apps/gaia/internal/secutil"
 )
 
 var (
@@ -95,6 +96,8 @@ func runInit(_ *cobra.Command, _ []string) error {
 		fmt.Println(warningStyle.Render("Initialization cancelled."))
 		return err
 	}
+	// Ensure passphrase is wiped from memory when function exits
+	defer secutil.WipeString(&passphrase)
 
 	// Step 2: Certificate setup
 	fmt.Println()
@@ -181,6 +184,9 @@ func promptForPassphrase() (string, error) {
 	if err := form.Run(); err != nil {
 		return "", err
 	}
+
+	// Wipe the confirmation passphrase from memory
+	defer secutil.WipeString(&passphraseConfirm)
 
 	fmt.Println(successStyle.Render("✓ Passphrase validated"))
 	return passphrase, nil

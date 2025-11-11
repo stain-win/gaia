@@ -65,35 +65,6 @@ func TestUnlockDB_InvalidPassphrase(t *testing.T) {
 	d.LockDB()
 }
 
-// TestWipeBytes verifies that wipeBytes zeros the byte slice.
-func TestWipeBytes(t *testing.T) {
-	testData := []byte("sensitive-data-12345")
-	original := make([]byte, len(testData))
-	copy(original, testData)
-
-	// Verify data is not zero initially
-	hasNonZero := false
-	for _, b := range testData {
-		if b != 0 {
-			hasNonZero = true
-			break
-		}
-	}
-	if !hasNonZero {
-		t.Fatal("Test data should not be all zeros initially")
-	}
-
-	// Wipe the data
-	wipeBytes(testData)
-
-	// Verify all bytes are zero
-	for i, b := range testData {
-		if b != 0 {
-			t.Errorf("Byte at index %d is not zero: %v", i, b)
-		}
-	}
-}
-
 // createDummyCerts creates properly formatted CA certs for testing.
 func createDummyCerts(t *testing.T, dir string) {
 	t.Helper()

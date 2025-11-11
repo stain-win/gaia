@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/stain-win/gaia/apps/gaia/internal/secutil"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 	"golang.org/x/term"
 )
@@ -56,6 +57,8 @@ prompted to enter the master passphrase securely.`,
 		if err != nil {
 			return fmt.Errorf("failed to read passphrase: %w", err)
 		}
+		// Ensure passphrase is wiped from memory when function exits
+		defer secutil.WipeBytes(passphrase)
 		fmt.Println() // Newline after password input
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
