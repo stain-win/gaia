@@ -21,9 +21,13 @@ const (
 	registerClient
 	listRecords
 	unlockScreen
-	listPolicies // New: List all policies
-	viewPolicy   // New: View specific policy
-	createPolicy // New: Create/edit policy
+	listPolicies       // New: List all policies
+	viewPolicy         // New: View specific policy
+	createPolicy       // New: Create/edit policy
+	deletePolicy       // New: Delete policy with confirmation
+	editPolicy         // New: Edit existing policy
+	selectPolicyClient // New: Select client for policy operations
+	policyExport       // New: Export policy
 )
 
 // A custom item type for our list.
@@ -62,9 +66,12 @@ type model struct {
 	unlockFormModel         *unlockFormModel
 	statusMessage           string
 	// Policy management state
-	policies        []policyListItem
-	selectedPolicy  *policyDetailModel
-	policyFormModel *policyFormModel
+	policies           []policyListItem
+	selectedPolicy     *policyDetailModel
+	policyFormModel    *policyFormModel
+	policyEditorModel  *policyEditorModel
+	policyDeleteModel  *policyDeleteModel
+	selectedClientName string // For policy operations
 }
 
 // menuItems defines the items for the main menu.
@@ -99,9 +106,11 @@ var certMenuItems = []list.Item{
 // policyMenuItems defines the items for the policy management menu.
 var policyMenuItems = []list.Item{
 	menuItem{"List All Policies", "View all authorization policies"},
-	menuItem{"View/Edit Policy", "View or edit a specific policy"},
+	menuItem{"View Policy", "View details of a specific policy"},
 	menuItem{"Create New Policy", "Create a new authorization policy"},
+	menuItem{"Edit Policy", "Edit an existing policy"},
 	menuItem{"Delete Policy", "Remove an authorization policy"},
+	menuItem{"Export Policy", "Export a policy to JSON/YAML file"},
 	menuItem{"Back", "Return to access management (b)"},
 }
 

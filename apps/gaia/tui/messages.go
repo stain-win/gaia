@@ -81,6 +81,32 @@ type policiesLoadedMsg struct {
 	err      error
 }
 
+type policyLoadedMsg struct {
+	policy policy.Policy
+	err    error
+}
+
+type policyDeletedMsg struct {
+	clientName string
+	err        error
+}
+
+type policySavedMsg struct {
+	clientName string
+	err        error
+}
+
+type policyExportedMsg struct {
+	filename string
+	err      error
+}
+
+type clientsForPolicyMsg struct {
+	clients   []string
+	operation string // "view", "edit", "create", "delete", "export"
+	err       error
+}
+
 // fetchPoliciesCmd fetches all policies from the daemon.
 func fetchPoliciesCmd(cfg *config.Config) tea.Cmd {
 	return func() tea.Msg {
@@ -297,5 +323,125 @@ func unlockDaemonCmd(cfg *config.Config, passphrase string) tea.Cmd {
 		}
 
 		return unlockResultMsg{success: res.Success}
+	}
+}
+
+// Policy operation commands
+
+// fetchClientsForPolicyCmd fetches clients for policy operations
+func fetchClientsForPolicyCmd(cfg *config.Config, operation string) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return clientsForPolicyMsg{err: err, operation: operation}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		res, err := client.ListClients(ctx, &pb.ListClientsRequest{})
+		if err != nil {
+			return clientsForPolicyMsg{err: err, operation: operation}
+		}
+
+		clients := make([]string, len(res.Clients))
+		for i, c := range res.Clients {
+			clients[i] = c.Name
+		}
+
+		return clientsForPolicyMsg{clients: clients, operation: operation}
+	}
+}
+
+// fetchPolicyCmd fetches a specific policy
+func fetchPolicyCmd(cfg *config.Config, clientName string) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return policyLoadedMsg{err: err}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		res, err := client.GetPolicy(ctx, &pb.GetPolicyRequest{ClientName: clientName})
+		if err != nil {
+			return policyLoadedMsg{err: err}
+		}
+
+		pol := protoToPolicy(res.Policy)
+		return policyLoadedMsg{policy: pol}
+	}
+}
+
+// savePolicyCmd saves a policy to the daemon
+func savePolicyCmd(cfg *config.Config, pol policy.Policy) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return policySavedMsg{clientName: pol.ClientName, err: err}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Convert to protobuf
+		pbPolicy := policyToProto(&pol)
+
+		_, err = client.SetPolicy(ctx, &pb.SetPolicyRequest{Policy: pbPolicy})
+		if err != nil {
+			return policySavedMsg{clientName: pol.ClientName, err: err}
+		}
+
+		return policySavedMsg{clientName: pol.ClientName}
+	}
+}
+
+// deletePolicyCmd deletes a policy from the daemon
+func deletePolicyCmd(cfg *config.Config, clientName string) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return policyDeletedMsg{clientName: clientName, err: err}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		_, err = client.DeletePolicy(ctx, &pb.DeletePolicyRequest{ClientName: clientName})
+		if err != nil {
+			return policyDeletedMsg{clientName: clientName, err: err}
+		}
+
+		return policyDeletedMsg{clientName: clientName}
+	}
+}
+
+// policyToProto converts domain policy to protobuf
+func policyToProto(p *policy.Policy) *pb.Policy {
+	pbRules := make([]*pb.PolicyRule, len(p.Rules))
+	for i, rule := range p.Rules {
+		caps := make([]string, len(rule.Capabilities))
+		for j, cap := range rule.Capabilities {
+			caps[j] = string(cap)
+		}
+		pbRules[i] = &pb.PolicyRule{
+			Path:         rule.Path,
+			Capabilities: caps,
+			Description:  rule.Description,
+		}
+	}
+
+	return &pb.Policy{
+		ClientName: p.ClientName,
+		Rules:      pbRules,
 	}
 }

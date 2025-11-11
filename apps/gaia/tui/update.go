@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -84,6 +85,16 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateListPolicies(msg)
 	case viewPolicy:
 		return m.updateViewPolicy(msg)
+	case selectPolicyClient:
+		return m.updateSelectPolicyClient(msg)
+	case createPolicy:
+		return m.updateCreatePolicy(msg)
+	case editPolicy:
+		return m.updateEditPolicy(msg)
+	case deletePolicy:
+		return m.updateDeletePolicy(msg)
+	case policyExport:
+		return m.updatePolicyExport(msg)
 	case addRecord:
 		return m.updateAddRecord(msg)
 	case createCerts:
@@ -445,15 +456,46 @@ func (m *model) updatePolicyManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.statusMessage = "Loading policies..."
 				return m, fetchPoliciesCmd(m.config)
-			case "View/Edit Policy":
-				// TODO: Implement view/edit
-				m.statusMessage = "View/Edit policy - Coming soon"
+			case "View Policy":
+				if isDaemonLocked(m.daemonStatus) || isOffline(m.daemonStatus) {
+					m.statusMessage = "⚠️ Cannot access policies - Daemon is not available."
+					return m, nil
+				}
+				m.statusMessage = "Loading clients..."
+				m.activeScreen = selectPolicyClient
+				return m, fetchClientsForPolicyCmd(m.config, "view")
 			case "Create New Policy":
-				// TODO: Implement create
-				m.statusMessage = "Create policy - Coming soon"
+				if isDaemonLocked(m.daemonStatus) || isOffline(m.daemonStatus) {
+					m.statusMessage = "⚠️ Cannot create policy - Daemon is not available."
+					return m, nil
+				}
+				m.statusMessage = "Loading clients..."
+				m.activeScreen = selectPolicyClient
+				return m, fetchClientsForPolicyCmd(m.config, "create")
+			case "Edit Policy":
+				if isDaemonLocked(m.daemonStatus) || isOffline(m.daemonStatus) {
+					m.statusMessage = "⚠️ Cannot edit policy - Daemon is not available."
+					return m, nil
+				}
+				m.statusMessage = "Loading clients..."
+				m.activeScreen = selectPolicyClient
+				return m, fetchClientsForPolicyCmd(m.config, "edit")
 			case "Delete Policy":
-				// TODO: Implement delete
-				m.statusMessage = "Delete policy - Coming soon"
+				if isDaemonLocked(m.daemonStatus) || isOffline(m.daemonStatus) {
+					m.statusMessage = "⚠️ Cannot delete policy - Daemon is not available."
+					return m, nil
+				}
+				m.statusMessage = "Loading clients..."
+				m.activeScreen = selectPolicyClient
+				return m, fetchClientsForPolicyCmd(m.config, "delete")
+			case "Export Policy":
+				if isDaemonLocked(m.daemonStatus) || isOffline(m.daemonStatus) {
+					m.statusMessage = "⚠️ Cannot export policy - Daemon is not available."
+					return m, nil
+				}
+				m.statusMessage = "Loading clients..."
+				m.activeScreen = selectPolicyClient
+				return m, fetchClientsForPolicyCmd(m.config, "export")
 			case "Back":
 				m.activeScreen = accessManagement
 			}
@@ -515,6 +557,342 @@ func (m *model) updateViewPolicy(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.selectedPolicy != nil && !m.selectedPolicy.ready {
 			m.selectedPolicy.setSize(msg.Width, msg.Height)
 		}
+	}
+	return m, nil
+}
+
+// updateSelectPolicyClient handles client selection for policy operations
+func (m *model) updateSelectPolicyClient(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var operation string
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "b", "esc":
+			m.activeScreen = policyManagement
+			m.statusMessage = ""
+			m.selectedClientName = ""
+			return m, nil
+		case "enter":
+			// Get selected client
+			if len(m.clients) == 0 {
+				return m, nil
+			}
+
+			// For now, select the first client (TODO: make this interactive)
+			m.selectedClientName = m.clients[0]
+
+			// Route based on stored operation (we need to track this)
+			// For now, just load the policy
+			m.statusMessage = fmt.Sprintf("Loading policy for '%s'...", m.selectedClientName)
+			return m, fetchPolicyCmd(m.config, m.selectedClientName)
+		}
+	case clientsForPolicyMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error loading clients: %v", msg.err)
+			m.activeScreen = policyManagement
+			return m, nil
+		}
+
+		// Store operation type and clients
+		m.clients = msg.clients
+		operation = msg.operation
+
+		// If only one client, auto-select
+		if len(m.clients) == 1 {
+			m.selectedClientName = m.clients[0]
+
+			// Route immediately based on operation
+			switch operation {
+			case "view", "edit", "delete", "export":
+				m.statusMessage = fmt.Sprintf("Loading policy for '%s'...", m.selectedClientName)
+				return m, fetchPolicyCmd(m.config, m.selectedClientName)
+			case "create":
+				// Initialize editor for new policy
+				m.policyEditorModel = newPolicyEditorModel(m.selectedClientName, nil)
+				if m.policyEditorModel != nil {
+					m.policyEditorModel.form = m.policyEditorModel.Init()
+					m.activeScreen = createPolicy
+					m.statusMessage = "Creating new policy..."
+				}
+				return m, nil
+			}
+		}
+
+		// Show client selector with appropriate message
+		switch operation {
+		case "view":
+			m.statusMessage = "Select a client to view their policy"
+		case "edit":
+			m.statusMessage = "Select a client to edit their policy"
+		case "create":
+			m.statusMessage = "Select a client to create a policy"
+		case "delete":
+			m.statusMessage = "Select a client to delete their policy"
+		case "export":
+			m.statusMessage = "Select a client to export their policy"
+		}
+		return m, nil
+
+	case policyLoadedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error loading policy: %v", msg.err)
+			m.activeScreen = policyManagement
+			return m, nil
+		}
+
+		// Route based on the stored operation context
+		// Check statusMessage to determine operation
+		if strings.Contains(m.statusMessage, "view") {
+			m.selectedPolicy = newPolicyDetailModel(msg.policy)
+			m.selectedPolicy.setSize(m.width, m.height)
+			m.activeScreen = viewPolicy
+			m.statusMessage = fmt.Sprintf("Viewing policy for '%s'", msg.policy.ClientName)
+		} else if strings.Contains(m.statusMessage, "edit") {
+			m.policyEditorModel = newPolicyEditorModel(msg.policy.ClientName, &msg.policy)
+			m.activeScreen = editPolicy
+			m.statusMessage = fmt.Sprintf("Editing policy for '%s'", msg.policy.ClientName)
+		} else if strings.Contains(m.statusMessage, "delete") {
+			m.policyDeleteModel = newPolicyDeleteModel(msg.policy.ClientName, msg.policy)
+			m.activeScreen = deletePolicy
+			m.statusMessage = fmt.Sprintf("Confirm deletion for '%s'", msg.policy.ClientName)
+		} else if strings.Contains(m.statusMessage, "export") {
+			m.selectedPolicy = newPolicyDetailModel(msg.policy)
+			m.activeScreen = policyExport
+			m.statusMessage = "Press 'j' for JSON or 'y' for YAML"
+		}
+		return m, nil
+	}
+	return m, nil
+}
+
+// updateCreatePolicy handles policy creation workflow
+func (m *model) updateCreatePolicy(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			m.activeScreen = policyManagement
+			m.statusMessage = ""
+			m.policyEditorModel = nil
+			return m, nil
+		}
+
+		// Handle form updates
+		if m.policyEditorModel != nil && m.policyEditorModel.form != nil {
+			form, cmd := m.policyEditorModel.form.Update(msg)
+			if f, ok := form.(*huh.Form); ok {
+				m.policyEditorModel.form = f
+
+				// Check if form is completed
+				if f.State == huh.StateCompleted {
+					// Apply template if selected
+					if m.policyEditorModel.selectedTemplate != "" {
+						m.policyEditorModel.applyTemplate()
+					}
+
+					// Build and save policy
+					pol := m.policyEditorModel.buildPolicy()
+
+					// Validate
+					valid, warnings := validatePolicyWithFeedback(pol)
+					if !valid {
+						m.statusMessage = fmt.Sprintf("❌ Invalid policy: %s", warnings[0])
+						return m, nil
+					}
+
+					if len(warnings) > 0 {
+						m.statusMessage = fmt.Sprintf("⚠️ Warning: %s", warnings[0])
+					}
+
+					// Save policy
+					m.statusMessage = "Saving policy..."
+					return m, savePolicyCmd(m.config, pol)
+				}
+			}
+			return m, cmd
+		}
+	case policySavedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error saving policy: %v", msg.err)
+		} else {
+			m.statusMessage = fmt.Sprintf("✓ Policy created for '%s'", msg.clientName)
+		}
+		m.activeScreen = policyManagement
+		m.policyEditorModel = nil
+		return m, nil
+	}
+	return m, nil
+}
+
+// updateEditPolicy handles policy editing workflow
+func (m *model) updateEditPolicy(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			m.activeScreen = policyManagement
+			m.statusMessage = ""
+			m.policyEditorModel = nil
+			return m, nil
+		}
+
+		// Handle form updates similar to create
+		if m.policyEditorModel != nil && m.policyEditorModel.form != nil {
+			form, cmd := m.policyEditorModel.form.Update(msg)
+			if f, ok := form.(*huh.Form); ok {
+				m.policyEditorModel.form = f
+
+				if f.State == huh.StateCompleted {
+					pol := m.policyEditorModel.buildPolicy()
+
+					// Validate
+					valid, warnings := validatePolicyWithFeedback(pol)
+					if !valid {
+						m.statusMessage = fmt.Sprintf("❌ Invalid policy: %s", warnings[0])
+						return m, nil
+					}
+
+					if len(warnings) > 0 {
+						m.statusMessage = fmt.Sprintf("⚠️ Warning: %s", warnings[0])
+					}
+
+					// Save policy
+					m.statusMessage = "Saving changes..."
+					return m, savePolicyCmd(m.config, pol)
+				}
+			}
+			return m, cmd
+		}
+	case policyLoadedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error loading policy: %v", msg.err)
+			m.activeScreen = policyManagement
+			return m, nil
+		}
+
+		// Initialize editor with existing policy
+		m.policyEditorModel = newPolicyEditorModel(msg.policy.ClientName, &msg.policy)
+		m.statusMessage = fmt.Sprintf("Editing policy for '%s'", msg.policy.ClientName)
+		return m, nil
+	case policySavedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error saving policy: %v", msg.err)
+		} else {
+			m.statusMessage = fmt.Sprintf("✓ Policy updated for '%s'", msg.clientName)
+		}
+		m.activeScreen = policyManagement
+		m.policyEditorModel = nil
+		return m, nil
+	}
+	return m, nil
+}
+
+// updateDeletePolicy handles policy deletion with confirmation
+func (m *model) updateDeletePolicy(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			m.activeScreen = policyManagement
+			m.statusMessage = ""
+			m.policyDeleteModel = nil
+			return m, nil
+		}
+
+		// Handle confirmation form
+		if m.policyDeleteModel != nil && m.policyDeleteModel.form != nil {
+			form, cmd := m.policyDeleteModel.form.Update(msg)
+			if f, ok := form.(*huh.Form); ok {
+				m.policyDeleteModel.form = f
+
+				if f.State == huh.StateCompleted {
+					if m.policyDeleteModel.confirmed {
+						// User confirmed deletion
+						m.statusMessage = fmt.Sprintf("Deleting policy for '%s'...", m.policyDeleteModel.clientName)
+						return m, deletePolicyCmd(m.config, m.policyDeleteModel.clientName)
+					} else {
+						// User cancelled
+						m.statusMessage = "Deletion cancelled"
+						m.activeScreen = policyManagement
+						m.policyDeleteModel = nil
+						return m, nil
+					}
+				}
+			}
+			return m, cmd
+		}
+	case policyLoadedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error loading policy: %v", msg.err)
+			m.activeScreen = policyManagement
+			return m, nil
+		}
+
+		// Show confirmation dialog
+		m.policyDeleteModel = newPolicyDeleteModel(msg.policy.ClientName, msg.policy)
+		m.statusMessage = fmt.Sprintf("Confirm deletion for '%s'", msg.policy.ClientName)
+		return m, nil
+	case policyDeletedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error deleting policy: %v", msg.err)
+		} else {
+			m.statusMessage = fmt.Sprintf("✓ Policy deleted for '%s'", msg.clientName)
+		}
+		m.activeScreen = policyManagement
+		m.policyDeleteModel = nil
+		return m, nil
+	}
+	return m, nil
+}
+
+// updatePolicyExport handles policy export
+func (m *model) updatePolicyExport(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			m.activeScreen = policyManagement
+			m.statusMessage = ""
+			return m, nil
+		case "j", "1":
+			// Export as JSON
+			if m.selectedPolicy != nil {
+				err := exportPolicyToFile(m.selectedPolicy.policy, "json")
+				if err != nil {
+					m.statusMessage = fmt.Sprintf("❌ Export failed: %v", err)
+				} else {
+					filename := fmt.Sprintf("%s-policy-%s.json", m.selectedPolicy.policy.ClientName, time.Now().Format("20060102-150405"))
+					m.statusMessage = fmt.Sprintf("✓ Exported to %s", filename)
+				}
+				m.activeScreen = policyManagement
+				return m, nil
+			}
+		case "y", "2":
+			// Export as YAML
+			if m.selectedPolicy != nil {
+				err := exportPolicyToFile(m.selectedPolicy.policy, "yaml")
+				if err != nil {
+					m.statusMessage = fmt.Sprintf("❌ Export failed: %v", err)
+				} else {
+					filename := fmt.Sprintf("%s-policy-%s.yaml", m.selectedPolicy.policy.ClientName, time.Now().Format("20060102-150405"))
+					m.statusMessage = fmt.Sprintf("✓ Exported to %s", filename)
+				}
+				m.activeScreen = policyManagement
+				return m, nil
+			}
+		}
+	case policyLoadedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error loading policy: %v", msg.err)
+			m.activeScreen = policyManagement
+			return m, nil
+		}
+
+		// Store policy and show export options
+		m.selectedPolicy = newPolicyDetailModel(msg.policy)
+		m.statusMessage = "Press 'j' for JSON or 'y' for YAML"
+		return m, nil
 	}
 	return m, nil
 }

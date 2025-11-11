@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"fmt"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
+	"strings"
 )
 
 func (m *model) statusView() string {
@@ -91,6 +93,22 @@ func (m *model) View() string {
 		} else {
 			screenView = lipgloss.JoinVertical(lipgloss.Center, logo, "No policy selected")
 		}
+	case selectPolicyClient:
+		screenView = m.renderClientSelectorView()
+	case createPolicy, editPolicy:
+		if m.policyEditorModel != nil && m.policyEditorModel.form != nil {
+			screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.policyEditorModel.form.View())
+		} else {
+			screenView = lipgloss.JoinVertical(lipgloss.Center, logo, "Loading...")
+		}
+	case deletePolicy:
+		if m.policyDeleteModel != nil && m.policyDeleteModel.form != nil {
+			screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.policyDeleteModel.form.View())
+		} else {
+			screenView = lipgloss.JoinVertical(lipgloss.Center, logo, "Loading...")
+		}
+	case policyExport:
+		screenView = m.renderExportOptionsView()
 	case unlockScreen:
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.unlockFormModel.View())
 	}
@@ -138,4 +156,74 @@ func (m *model) renderPolicyListView() string {
 	l.SetFilteringEnabled(true)
 
 	return lipgloss.JoinVertical(lipgloss.Center, l.View())
+}
+
+func (m *model) renderClientSelectorView() string {
+	if len(m.clients) == 0 {
+		emptyStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888")).
+			Padding(2).
+			Align(lipgloss.Center)
+
+		return lipgloss.JoinVertical(
+			lipgloss.Center,
+			emptyStyle.Render("No clients found"),
+			emptyStyle.Render("Press 'b' to go back"),
+		)
+	}
+
+	// Create a list of clients
+	items := make([]list.Item, len(m.clients))
+	for i, clientName := range m.clients {
+		items[i] = menuItem{title: clientName, desc: "Select to manage policy"}
+	}
+
+	l := list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-10)
+	l.Title = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FF8C00")).
+		Render("Select Client")
+	l.SetShowStatusBar(true)
+	l.SetFilteringEnabled(true)
+
+	return lipgloss.JoinVertical(lipgloss.Center, l.View())
+}
+
+func (m *model) renderExportOptionsView() string {
+	if m.selectedPolicy == nil {
+		return lipgloss.JoinVertical(
+			lipgloss.Center,
+			"Loading policy...",
+		)
+	}
+
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FF8C00")).
+		MarginBottom(1)
+
+	optionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00CED1")).
+		MarginLeft(2)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		Italic(true).
+		MarginTop(2)
+
+	title := titleStyle.Render(fmt.Sprintf("Export Policy: %s", m.selectedPolicy.policy.ClientName))
+
+	options := []string{
+		optionStyle.Render("Press 'j' or '1' - Export as JSON"),
+		optionStyle.Render("Press 'y' or '2' - Export as YAML"),
+		"",
+		helpStyle.Render("Press 'esc' to cancel"),
+	}
+
+	return lipgloss.JoinVertical(
+		lipgloss.Center,
+		title,
+		"",
+		strings.Join(options, "\n"),
+	)
 }
