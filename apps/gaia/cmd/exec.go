@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/stain-win/gaia/libs/go/client"
+	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
 
 var execCmd = &cobra.Command{
@@ -54,46 +54,38 @@ func runExec(_ *cobra.Command, args []string) error {
 	// Get the config
 	cfg := gaiaDaemon.GetConfig()
 
-	// Build paths to certificates
-	caCertFile := fmt.Sprintf("%s/%s", cfg.TLS.CertsDirectory, cfg.TLS.CACert)
-	clientCertFile := fmt.Sprintf("%s/%s", cfg.TLS.CertsDirectory, cfg.GaiaClientCertFile)
-	clientKeyFile := fmt.Sprintf("%s/%s", cfg.TLS.CertsDirectory, cfg.GaiaClientKeyFile)
-
-	// Create a Gaia client
-	gaiaClient, err := client.NewClient(client.Config{
-		Address:        cfg.Daemon.ListenAddr,
-		CACertFile:     caCertFile,
-		ClientCertFile: clientCertFile,
-		ClientKeyFile:  clientKeyFile,
-		Timeout:        cfg.GRPCClientTimeout,
-	})
+	// Connect to the Gaia daemon using internal gRPC client
+	conn, err := getClientConn(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create Gaia client: %w", err)
+		return fmt.Errorf("failed to connect to Gaia daemon: %w", err)
 	}
 	defer func() {
-		if closeErr := gaiaClient.Close(); closeErr != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to close Gaia client: %v\n", closeErr)
-		}
+		_ = conn.Close()
 	}()
 
-	// Fetch common secrets
+	client := pb.NewGaiaAdminClient(conn)
+
+	// Fetch secrets from the "common" client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	secrets, err := gaiaClient.GetCommonSecrets(ctx)
+	resp, err := client.ListSecrets(ctx, &pb.ListSecretsRequest{
+		ClientName: "common",
+	})
 	if err != nil {
 		return fmt.Errorf("failed to fetch common secrets: %w", err)
 	}
 
-	// Build environment variables
+	// Build environment variables from secrets
 	env := os.Environ()
-	for namespace, kv := range secrets {
-		for key, value := range kv {
-			envVarName := fmt.Sprintf("GAIA_%s_%s", namespace, key)
+	for _, ns := range resp.Namespaces {
+		for _, secret := range ns.Secrets {
+			// Format: GAIA_<NAMESPACE>_<KEY>
+			envVarName := fmt.Sprintf("GAIA_%s_%s", ns.Name, secret.Id)
 			// Convert to uppercase and replace hyphens with underscores
 			envVarName = strings.ToUpper(envVarName)
 			envVarName = strings.ReplaceAll(envVarName, "-", "_")
-			env = append(env, fmt.Sprintf("%s=%s", envVarName, value))
+			env = append(env, fmt.Sprintf("%s=%s", envVarName, secret.Value))
 		}
 	}
 
