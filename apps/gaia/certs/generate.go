@@ -86,6 +86,40 @@ func generateCert(commonName string, caKey *rsa.PrivateKey, caCert *x509.Certifi
 	return key, cert, nil
 }
 
+// generateClientCert creates a client certificate using ECDSA, signed by the given CA.
+// This is the preferred method for client certificates as ECDSA provides equivalent security
+// with smaller key sizes and better performance.
+func generateClientCert(commonName string, caKey *rsa.PrivateKey, caCert *x509.Certificate, validityDays int) (*ecdsa.PrivateKey, *x509.Certificate, error) {
+	// Use ECDSA with P-256 curve for client certificates
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate ECDSA key: %w", err)
+	}
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		Subject: pkix.Name{
+			CommonName: commonName,
+		},
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().AddDate(0, 0, validityDays),
+		KeyUsage:    x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+
+	certBytes, err := x509.CreateCertificate(rand.Reader, &template, caCert, &key.PublicKey, caKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create certificate: %w", err)
+	}
+
+	cert, err := x509.ParseCertificate(certBytes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse certificate: %w", err)
+	}
+
+	return key, cert, nil
+}
+
 // generateClientCertData creates a new client certificate using ECDSA and returns the PEM-encoded data.
 func generateClientCertData(clientName string, caCert *x509.Certificate, caKey *rsa.PrivateKey, validityDays int) (certPEM, keyPEM []byte, err error) {
 	// Use ECDSA with P-256 curve for client certificates

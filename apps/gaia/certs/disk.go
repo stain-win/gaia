@@ -1,6 +1,7 @@
 package certs
 
 import (
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -22,7 +23,7 @@ func saveCert(filename string, cert *x509.Certificate) error {
 	})
 }
 
-// saveKey writes a private key to a file.
+// saveKey writes an RSA private key to a file.
 func saveKey(filename string, key *rsa.PrivateKey) error {
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
@@ -34,6 +35,37 @@ func saveKey(filename string, key *rsa.PrivateKey) error {
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
+}
+
+// savePrivateKey writes a private key (ECDSA or RSA) to a file.
+func savePrivateKey(filename string, key interface{}) error {
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	var block *pem.Block
+	switch k := key.(type) {
+	case *ecdsa.PrivateKey:
+		keyBytes, err := x509.MarshalECPrivateKey(k)
+		if err != nil {
+			return fmt.Errorf("failed to marshal ECDSA private key: %w", err)
+		}
+		block = &pem.Block{
+			Type:  "EC PRIVATE KEY",
+			Bytes: keyBytes,
+		}
+	case *rsa.PrivateKey:
+		block = &pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(k),
+		}
+	default:
+		return fmt.Errorf("unsupported private key type: %T", key)
+	}
+
+	return pem.Encode(file, block)
 }
 
 // loadCA reads a CA certificate and private key from the disk.

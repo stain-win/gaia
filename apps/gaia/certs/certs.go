@@ -67,7 +67,9 @@ func GenerateServerCertificate(cfg *config.Config, serverName string) error {
 	return nil
 }
 
-// GenerateClientCertificate creates a client certificate signed by the CA.
+// GenerateClientCertificate creates a client certificate signed by the CA using ECDSA.
+// This uses ECDSA (P-256 curve) for better performance and smaller key sizes
+// while maintaining equivalent security to RSA 2048-bit keys.
 func GenerateClientCertificate(cfg *config.Config, clientName string) error {
 	caCertPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.CACert)
 	caKeyPath := filepath.Join(cfg.TLS.CertsDirectory, "ca.key")
@@ -77,7 +79,8 @@ func GenerateClientCertificate(cfg *config.Config, clientName string) error {
 		return err
 	}
 
-	clientKey, clientCert, err := generateCert(clientName, caKey, caCert, false, cfg.TLS.CertExpiryDays)
+	// Use ECDSA-based client certificate generation
+	clientKey, clientCert, err := generateClientCert(clientName, caKey, caCert, cfg.TLS.CertExpiryDays)
 	if err != nil {
 		return fmt.Errorf("failed to generate client certificate: %w", err)
 	}
@@ -88,11 +91,12 @@ func GenerateClientCertificate(cfg *config.Config, clientName string) error {
 	}
 
 	keyPath := filepath.Join(cfg.TLS.CertsDirectory, clientName+".key")
-	if err := saveKey(keyPath, clientKey); err != nil {
+	// Use the flexible savePrivateKey that handles both ECDSA and RSA
+	if err := savePrivateKey(keyPath, clientKey); err != nil {
 		return fmt.Errorf("failed to save client key: %w", err)
 	}
 
-	fmt.Printf("Generated client certificate: %s and %s\n", certPath, keyPath)
+	fmt.Printf("Generated client certificate (ECDSA): %s and %s\n", certPath, keyPath)
 	return nil
 }
 

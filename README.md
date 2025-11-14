@@ -935,6 +935,83 @@ gaia secrets list <client>
 gaia secrets delete <client> <namespace> <key>
 ```
 
+### Execute Commands with Secrets
+
+The `gaia exec` command allows you to run any command with secrets automatically injected as environment variables. This is perfect for replacing `.env` files and ensuring secrets are never written to disk.
+
+```bash
+# Execute a command with secrets injected
+gaia exec -- <command> [args...]
+
+# Examples
+gaia exec -- node server.js
+gaia exec -- python app.py
+gaia exec -- ./my-binary --flag value
+gaia exec -- npm run start
+```
+
+**How It Works:**
+
+1. Gaia fetches all secrets from the **common** namespace
+2. Converts them to environment variables with the format: `GAIA_NAMESPACE_KEY`
+3. Replaces the current process with your command
+
+**Environment Variable Format:**
+
+Common secrets are transformed into environment variables:
+
+```
+common/production/database_url  →  GAIA_PRODUCTION_DATABASE_URL
+common/staging/api_key          →  GAIA_STAGING_API_KEY
+common/third-party/stripe_key   →  GAIA_THIRD_PARTY_STRIPE_KEY
+```
+
+**Example Use Case:**
+
+```bash
+# Instead of using .env files:
+# DATABASE_URL=postgres://...
+# API_KEY=secret123
+# node app.js
+
+# Use gaia exec:
+gaia secrets add common production database-url "postgres://..."
+gaia secrets add common production api-key "secret123"
+gaia exec -- node app.js
+
+# Your app.js can now use:
+# const dbUrl = process.env.GAIA_PRODUCTION_DATABASE_URL;
+# const apiKey = process.env.GAIA_PRODUCTION_API_KEY;
+```
+
+**Benefits:**
+
+✅ **No `.env` files** - Secrets never written to disk  
+✅ **Automatic updates** - Changes reflected immediately  
+✅ **Secure** - Uses mTLS authentication  
+✅ **Simple** - Works with any command or script  
+✅ **Audited** - All secret access logged  
+
+**Integration Example (Node.js):**
+
+```javascript
+// app.js
+const dbUrl = process.env.GAIA_PRODUCTION_DATABASE_URL;
+const apiKey = process.env.GAIA_PRODUCTION_API_KEY;
+
+if (!dbUrl || !apiKey) {
+  console.error('Required secrets not found');
+  process.exit(1);
+}
+
+// Use secrets...
+```
+
+Run with:
+```bash
+gaia exec -- node app.js
+```
+
 ### Bulk Import/Export
 
 ```bash

@@ -80,6 +80,7 @@ func init() {
 	rootCmd.AddCommand(policyCmd)
 	rootCmd.AddCommand(lockCmd)
 	rootCmd.AddCommand(unlockCmd)
+	rootCmd.AddCommand(execCmd)
 	rootCmd.AddCommand(versionCmd)
 
 	// Add persistent flags that apply to all subcommands
