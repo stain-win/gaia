@@ -154,6 +154,44 @@ jobs:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Copy proto file to Rust lib
+        run: |
+          echo "Copying proto file to libs/rust/proto/"
+          mkdir -p libs/rust/proto
+          cp proto/gaia-client.proto libs/rust/proto/
+          echo "✓ Proto file copied"
+
+      - name: Regenerate proto code
+        working-directory: ./libs/rust
+        run: |
+          echo "Regenerating Rust proto code..."
+          REGENERATE_PROTO=1 cargo build --features regenerate-proto
+          echo "✓ Proto code generated"
+
+      - name: Copy generated proto to source
+        working-directory: ./libs/rust
+        run: |
+          echo "Copying generated proto code to src/proto.rs..."
+          PROTO_FILE=$(find target/debug/build/gaia-client-*/out/gaia.rs -type f | head -1)
+          if [ -n "$PROTO_FILE" ]; then
+            cp "$PROTO_FILE" src/proto.rs
+            echo "✓ Generated proto copied to src/proto.rs"
+          else
+            echo "✗ Error: Generated proto file not found"
+            exit 1
+          fi
+
+      - name: Verify proto code is current
+        working-directory: ./libs/rust
+        run: |
+          echo "Verifying proto code is up-to-date..."
+          if git diff --quiet src/proto.rs; then
+            echo "✓ Proto code is current"
+          else
+            echo "⚠ Proto code was regenerated (this is expected during release)"
+            git diff src/proto.rs
+          fi
+
       - name: Update Cargo.toml version
         working-directory: ./libs/rust
         run: |

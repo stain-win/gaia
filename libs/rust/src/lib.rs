@@ -32,8 +32,12 @@
 //! }
 //! ```
 
+// Use pre-generated protobuf code (checked into src/proto.rs)
+// This eliminates the need for protoc at build time
+#[allow(clippy::all)]
+#[allow(warnings)]
 pub mod proto {
-    tonic::include_proto!("gaia");
+    include!("proto.rs");
 }
 
 mod client;

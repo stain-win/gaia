@@ -31,8 +31,13 @@ thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
+# Optional: only needed if regenerating proto code
 [build-dependencies]
-tonic-build = "0.11"
+tonic-build = { version = "0.11", optional = true }
+
+[features]
+# Enable proto regeneration (requires protoc)
+regenerate-proto = ["tonic-build"]
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

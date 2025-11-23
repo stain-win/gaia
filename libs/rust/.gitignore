@@ -2,12 +2,14 @@
 target/
 debug/
 release/
+
 # Cargo.lock should be committed for binary projects,
 # but not for libraries (per Rust best practices)
 Cargo.lock
-# Generated files from build.rs
-# The proto code is generated at build time from ../../proto/
-# so we don't commit it
+
+# Note: src/proto.rs is pre-generated and committed to avoid requiring
+# protoc for library users. Only regenerate when proto files change.
+
 # IDE files
 .idea/
 .vscode/
@@ -15,16 +17,20 @@ Cargo.lock
 *.swo
 *~
 *.iml
+
 # OS files
 .DS_Store
 Thumbs.db
 .AppleDouble
 .LSOverride
+
 # Test artifacts
 *.profraw
 *.profdata
+
 # Documentation build
 doc/
+
 # Backup files
 *.bak
 *.tmp

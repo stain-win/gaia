@@ -10,6 +10,7 @@ A Rust client library for interacting with the [Gaia](https://github.com/stain-w
 - 🔑 **Secret Management** - Read secrets from your application's namespaces
 - 🌐 **Common Secrets** - Access shared secrets available to all clients
 - ⚡ **gRPC Based** - Fast, efficient communication protocol
+- 🛠️ **No Build Tools Required** - Ships with pre-generated protobuf code, no need for `protoc`
 
 ## Installation
 
@@ -20,6 +21,8 @@ Add this to your `Cargo.toml`:
 gaia-client = "0.1"
 tokio = { version = "1.0", features = ["full"] }
 ```
+
+**No additional build tools required!** The library ships with pre-generated protobuf code, so you don't need to install `protoc` or any other external dependencies.
 
 ## Quick Start
 
@@ -295,10 +298,44 @@ The library uses gRPC with Protocol Buffers. The proto definitions are located i
 At build time, the `build.rs` script automatically:
 1. Reads the proto file from `../../proto/gaia-client.proto`
 2. Compiles it using `tonic-build`
-3. Generates Rust code in the `target/` directory
-4. Makes it available via `tonic::include_proto!("gaia")`
+## Development
 
-A copy of the proto file is also kept in `proto/` for reference and documentation purposes.
+### Protocol Buffers
+
+This library uses **pre-generated protobuf code** checked into `src/proto.rs`, eliminating the need for `protoc` at build time. This makes the library easy to use as a dependency - users don't need to install any external tools.
+
+#### For Library Users
+
+Just add the dependency to your `Cargo.toml` and start using it. No `protoc` installation required!
+
+#### For Library Developers
+
+If you need to regenerate the protobuf code (e.g., after updating the proto files):
+
+1. Install `protoc` (Protocol Buffers compiler):
+   ```bash
+   # macOS
+   brew install protobuf
+   
+   # Ubuntu/Debian
+   sudo apt install protobuf-compiler
+   
+   # Or download from: https://github.com/protocolbuffers/protobuf/releases
+   ```
+
+2. Regenerate the proto code:
+   ```bash
+   REGENERATE_PROTO=1 cargo build --features regenerate-proto
+   ```
+
+3. Copy the generated code to source:
+   ```bash
+   cp target/debug/build/gaia-client-*/out/gaia.rs src/proto.rs
+   ```
+
+4. Commit the updated `src/proto.rs` file
+
+**Note**: The proto files are kept in sync with the main Gaia repository at `../../proto/gaia-client.proto` during development, and copied to `proto/` when publishing.
 
 ### Development Workflow
 
