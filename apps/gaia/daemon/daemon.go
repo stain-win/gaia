@@ -653,7 +653,7 @@ func (d *Daemon) AddSecret(clientName, namespace, id, value string) error {
 	})
 }
 
-// GetSecret retrieves and decrypts a secret, enforcing authorization.
+// GetSecret retrieves and decrypts a secret, enforcing policy-based authorization.
 func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 	d.dbLock.RLock()
 	defer d.dbLock.RUnlock()
@@ -668,6 +668,7 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 
 	var decryptedValue string
 	err := d.db.View(func(tx *bbolt.Tx) error {
+		// Verify client exists and is active
 		requestingClient, _, err := d.findClientByName(tx, clientName)
 		if err != nil {
 			return fmt.Errorf("unauthorized: client '%s' not registered", clientName)
@@ -677,29 +678,44 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 			return fmt.Errorf("unauthorized: client '%s' is not active", clientName)
 		}
 
-		var lookupClientID string
+		// Determine which client owns the secret based on namespace
+		var ownerClientID string
+		var ownerClientName string
 		if namespace == commonNamespace {
+			// Secret is in the common namespace
 			commonClient, _, err := d.findClientByName(tx, commonNamespace)
 			if err != nil {
 				return fmt.Errorf("internal error: common client not found")
 			}
-			lookupClientID = commonClient.ID
-		} else if namespace == clientName {
-			lookupClientID = requestingClient.ID
+			ownerClientID = commonClient.ID
+			ownerClientName = commonNamespace
 		} else {
-			return fmt.Errorf("permission denied: client '%s' is not authorized for namespace '%s'", clientName, namespace)
+			// Secret belongs to a specific client - find that client by namespace name
+			ownerClient, _, err := d.findClientByName(tx, namespace)
+			if err != nil {
+				return fmt.Errorf("namespace '%s' does not exist", namespace)
+			}
+			ownerClientID = ownerClient.ID
+			ownerClientName = ownerClient.Name
 		}
 
-		key := constructDBKey(lookupClientID, namespace, id)
+		// Check policy-based authorization
+		// Build path: owner/namespace/key
+		path := fmt.Sprintf("%s/%s/%s", ownerClientName, namespace, id)
+		if err := d.policyStore.CheckPermission(clientName, path, policy.CapabilityRead); err != nil {
+			return fmt.Errorf("permission denied: %w", err)
+		}
 
-		var encValue []byte
+		// Retrieve and decrypt the secret
+		key := constructDBKey(ownerClientID, namespace, id)
+
 		b := tx.Bucket([]byte(secretsBucket))
 		if b == nil {
 			return gaiaerrors.ErrBucketNotFound
 		}
-		encValue = b.Get(key)
+		encValue := b.Get(key)
 		if encValue == nil {
-			return fmt.Errorf("%w: %s/%s/%s", gaiaerrors.ErrSecretNotFound, clientName, namespace, id)
+			return fmt.Errorf("%w: %s/%s/%s", gaiaerrors.ErrSecretNotFound, ownerClientName, namespace, id)
 		}
 
 		decVal, err := encrypt.Decrypt(d.key, string(encValue))
@@ -709,7 +725,11 @@ func (d *Daemon) GetSecret(clientName, namespace, id string) (string, error) {
 		}
 		decryptedValue = string(decVal)
 
-		gaialog.Get().Info("secret accessed", slog.String("client_name", clientName), slog.String("namespace", namespace), slog.String("id", id))
+		gaialog.Get().Info("secret accessed",
+			slog.String("client_name", clientName),
+			slog.String("namespace", namespace),
+			slog.String("id", id),
+			slog.String("policy_path", path))
 		return nil
 	})
 

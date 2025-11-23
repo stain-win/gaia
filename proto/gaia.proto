@@ -25,9 +25,12 @@ service GaiaAdmin {
   rpc DeletePolicy(DeletePolicyRequest) returns (DeletePolicyResponse);
 }
 
-
 service GaiaClient {
   rpc GetSecret(GetSecretRequest) returns (Secret);
+  // ListSecrets returns all secrets for the authenticated client (derived from mTLS certificate).
+  // If namespace is provided, only secrets from that namespace are returned.
+  // The special "common" namespace is always included when namespace is empty or explicitly set to "common".
+  rpc ListSecrets(ClientListSecretsRequest) returns (ListSecretsResponse);
 }
 
 message Secret {
@@ -55,6 +58,10 @@ message AddSecretResponse {
 message GetSecretRequest {
   string namespace = 1;
   string id = 2;
+}
+
+message ClientListSecretsRequest {
+  string namespace = 1; // optional filter; empty returns all namespaces for client + common
 }
 
 message GetStatusRequest {}
@@ -205,4 +212,3 @@ message DeletePolicyResponse {
   bool success = 1;
   string message = 2;
 }
-

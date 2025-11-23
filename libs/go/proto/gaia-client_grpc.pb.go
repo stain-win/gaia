@@ -24,6 +24,7 @@ const (
 	GaiaClient_GetStatus_FullMethodName        = "/gaia.GaiaClient/GetStatus"
 	GaiaClient_GetNamespaces_FullMethodName    = "/gaia.GaiaClient/GetNamespaces"
 	GaiaClient_GetCommonSecrets_FullMethodName = "/gaia.GaiaClient/GetCommonSecrets"
+	GaiaClient_ListSecrets_FullMethodName      = "/gaia.GaiaClient/ListSecrets"
 )
 
 // GaiaClientClient is the client API for GaiaClient service.
@@ -34,6 +35,8 @@ type GaiaClientClient interface {
 	GetStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StatusResponse, error)
 	GetNamespaces(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*NamespaceResponse, error)
 	GetCommonSecrets(ctx context.Context, in *GetCommonSecretsRequest, opts ...grpc.CallOption) (*GetCommonSecretsResponse, error)
+	// New: ListSecrets returns all secrets for the authenticated client plus common when not filtered.
+	ListSecrets(ctx context.Context, in *ClientListSecretsRequest, opts ...grpc.CallOption) (*ListSecretsResponse, error)
 }
 
 type gaiaClientClient struct {
@@ -84,6 +87,16 @@ func (c *gaiaClientClient) GetCommonSecrets(ctx context.Context, in *GetCommonSe
 	return out, nil
 }
 
+func (c *gaiaClientClient) ListSecrets(ctx context.Context, in *ClientListSecretsRequest, opts ...grpc.CallOption) (*ListSecretsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSecretsResponse)
+	err := c.cc.Invoke(ctx, GaiaClient_ListSecrets_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GaiaClientServer is the server API for GaiaClient service.
 // All implementations must embed UnimplementedGaiaClientServer
 // for forward compatibility.
@@ -92,6 +105,8 @@ type GaiaClientServer interface {
 	GetStatus(context.Context, *emptypb.Empty) (*StatusResponse, error)
 	GetNamespaces(context.Context, *emptypb.Empty) (*NamespaceResponse, error)
 	GetCommonSecrets(context.Context, *GetCommonSecretsRequest) (*GetCommonSecretsResponse, error)
+	// New: ListSecrets returns all secrets for the authenticated client plus common when not filtered.
+	ListSecrets(context.Context, *ClientListSecretsRequest) (*ListSecretsResponse, error)
 	mustEmbedUnimplementedGaiaClientServer()
 }
 
@@ -113,6 +128,9 @@ func (UnimplementedGaiaClientServer) GetNamespaces(context.Context, *emptypb.Emp
 }
 func (UnimplementedGaiaClientServer) GetCommonSecrets(context.Context, *GetCommonSecretsRequest) (*GetCommonSecretsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCommonSecrets not implemented")
+}
+func (UnimplementedGaiaClientServer) ListSecrets(context.Context, *ClientListSecretsRequest) (*ListSecretsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListSecrets not implemented")
 }
 func (UnimplementedGaiaClientServer) mustEmbedUnimplementedGaiaClientServer() {}
 func (UnimplementedGaiaClientServer) testEmbeddedByValue()                    {}
@@ -207,6 +225,24 @@ func _GaiaClient_GetCommonSecrets_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GaiaClient_ListSecrets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClientListSecretsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaClientServer).ListSecrets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaClient_ListSecrets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaClientServer).ListSecrets(ctx, req.(*ClientListSecretsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GaiaClient_ServiceDesc is the grpc.ServiceDesc for GaiaClient service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -229,6 +265,10 @@ var GaiaClient_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCommonSecrets",
 			Handler:    _GaiaClient_GetCommonSecrets_Handler,
+		},
+		{
+			MethodName: "ListSecrets",
+			Handler:    _GaiaClient_ListSecrets_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -179,6 +179,69 @@ func (s *gaiaClientServer) GetSecret(ctx context.Context, req *pb.GetSecretReque
 	return &pb.Secret{Id: req.Id, Value: value}, nil
 }
 
+func (s *gaiaClientServer) ListSecrets(ctx context.Context, req *pb.ClientListSecretsRequest) (*pb.ListSecretsResponse, error) {
+	if s.daemon.isLocked {
+		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
+	}
+
+	clientName, err := getClientIdentity(ctx)
+	if err != nil {
+		return nil, mapErrorToGRPCStatus(err)
+	}
+
+	// Initialize merged data map
+	allData := make(map[string]map[string]string)
+
+	// Always fetch the authenticated client's own secrets first
+	clientData, err := s.daemon.ListSecrets(clientName)
+	if err != nil && !errors.Is(err, gaiaerrors.ErrClientNotFound) {
+		return nil, mapErrorToGRPCStatus(err)
+	}
+	// Copy client's secrets into allData
+	for ns, secrets := range clientData {
+		allData[ns] = secrets
+	}
+
+	// Always fetch common secrets (available to all clients) unless filtering for a specific non-common namespace
+	if req.Namespace == "" || req.Namespace == "common" {
+		commonData, err := s.daemon.ListSecrets("common")
+		if err == nil { // ignore errors for common to avoid blocking client secrets
+			for ns, secrets := range commonData {
+				if _, exists := allData[ns]; !exists {
+					// Common namespace doesn't conflict, add it
+					allData[ns] = secrets
+				}
+				// If namespace exists in both client and common, client's version takes precedence (already in allData)
+			}
+		}
+	}
+
+	var namespaces []*pb.Namespace
+	// Apply namespace filtering if requested
+	if req.Namespace != "" {
+		secretsMap, ok := allData[req.Namespace]
+		if !ok {
+			return &pb.ListSecretsResponse{Namespaces: []*pb.Namespace{}}, nil
+		}
+		ns := &pb.Namespace{Name: req.Namespace}
+		for key, value := range secretsMap {
+			ns.Secrets = append(ns.Secrets, &pb.Secret{Id: key, Value: value})
+		}
+		namespaces = append(namespaces, ns)
+	} else {
+		// No filter: return all namespaces (client's + common)
+		for nsName, secretsMap := range allData {
+			ns := &pb.Namespace{Name: nsName}
+			for key, value := range secretsMap {
+				ns.Secrets = append(ns.Secrets, &pb.Secret{Id: key, Value: value})
+			}
+			namespaces = append(namespaces, ns)
+		}
+	}
+
+	return &pb.ListSecretsResponse{Namespaces: namespaces}, nil
+}
+
 // Lock handles the Lock RPC call.
 func (s *gaiaAdminServer) Lock(_ context.Context, _ *pb.LockRequest) (*pb.LockResponse, error) {
 	s.d.LockDB()
@@ -455,8 +518,8 @@ func protoToPolicy(p *pb.Policy) policy.Policy {
 
 func capabilitiesToStrings(caps []policy.Capability) []string {
 	strs := make([]string, len(caps))
-	for i, cap := range caps {
-		strs[i] = string(cap)
+	for i, c := range caps {
+		strs[i] = string(c)
 	}
 	return strs
 }

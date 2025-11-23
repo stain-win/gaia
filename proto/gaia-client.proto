@@ -10,7 +10,9 @@ service GaiaClient {
   rpc GetSecret(GetSecretRequest) returns (Secret);
   rpc GetStatus(google.protobuf.Empty) returns (StatusResponse);
   rpc GetNamespaces(google.protobuf.Empty) returns (NamespaceResponse);
-  rpc GetCommonSecrets(GetCommonSecretsRequest) returns (GetCommonSecretsResponse);
+  rpc GetCommonSecrets(GetCommonSecretsRequest) returns (GetCommonSecretsResponse); // legacy/common access
+  // New: ListSecrets returns all secrets for the authenticated client plus common when not filtered.
+  rpc ListSecrets(ClientListSecretsRequest) returns (ListSecretsResponse);
 }
 
 message Secret {
@@ -27,6 +29,10 @@ message Namespace {
 message GetSecretRequest {
   string namespace = 1; // Namespace to which the secret belongs
   string id = 2;
+}
+
+message ClientListSecretsRequest {
+  string namespace = 1; // optional filter; empty => all client namespaces + common
 }
 
 message StatusResponse {
@@ -46,5 +52,9 @@ message GetCommonSecretsRequest {
 
 // Response containing secrets from the common area, grouped by namespace.
 message GetCommonSecretsResponse {
+  repeated Namespace namespaces = 1;
+}
+
+message ListSecretsResponse {
   repeated Namespace namespaces = 1;
 }
