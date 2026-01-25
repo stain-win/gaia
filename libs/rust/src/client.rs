@@ -220,4 +220,47 @@ impl GaiaClient {
             .map(|ns| ns.secrets)
             .ok_or_else(|| GaiaError::SecretNotFound("common".to_string(), namespace.to_string()))
     }
+
+    /// Lists all secrets for the authenticated client.
+    ///
+    /// Returns secrets from the client's own namespaces plus the common namespace.
+    /// If a namespace filter is provided, only secrets from that namespace are returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `namespace` - Optional namespace filter
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use gaia_client::{GaiaClient, GaiaClientConfig};
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let config = GaiaClientConfig::new("localhost:50051", "ca.crt", "client.crt", "client.key");
+    /// # let mut client = GaiaClient::connect(config).await?;
+    /// // Get all secrets (client's own + common)
+    /// let all_secrets = client.list_secrets(None).await?;
+    ///
+    /// // Get only secrets from a specific namespace
+    /// let prod_secrets = client.list_secrets(Some("production".to_string())).await?;
+    ///
+    /// for namespace in all_secrets {
+    ///     println!("Namespace: {}", namespace.name);
+    ///     for secret in namespace.secrets {
+    ///         println!("  - {}: {}", secret.id, secret.value);
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn list_secrets(&mut self, namespace: Option<String>) -> Result<Vec<Namespace>> {
+        use crate::proto::ClientListSecretsRequest;
+
+        let request = tonic::Request::new(ClientListSecretsRequest {
+            namespace: namespace.unwrap_or_default(),
+        });
+
+        let response = self.inner.list_secrets(request).await?;
+        Ok(response.into_inner().namespaces)
+    }
 }

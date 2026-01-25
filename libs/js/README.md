@@ -168,6 +168,40 @@ console.log('Available namespaces:', namespaces);
 // ['common', 'production', 'staging']
 ```
 
+##### `listSecrets(namespace?: string): Promise<SecretsMap>` ⭐ NEW
+
+Lists all secrets for the authenticated client, including both the client's own namespaces and the common namespace. This is the most efficient method for fetching all secrets at once.
+
+**Parameters:**
+- `namespace` (optional): If provided, returns secrets only for this namespace
+
+**Returns:** Map of namespace names to their secrets (key-value pairs)
+
+**Example:**
+```typescript
+// Get all secrets (client's own + common)
+const allSecrets = await client.listSecrets();
+// {
+//   common: { shared_key: '...' },
+//   production: { api_key: '...', db_url: '...' },
+//   staging: { api_key: '...' }
+// }
+
+// Get secrets from specific namespace only
+const prodSecrets = await client.listSecrets('production');
+// { production: { api_key: '...', db_url: '...' } }
+
+// Iterate through all secrets
+for (const [namespace, secrets] of Object.entries(allSecrets)) {
+  console.log(`Namespace: ${namespace}`);
+  for (const [key, value] of Object.entries(secrets)) {
+    console.log(`  ${key}: ${value}`);
+  }
+}
+```
+
+**Note:** This is the recommended method for bulk secret retrieval, as it makes a single RPC call instead of multiple requests.
+
 ##### `close(): Promise<void>`
 
 Closes the connection to the Gaia daemon. Should be called when done.

@@ -184,3 +184,27 @@ func (c *Client) GetNamespaces(ctx context.Context) ([]string, error) {
 	}
 	return resp.Namespaces, nil
 }
+
+// ListSecrets fetches all secrets for the authenticated client.
+// If a namespace is provided, it filters secrets to only that namespace.
+// Returns secrets from the client's own namespaces plus the common namespace.
+func (c *Client) ListSecrets(ctx context.Context, namespace ...string) (map[string]map[string]string, error) {
+	req := &pb.ClientListSecretsRequest{}
+	if len(namespace) > 0 && namespace[0] != "" {
+		req.Namespace = namespace[0]
+	}
+
+	resp, err := c.client.ListSecrets(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	secrets := make(map[string]map[string]string)
+	for _, ns := range resp.GetNamespaces() {
+		secrets[ns.Name] = make(map[string]string)
+		for _, s := range ns.Secrets {
+			secrets[ns.Name][s.Id] = s.Value
+		}
+	}
+	return secrets, nil
+}

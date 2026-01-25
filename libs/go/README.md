@@ -103,3 +103,91 @@ if err != nil {
     log.Fatalf("Failed to get specific common secrets: %v", err)
 }
 ```
+
+### Listing All Secrets ⭐ NEW
+
+The `ListSecrets` method fetches all secrets accessible to the authenticated client, including both the client's own namespaces and the common namespace. This is the most efficient way to fetch all secrets at once.
+
+```go
+// Get all secrets (client's own + common)
+allSecrets, err := gaiaClient.ListSecrets(context.Background())
+if err != nil {
+    log.Fatalf("Failed to list secrets: %v", err)
+}
+
+// Iterate through all namespaces and secrets
+for namespace, secrets := range allSecrets {
+    fmt.Printf("Namespace: %s\n", namespace)
+    for key, value := range secrets {
+        fmt.Printf("  %s: %s\n", key, value)
+    }
+}
+
+// Filter by specific namespace
+productionSecrets, err := gaiaClient.ListSecrets(context.Background(), "production")
+if err != nil {
+    log.Fatalf("Failed to list production secrets: %v", err)
+}
+```
+
+## API Reference
+
+### Client Methods
+
+#### `NewClient(cfg Config) (*Client, error)`
+
+Creates a new Gaia client with the provided configuration.
+
+#### `Close() error`
+
+Closes the client's connection to the Gaia daemon.
+
+#### `GetStatus(ctx context.Context) (string, error)`
+
+Checks the current operational status of the Gaia daemon ("locked" or "unlocked").
+
+#### `GetSecret(ctx context.Context, namespace, id string) (string, error)`
+
+Fetches a single secret for the authenticated client from a specific namespace.
+
+#### `GetCommonSecrets(ctx context.Context, namespace ...string) (map[string]map[string]string, error)`
+
+Fetches secrets from the "common" area. If a namespace is provided, filters to that namespace only.
+
+#### `GetNamespaces(ctx context.Context) ([]string, error)`
+
+Lists all namespaces the authenticated client has access to.
+
+#### `ListSecrets(ctx context.Context, namespace ...string) (map[string]map[string]string, error)` ⭐ NEW
+
+Fetches all secrets for the authenticated client (own namespaces + common). Optional namespace filter available.
+
+Returns: `map[namespace]map[key]value`
+
+#### `LoadEnv(ctx context.Context) error`
+
+Fetches all secrets from the "common" area and loads them into the current process's environment. Environment variables are formatted as `GAIA_NAMESPACE_KEY`.
+
+## Configuration
+
+The `Config` struct accepts the following fields:
+
+```go
+type Config struct {
+    Address        string        // Gaia gRPC server address (e.g., "localhost:50051")
+    CACertFile     string        // Path to the CA certificate file
+    ClientCertFile string        // Path to the client's certificate file
+    ClientKeyFile  string        // Path to the client's private key file
+    Timeout        time.Duration // Timeout for the initial connection
+    Insecure       bool          // Allow connecting without TLS (development only)
+}
+```
+
+## Examples
+
+See the [examples](./examples) directory for more usage examples.
+
+## License
+
+This library is part of the Gaia project. See the main repository for license information.
+

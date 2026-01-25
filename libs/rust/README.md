@@ -169,6 +169,26 @@ for secret in secrets {
 }
 ```
 
+#### `list_secrets(namespace: Option<String>) -> Result<Vec<Namespace>>` ⭐ NEW
+
+Lists all secrets for the authenticated client, including both the client's own namespaces and the common namespace.
+
+```rust
+// Get all secrets (client's own + common)
+let all_secrets = client.list_secrets(None).await?;
+for namespace in &all_secrets {
+    println!("Namespace: {}", namespace.name);
+    for secret in &namespace.secrets {
+        println!("  - {}: {}", secret.id, secret.value);
+    }
+}
+
+// Get secrets from specific namespace only
+let prod_secrets = client.list_secrets(Some("production".to_string())).await?;
+```
+
+**Note:** This is the recommended method for fetching all secrets at once, as it's more efficient than making multiple individual requests.
+
 ## Examples
 
 The library includes several examples in the `examples/` directory:
@@ -233,22 +253,8 @@ The library works on:
 - Rust 1.70 or later
 - Tokio runtime
 - Valid mTLS certificates from Gaia
-- Protocol Buffers compiler (`protoc`) - Required for building
 
-### Installing protoc
-
-**macOS:**
-```bash
-brew install protobuf
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install protobuf-compiler
-```
-
-**Windows:**
-Download from [GitHub releases](https://github.com/protocolbuffers/protobuf/releases)
+**No external build tools required!** The library ships with pre-generated protobuf code.
 
 ## Building from Source
 

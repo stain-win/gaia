@@ -307,6 +307,50 @@ export class GaiaClient {
   }
 
   /**
+   * Lists all secrets for the authenticated client.
+   *
+   * Returns secrets from the client's own namespaces plus the common namespace.
+   * If a namespace is provided, filters to only that namespace.
+   *
+   * @param namespace - Optional namespace filter
+   * @returns Map of namespace names to their secrets (key-value pairs)
+   *
+   * @example
+   * ```typescript
+   * // Get all secrets (client's own + common)
+   * const allSecrets = await client.listSecrets();
+   *
+   * // Get only secrets from a specific namespace
+   * const prodSecrets = await client.listSecrets('production');
+   * ```
+   */
+  async listSecrets(namespace?: string): Promise<SecretsMap> {
+    return new Promise((resolve, reject) => {
+      const request = namespace ? { namespace } : {};
+
+      this.client.ListSecrets(
+        request,
+        (error: grpc.ServiceError | null, response: { namespaces: Namespace[] }) => {
+          if (error) {
+            reject(error);
+          } else {
+            const secrets: SecretsMap = {};
+
+            for (const ns of response.namespaces) {
+              secrets[ns.name] = {};
+              for (const secret of ns.secrets) {
+                secrets[ns.name][secret.id] = secret.value;
+              }
+            }
+
+            resolve(secrets);
+          }
+        }
+      );
+    });
+  }
+
+  /**
    * Closes the client's connection to the Gaia daemon.
    * Should be called when done using the client.
    *
@@ -348,4 +392,3 @@ export async function createClient(config: GaiaClientConfig): Promise<GaiaClient
   await client.connect();
   return client;
 }
-
