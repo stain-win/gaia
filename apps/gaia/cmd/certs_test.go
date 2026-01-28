@@ -26,6 +26,19 @@ func setupTestCertsDir(t *testing.T) string {
 	return tmpDir
 }
 
+// setOutputDir sets the output-dir flag properly so it's detected as changed
+func setOutputDir(t *testing.T, dir string) {
+	t.Helper()
+	outputDir = dir
+	// Also try to set via flag to mark it as changed
+	_ = certsCmd.PersistentFlags().Set("output-dir", dir)
+
+	// Reset when test finishes
+	t.Cleanup(func() {
+		outputDir = ""
+	})
+}
+
 // captureOutput captures stdout during command execution
 func captureOutput(f func()) string {
 	old := os.Stdout
@@ -99,7 +112,7 @@ func TestCreateCaCmd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := setupTestCertsDir(t)
-			outputDir = tmpDir
+			setOutputDir(t, tmpDir)
 
 			// Reset caName before each test
 			caName = tt.caName
@@ -187,7 +200,7 @@ func TestCreateServerCmd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := setupTestCertsDir(t)
-			outputDir = tmpDir
+			setOutputDir(t, tmpDir)
 
 			// Setup CA if needed
 			if tt.setupCA {
@@ -293,7 +306,7 @@ func TestCreateClientCmd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := setupTestCertsDir(t)
-			outputDir = tmpDir
+			setOutputDir(t, tmpDir)
 
 			// Setup CA if needed
 			if tt.setupCA {
@@ -394,13 +407,16 @@ func TestGenerateCmd(t *testing.T) {
 			tmpDir := setupTestCertsDir(t)
 
 			// Set package variables
-			outputDir = tmpDir
+			setOutputDir(t, tmpDir)
 			caName = tt.caName
 			serverName = tt.serverName
 			clientName = tt.clientName
 
 			// Execute the command
-			generateCmd.Run(generateCmd, []string{})
+			err := generateCmd.RunE(generateCmd, []string{})
+			if err != nil {
+				t.Fatalf("generateCmd.RunE() error = %v", err)
+			}
 
 			// Verify all files were created
 			expectedFiles := []string{
@@ -431,9 +447,9 @@ func TestGenerateCmdAttributes(t *testing.T) {
 		t.Errorf("unexpected Short description")
 	}
 
-	// Check that Run is set
-	if generateCmd.Run == nil {
-		t.Error("generateCmd.Run should not be nil")
+	// Check that RunE is set
+	if generateCmd.RunE == nil {
+		t.Error("generateCmd.RunE should not be nil")
 	}
 
 	// Check flags
@@ -479,9 +495,9 @@ func TestGenerateCmdErrorHandling(t *testing.T) {
 
 			// For CA error, use an invalid path
 			if tt.breakStep == "ca" {
-				outputDir = "/invalid/path/that/does/not/exist"
+				setOutputDir(t, "/invalid/path/that/does/not/exist")
 			} else {
-				outputDir = tmpDir
+				setOutputDir(t, tmpDir)
 			}
 
 			caName = "Test CA"
@@ -502,14 +518,12 @@ func TestGenerateCmdErrorHandling(t *testing.T) {
 				defer func() { _ = os.Chmod(tmpDir, 0755) }()
 			}
 
-			// Capture output and execute
-			output := captureOutput(func() {
-				generateCmd.Run(generateCmd, []string{})
-			})
+			// Execute and expect error
+			err := generateCmd.RunE(generateCmd, []string{})
 
-			// Verify error message is present in output
-			if !strings.Contains(output, "Error") {
-				t.Logf("Output: %s", output)
+			// Verify that an error was returned for the expected break step
+			if err == nil {
+				t.Logf("Expected error for breakStep=%s but got nil", tt.breakStep)
 				// Note: This test verifies error handling exists
 				// Some errors might be handled differently, so we just check that
 				// the function completes without panicking
@@ -530,15 +544,16 @@ func TestCertsCmdPersistentFlags(t *testing.T) {
 		t.Errorf("expected shorthand 'o' for output-dir, got '%s'", flag.Shorthand)
 	}
 
-	if flag.DefValue != "./certs" {
-		t.Errorf("expected default value './certs' for output-dir, got '%s'", flag.DefValue)
+	// Default is empty so we can detect if the flag was explicitly set
+	if flag.DefValue != "" {
+		t.Errorf("expected default value '' for output-dir, got '%s'", flag.DefValue)
 	}
 }
 
 func TestCertsCmdIntegration(t *testing.T) {
 	// Test the full flow: create CA, then server cert, then client cert
 	tmpDir := setupTestCertsDir(t)
-	outputDir = tmpDir
+	setOutputDir(t, tmpDir)
 
 	// Step 1: Create CA
 	caName = "Integration Test CA"

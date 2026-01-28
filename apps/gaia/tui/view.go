@@ -2,69 +2,142 @@ package tui
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
-	"strings"
 )
 
-func (m *model) statusView() string {
-	// Create a status indicator with visual icons
-	var statusIcon, statusColor string
-	var statusBg lipgloss.Color
-
+// renderStatusBar creates a clean status bar with connection state and messages
+func (m *model) renderStatusBar() string {
+	// Left section: Status badge
+	var statusBadge string
 	switch m.daemonStatus {
 	case DaemonStatusUnlocked:
-		statusIcon = "🔓"
-		statusColor = "#00FF00" // Green
-		statusBg = "#003300"
+		statusBadge = statusBadgeUnlocked.Render("● UNLOCKED")
 	case DaemonStatusLocked:
-		statusIcon = "🔒"
-		statusColor = "#FFA500" // Orange
-		statusBg = "#332200"
+		statusBadge = statusBadgeLocked.Render("◐ LOCKED")
 	case DaemonStatusOffline, DaemonStatusStopped, DaemonStatusStarting:
-		statusIcon = "⚠️"
-		statusColor = "#FF0000" // Red
-		statusBg = "#330000"
+		statusBadge = statusBadgeOffline.Render("○ OFFLINE")
 	default:
-		statusIcon = "❓"
-		statusColor = "#888888" // Gray
-		statusBg = "#222222"
+		statusBadge = statusBadgeOffline.Render("○ UNKNOWN")
 	}
 
-	statusText := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(statusColor)).
-		Bold(true).
-		Render(statusIcon + " " + m.daemonStatus)
+	// Right section: Version info
+	versionInfo := helpDescStyle.Render("Gaia Secret Manager")
 
-	// Add a status message if present
-	var fullStatus string
-	if m.statusMessage != "" {
-		msgStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#AAAAAA")).
-			Italic(true)
-		fullStatus = statusText + "  |  " + msgStyle.Render(m.statusMessage)
-	} else {
-		fullStatus = statusText
+	// Calculate widths
+	badgeWidth := lipgloss.Width(statusBadge)
+	versionWidth := lipgloss.Width(versionInfo)
+	paddingWidth := m.width - badgeWidth - versionWidth - 4
+
+	if paddingWidth < 0 {
+		paddingWidth = 1
 	}
 
+	// Build status bar
+	statusBar := lipgloss.JoinHorizontal(
+		lipgloss.Center,
+		statusBadge,
+		strings.Repeat(" ", paddingWidth),
+		versionInfo,
+	)
+
+	return statusBarStyle.Width(m.width).Render(statusBar)
+}
+
+// renderMessageBar shows status messages below the status bar
+func (m *model) renderMessageBar() string {
+	if m.statusMessage == "" {
+		return ""
+	}
+
+	var msgStyle lipgloss.Style
+	switch {
+	case strings.HasPrefix(m.statusMessage, "✓"):
+		msgStyle = successMessageStyle
+	case strings.HasPrefix(m.statusMessage, "❌"), strings.HasPrefix(m.statusMessage, "⚠️"):
+		msgStyle = warningMessageStyle
+	default:
+		msgStyle = messageStyle
+	}
+
+	msg := msgStyle.Render(m.statusMessage)
 	return lipgloss.NewStyle().
-		Background(statusBg).
-		Foreground(lipgloss.Color("#FFFFFF")).
-		Bold(true).
-		Padding(0, 2).
 		Width(m.width).
 		Align(lipgloss.Center).
-		Border(lipgloss.DoubleBorder(), false, false, true, false).
-		BorderForeground(statusBg).
-		Render(fullStatus)
+		Padding(0, 1).
+		Render(msg)
+}
+
+// renderHelpBar creates a help bar with keyboard shortcuts for the current screen
+func (m *model) renderHelpBar() string {
+	var keys []string
+
+	switch m.activeScreen {
+	case mainMenu:
+		keys = []string{
+			helpKeyStyle.Render("↑/↓") + " " + helpDescStyle.Render("navigate"),
+			helpKeyStyle.Render("enter") + " " + helpDescStyle.Render("select"),
+			helpKeyStyle.Render("q") + " " + helpDescStyle.Render("quit"),
+		}
+	case dataManagement, accessManagement, certManagement, policyManagement:
+		keys = []string{
+			helpKeyStyle.Render("↑/↓") + " " + helpDescStyle.Render("navigate"),
+			helpKeyStyle.Render("enter") + " " + helpDescStyle.Render("select"),
+			helpKeyStyle.Render("b/esc") + " " + helpDescStyle.Render("back"),
+		}
+	case addRecord, createCerts, registerClient, createPolicy, editPolicy:
+		keys = []string{
+			helpKeyStyle.Render("tab") + " " + helpDescStyle.Render("next field"),
+			helpKeyStyle.Render("enter") + " " + helpDescStyle.Render("submit"),
+			helpKeyStyle.Render("esc") + " " + helpDescStyle.Render("cancel"),
+		}
+	case listRecords, listPolicies, viewPolicy:
+		keys = []string{
+			helpKeyStyle.Render("↑/↓") + " " + helpDescStyle.Render("scroll"),
+			helpKeyStyle.Render("/") + " " + helpDescStyle.Render("filter"),
+			helpKeyStyle.Render("b/esc") + " " + helpDescStyle.Render("back"),
+		}
+	case unlockScreen:
+		keys = []string{
+			helpKeyStyle.Render("enter") + " " + helpDescStyle.Render("unlock"),
+			helpKeyStyle.Render("esc") + " " + helpDescStyle.Render("cancel"),
+		}
+	case deletePolicy:
+		keys = []string{
+			helpKeyStyle.Render("y") + " " + helpDescStyle.Render("confirm"),
+			helpKeyStyle.Render("n/esc") + " " + helpDescStyle.Render("cancel"),
+		}
+	case policyExport:
+		keys = []string{
+			helpKeyStyle.Render("j") + " " + helpDescStyle.Render("export JSON"),
+			helpKeyStyle.Render("y") + " " + helpDescStyle.Render("export YAML"),
+			helpKeyStyle.Render("esc") + " " + helpDescStyle.Render("cancel"),
+		}
+	default:
+		keys = []string{
+			helpKeyStyle.Render("esc") + " " + helpDescStyle.Render("back"),
+			helpKeyStyle.Render("q") + " " + helpDescStyle.Render("quit"),
+		}
+	}
+
+	helpText := strings.Join(keys, "  │  ")
+	return helpBarStyle.Width(m.width).Align(lipgloss.Center).Render(helpText)
 }
 
 func (m *model) View() string {
+	if m.width == 0 {
+		return "Loading..."
+	}
+
+	// Logo with styling
 	logo := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#6A5ACD")).
 		Align(lipgloss.Center).
 		Render(gaiaLogo)
 
+	// Build screen content based on active screen
 	var screenView string
 	switch m.activeScreen {
 	case mainMenu:
@@ -108,30 +181,66 @@ func (m *model) View() string {
 			screenView = lipgloss.JoinVertical(lipgloss.Center, logo, "Loading...")
 		}
 	case policyExport:
-		screenView = m.renderExportOptionsView()
+		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.renderExportOptionsView())
 	case unlockScreen:
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.unlockFormModel.View())
 	}
 
-	// Show the status bar at the top
-	statusBar := m.statusView()
+	// Layout:
+	// ┌─────────────────────────────────────┐
+	// │ [STATUS BAR]                        │
+	// ├─────────────────────────────────────┤
+	// │ [MESSAGE BAR - if present]          │
+	// ├─────────────────────────────────────┤
+	// │                                     │
+	// │         [MAIN CONTENT]              │
+	// │         (centered)                  │
+	// │                                     │
+	// ├─────────────────────────────────────┤
+	// │ [HELP BAR]                          │
+	// └─────────────────────────────────────┘
 
-	content := lipgloss.JoinVertical(lipgloss.Center, statusBar, screenView)
-	return lipgloss.Place(
+	statusBar := m.renderStatusBar()
+	messageBar := m.renderMessageBar()
+	helpBar := m.renderHelpBar()
+
+	// Calculate content height
+	statusHeight := 1
+	helpHeight := 1
+	messageHeight := 0
+	if messageBar != "" {
+		messageHeight = 1
+	}
+
+	contentHeight := m.height - statusHeight - helpHeight - messageHeight - 2
+
+	// Center the main content
+	centeredContent := lipgloss.Place(
 		m.width,
-		m.height,
+		contentHeight,
 		lipgloss.Center,
 		lipgloss.Center,
-		content,
+		screenView,
 		lipgloss.WithWhitespaceChars(" "),
-		lipgloss.WithWhitespaceForeground(lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}),
+		lipgloss.WithWhitespaceForeground(lipgloss.Color("#383838")),
 	)
+
+	// Build final layout
+	var sections []string
+	sections = append(sections, statusBar)
+	if messageBar != "" {
+		sections = append(sections, messageBar)
+	}
+	sections = append(sections, centeredContent)
+	sections = append(sections, helpBar)
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
 
 func (m *model) renderPolicyListView() string {
 	if len(m.policies) == 0 {
 		emptyStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#888888")).
+			Foreground(colorTextMuted).
 			Padding(2).
 			Align(lipgloss.Center)
 
@@ -148,10 +257,7 @@ func (m *model) renderPolicyListView() string {
 	}
 
 	l := list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-10)
-	l.Title = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FF8C00")).
-		Render("Authorization Policies")
+	l.Title = titleStyle.Render("Authorization Policies")
 	l.SetShowStatusBar(true)
 	l.SetFilteringEnabled(true)
 
@@ -161,7 +267,7 @@ func (m *model) renderPolicyListView() string {
 func (m *model) renderClientSelectorView() string {
 	if len(m.clients) == 0 {
 		emptyStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#888888")).
+			Foreground(colorTextMuted).
 			Padding(2).
 			Align(lipgloss.Center)
 
@@ -179,10 +285,7 @@ func (m *model) renderClientSelectorView() string {
 	}
 
 	l := list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-10)
-	l.Title = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FF8C00")).
-		Render("Select Client")
+	l.Title = titleStyle.Render("Select Client")
 	l.SetShowStatusBar(true)
 	l.SetFilteringEnabled(true)
 
@@ -191,39 +294,31 @@ func (m *model) renderClientSelectorView() string {
 
 func (m *model) renderExportOptionsView() string {
 	if m.selectedPolicy == nil {
-		return lipgloss.JoinVertical(
-			lipgloss.Center,
-			"Loading policy...",
-		)
+		return "Loading policy..."
 	}
 
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FF8C00")).
-		MarginBottom(1)
-
-	optionStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#00CED1")).
-		MarginLeft(2)
-
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#888888")).
-		Italic(true).
-		MarginTop(2)
+	boxStyle := contentBoxStyle.
+		Width(50).
+		Align(lipgloss.Center)
 
 	title := titleStyle.Render(fmt.Sprintf("Export Policy: %s", m.selectedPolicy.policy.ClientName))
 
+	optionStyle := lipgloss.NewStyle().
+		Foreground(colorSecondary).
+		Padding(0, 2)
+
 	options := []string{
-		optionStyle.Render("Press 'j' or '1' - Export as JSON"),
-		optionStyle.Render("Press 'y' or '2' - Export as YAML"),
 		"",
-		helpStyle.Render("Press 'esc' to cancel"),
+		optionStyle.Render("[j] Export as JSON"),
+		optionStyle.Render("[y] Export as YAML"),
+		"",
 	}
 
-	return lipgloss.JoinVertical(
+	content := lipgloss.JoinVertical(
 		lipgloss.Center,
 		title,
-		"",
 		strings.Join(options, "\n"),
 	)
+
+	return boxStyle.Render(content)
 }

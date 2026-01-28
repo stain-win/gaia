@@ -4,7 +4,6 @@ import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/stain-win/gaia/apps/gaia/config"
 )
 
@@ -117,42 +116,27 @@ var policyMenuItems = []list.Item{
 // initialModel creates the starting state of the TUI.
 func initialModel(config *config.Config) *model {
 	mainList := list.New(menuItems, list.NewDefaultDelegate(), 0, 0)
-	mainList.Title = titleStyle.
-		Render("Main Menu")
-
+	mainList.Title = titleStyle.Render("Main Menu")
 	mainList.SetShowStatusBar(false)
 	mainList.SetFilteringEnabled(false)
 
 	dataList := list.New(dataMenuItems, list.NewDefaultDelegate(), 0, 0)
-	dataList.Title = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FF8C00")).
-		Render("Data Management")
-
+	dataList.Title = titleStyle.Render("Data Management")
 	dataList.SetShowStatusBar(false)
 	dataList.SetFilteringEnabled(false)
 
 	accessList := list.New(accessMenuItems, list.NewDefaultDelegate(), 0, 0)
-	accessList.Title = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FF8C00")).
-		Render("Access Management")
+	accessList.Title = titleStyle.Render("Access Management")
 	accessList.SetShowStatusBar(false)
 	accessList.SetFilteringEnabled(false)
 
 	certList := list.New(certMenuItems, list.NewDefaultDelegate(), 0, 0)
-	certList.Title = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FF8C00")).
-		Render("Certificate Management")
+	certList.Title = titleStyle.Render("Certificate Management")
 	certList.SetShowStatusBar(false)
 	certList.SetFilteringEnabled(false)
 
 	policyList := list.New(policyMenuItems, list.NewDefaultDelegate(), 0, 0)
-	policyList.Title = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FF8C00")).
-		Render("Policy Management")
+	policyList.Title = titleStyle.Render("Policy Management")
 	policyList.SetShowStatusBar(false)
 	policyList.SetFilteringEnabled(false)
 
