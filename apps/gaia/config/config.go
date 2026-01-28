@@ -239,10 +239,79 @@ func loadConfigFromFile(path string, cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to read config file '%s': %w", path, err)
 	}
+
+	// First try the new nested config format
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return fmt.Errorf("failed to unmarshal config from file '%s': %w", path, err)
 	}
+
+	// Check if we loaded any meaningful nested config
+	// If not, try legacy flat format for backwards compatibility
+	if cfg.Daemon.ListenAddr == "" || cfg.Daemon.ListenAddr == "0.0.0.0:50051" {
+		var legacy legacyConfig
+		if err := yaml.Unmarshal(data, &legacy); err == nil {
+			applyLegacyConfig(&legacy, cfg)
+		}
+	}
+
 	return nil
+}
+
+// legacyConfig represents the old flat configuration format for backwards compatibility
+type legacyConfig struct {
+	GRPCServerName      string `yaml:"grpc_server_name"`
+	GRPCPort            string `yaml:"grpc_port"`
+	DBFile              string `yaml:"db_file"`
+	CertsDirectory      string `yaml:"certs_directory"`
+	CACertFile          string `yaml:"ca_cert_file"`
+	ServerCertFile      string `yaml:"server_cert_file"`
+	ServerKeyFile       string `yaml:"server_key_file"`
+	GaiaClientCertFile  string `yaml:"gaia_client_cert_file"`
+	GaiaClientKeyFile   string `yaml:"gaia_client_key_file"`
+	GRPCClientTimeout   string `yaml:"grpc_client_timeout"`
+	GaiaTuiTickInterval string `yaml:"gaia_tui_tick_interval"`
+	CertExpiryDays      int    `yaml:"cert_expiry_days"`
+}
+
+// applyLegacyConfig migrates legacy config values to the new nested format
+func applyLegacyConfig(legacy *legacyConfig, cfg *Config) {
+	if legacy.GRPCPort != "" {
+		cfg.Daemon.ListenAddr = "0.0.0.0:" + legacy.GRPCPort
+	}
+	if legacy.DBFile != "" {
+		cfg.Daemon.DBFile = legacy.DBFile
+	}
+	if legacy.CertsDirectory != "" {
+		cfg.TLS.CertsDirectory = legacy.CertsDirectory
+	}
+	if legacy.CACertFile != "" {
+		cfg.TLS.CACert = legacy.CACertFile
+	}
+	if legacy.ServerCertFile != "" {
+		cfg.TLS.ServerCert = legacy.ServerCertFile
+	}
+	if legacy.ServerKeyFile != "" {
+		cfg.TLS.ServerKey = legacy.ServerKeyFile
+	}
+	if legacy.GaiaClientCertFile != "" {
+		cfg.GaiaClientCertFile = legacy.GaiaClientCertFile
+	}
+	if legacy.GaiaClientKeyFile != "" {
+		cfg.GaiaClientKeyFile = legacy.GaiaClientKeyFile
+	}
+	if legacy.GRPCClientTimeout != "" {
+		if d, err := time.ParseDuration(legacy.GRPCClientTimeout); err == nil {
+			cfg.GRPCClientTimeout = d
+		}
+	}
+	if legacy.GaiaTuiTickInterval != "" {
+		if d, err := time.ParseDuration(legacy.GaiaTuiTickInterval); err == nil {
+			cfg.GaiaTuiTickInterval = d
+		}
+	}
+	if legacy.CertExpiryDays > 0 {
+		cfg.TLS.CertExpiryDays = legacy.CertExpiryDays
+	}
 }
 
 // loadConfigFromEnv populates the Config struct with values from environment variables.

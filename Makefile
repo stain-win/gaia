@@ -17,8 +17,13 @@ GO_ARCH_LIST := amd64 arm64
 VERSION_PKG := github.com/stain-win/gaia/apps/gaia/cmd
 
 GIT_VERSION := $(shell git describe --tags --always --dirty)
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-LDFLAGS := -s -w -X '$(VERSION_PKG).version=$(GIT_VERSION)'
+LDFLAGS := -s -w \
+	-X '$(VERSION_PKG).version=$(GIT_VERSION)' \
+	-X '$(VERSION_PKG).gitCommit=$(GIT_COMMIT)' \
+	-X '$(VERSION_PKG).buildDate=$(BUILD_DATE)'
 
 # --- Commands ---
 

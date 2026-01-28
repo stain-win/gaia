@@ -44,13 +44,32 @@ func NewAdminConnection(cfg *config.Config, opts *ClientOptions) (*grpc.ClientCo
 	// Load client certificate and key
 	clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load client certificate: %w", err)
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("client certificate not found at '%s'\n\n"+
+				"To fix this:\n"+
+				"  1. Run: gaia setup (recommended)\n"+
+				"  2. Or run: gaia certs generate\n\n"+
+				"Expected certificate files:\n"+
+				"  - %s\n"+
+				"  - %s\n\n"+
+				"Looking in directory: %s",
+				clientCertFile, cfg.GaiaClientCertFile, cfg.GaiaClientKeyFile, cfg.TLS.CertsDirectory)
+		}
+		return nil, fmt.Errorf("failed to load client certificate from '%s': %w", clientCertFile, err)
 	}
 
 	// Load CA certificate
 	caCert, err := os.ReadFile(caCertFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read CA certificate: %w", err)
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("CA certificate not found at '%s'\n\n"+
+				"To fix this:\n"+
+				"  1. Run: gaia setup (recommended)\n"+
+				"  2. Or run: gaia certs generate\n\n"+
+				"Looking in directory: %s",
+				caCertFile, cfg.TLS.CertsDirectory)
+		}
+		return nil, fmt.Errorf("failed to read CA certificate from '%s': %w", caCertFile, err)
 	}
 
 	// Create certificate pool with CA

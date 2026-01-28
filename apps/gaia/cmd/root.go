@@ -69,12 +69,12 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.AddCommand(initCmd)
+	// Commands are registered in their own init() functions
+	// Only add commands here that don't have their own init()
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(stopCmd)
 	rootCmd.AddCommand(restartCmd)
 	rootCmd.AddCommand(statusCmd)
-	rootCmd.AddCommand(certsCmd)
 	rootCmd.AddCommand(clientsCmd)
 	rootCmd.AddCommand(secretsCmd)
 	rootCmd.AddCommand(policyCmd)

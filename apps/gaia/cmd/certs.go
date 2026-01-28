@@ -170,5 +170,5 @@ func init() {
 
 	generateCmd.Flags().StringVar(&caName, "ca-name", "Gaia Root CA", "The Common Name for the Root CA")
 	generateCmd.Flags().StringVar(&serverName, "server-name", "localhost", "The Common Name for the server certificate")
-	generateCmd.Flags().StringVar(&clientName, "client-name", "gaia-cli", "The Common Name for the CLI client certificate")
+	generateCmd.Flags().StringVar(&clientName, "client-name", "gaia_client", "The Common Name for the CLI client certificate")
 }

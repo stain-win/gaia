@@ -37,6 +37,7 @@ Gaia is a **lightweight, secure, and self-hosted secrets management daemon** des
   - [Policy Management](#policy-management)
   - [Secret Management](#secret-management)
   - [Bulk Import/Export](#bulk-importexport)
+- [Configuration](#configuration)
 - [Audit Logging](#audit-logging)
 - [Production Deployment](#production-deployment)
 - [Architecture & Security](#architecture--security)
@@ -194,34 +195,46 @@ gaia version
 
 For other platforms, see the [Installation](#installation) section.
 
-### 2. Initialize
+### 2. Run the Setup Wizard (Recommended)
+
+The easiest way to get started is with the interactive setup wizard:
 
 ```bash
-# Create certificates
-gaia certs generate --output-dir ./certs
+gaia setup
+```
+
+This wizard will:
+- ✓ Create all necessary directories
+- ✓ Generate mTLS certificates  
+- ✓ Initialize the encrypted database
+- ✓ Guide you through setting a master passphrase
+- ✓ Optionally start the daemon
+
+**That's it!** You're ready to use Gaia.
+
+<details>
+<summary>Alternative: Manual Setup</summary>
+
+If you prefer to set up manually:
+
+```bash
+# Generate certificates (stored in OS-specific config directory)
+gaia certs generate
 
 # Initialize the encrypted database
 gaia init
 # Enter your master passphrase when prompted
-```
 
-### 3. Start the Daemon
-
-```bash
-# Start in foreground (for testing)
+# Start the daemon
 gaia daemon start
-
-# Or run in background
-gaia daemon start &
 ```
 
-### 4. Use the TUI
+</details>
+
+### 3. Use the TUI
 
 ```bash
 # Launch the interactive interface
-gaia
-
-# Or if you installed it as just 'gaia', it starts TUI by default
 gaia
 ```
 
@@ -819,6 +832,19 @@ async fn get_secret(state: web::Data<AppState>) -> String {
 
 ## CLI Reference
 
+### Setup & Updates
+
+```bash
+# Interactive setup wizard (recommended for first-time users)
+gaia setup
+
+# Check for updates
+gaia update
+
+# Show version with build info
+gaia version
+```
+
 ### Daemon Management
 
 ```bash
@@ -856,12 +882,19 @@ gaia init --db-file /var/lib/gaia/gaia.db
 
 ```bash
 # Generate CA, server, and client certificates
+# Uses directory from config file or OS-specific default:
+#   - Linux:   /etc/gaia/certs
+#   - macOS:   ~/Library/Application Support/Gaia/certs
+#   - Windows: %APPDATA%\Gaia\certs
+gaia certs generate
+
+# Override with custom directory
 gaia certs generate --output-dir ./certs
 
 # Generate only specific cert type
-gaia certs generate-ca --output-dir ./certs
-gaia certs generate-server --output-dir ./certs
-gaia certs generate-client --name myapp --output-dir ./certs
+gaia certs create-ca
+gaia certs create-server localhost
+gaia certs create-client myapp
 ```
 
 ### Client Management
@@ -1077,6 +1110,100 @@ gaia state
 
 # Backup database
 cp /var/lib/gaia/gaia.db /backup/gaia-$(date +%Y%m%d).db
+```
+
+---
+
+## Configuration
+
+Gaia uses a YAML configuration file with sensible OS-specific defaults.
+
+### Config File Locations
+
+| OS      | Default Path                                      |
+|---------|--------------------------------------------------|
+| Linux   | `/etc/gaia/gaia-config.yaml`                     |
+| macOS   | `~/Library/Application Support/Gaia/gaia-config.yaml` |
+| Windows | `%APPDATA%\Gaia\gaia-config.yaml`                |
+
+### Data & Certificate Paths
+
+| Resource     | Linux              | macOS                                    | Windows              |
+|-------------|--------------------|-----------------------------------------|---------------------|
+| Database    | `/var/lib/gaia/gaia.db` | `~/Library/Application Support/Gaia/gaia.db` | `%APPDATA%\Gaia\gaia.db` |
+| Certificates| `/etc/gaia/certs/` | `~/Library/Application Support/Gaia/certs/` | `%APPDATA%\Gaia\certs\` |
+| Logs        | `/var/log/gaia/gaia.log` | `~/Library/Logs/Gaia/gaia.log` | `%APPDATA%\Gaia\gaia.log` |
+
+### Full Configuration Reference
+
+```yaml
+# Daemon settings
+daemon:
+  listen_addr: "0.0.0.0:50051"    # Address:port for gRPC server
+  db_file: "/var/lib/gaia/gaia.db" # BoltDB database file path
+  timeout: 10s                     # Server operation timeout
+
+# Logging settings
+log:
+  file_path: "/var/log/gaia/gaia.log"
+  max_size_mb: 10         # Rotate at this size
+  max_backups: 5          # Keep this many old files
+  max_age_days: 7         # Delete files older than this
+  level: "info"           # debug, info, warn, error
+
+# TLS/mTLS settings
+tls:
+  certs_directory: "/etc/gaia/certs"  # Where certificates are stored
+  ca_cert: "ca.crt"                   # CA certificate filename
+  server_cert: "server.crt"           # Server certificate filename
+  server_key: "server.key"            # Server private key filename
+  key_algorithm: "ECDSA"              # ECDSA or RSA
+  key_size: "P256"                    # P256, P384, P521 (ECDSA) or 2048, 3072, 4096 (RSA)
+  cert_expiry_days: 365               # Certificate validity period
+
+# Client timeouts
+grpc_client_timeout: 5s      # Timeout for CLI/TUI operations
+gaia_tui_tick_interval: 2s   # TUI status refresh interval
+
+# Client certificate files (for CLI/TUI authentication)
+gaia_client_cert_file: "gaia_client.crt"
+gaia_client_key_file: "gaia_client.key"
+
+# Audit logging (see Audit Logging section for details)
+audit:
+  enabled: false
+```
+
+### Environment Variable Overrides
+
+Environment variables override config file settings:
+
+```bash
+# Daemon settings
+export GAIA_LISTEN_ADDR="0.0.0.0:50051"
+export GAIA_DB_FILE="/var/lib/gaia/gaia.db"
+export GAIA_DAEMON_TIMEOUT="10s"
+
+# Logging
+export GAIA_LOG_FILE="/var/log/gaia/gaia.log"
+export GAIA_LOG_LEVEL="debug"
+
+# TLS
+export GAIA_CERTS_DIR="/etc/gaia/certs"
+
+# Timeouts
+export GAIA_CLIENT_TIMEOUT="5s"
+```
+
+### Custom Config File
+
+Use `--config` flag with any command:
+
+```bash
+# Use custom config
+gaia --config /path/to/config.yaml daemon start
+gaia --config /path/to/config.yaml certs generate
+gaia --config /path/to/config.yaml init
 ```
 
 ---
@@ -1298,27 +1425,35 @@ sudo chown -R gaia:gaia /var/lib/gaia
 #### 2. Create Configuration
 
 ```bash
-sudo nano /etc/gaia/config.yaml
+sudo nano /etc/gaia/gaia-config.yaml
 ```
 
 ```yaml
-grpc_port: "50051"
-db_file: "/var/lib/gaia/gaia.db"
-certs_directory: "/etc/gaia/certs"
-cert_expiry_days: 365
-log_level: "info"
+daemon:
+  listen_addr: "0.0.0.0:50051"
+  db_file: "/var/lib/gaia/gaia.db"
+  timeout: 10s
+
+log:
+  file_path: "/var/log/gaia/gaia.log"
+  level: "info"
+
+tls:
+  certs_directory: "/etc/gaia/certs"
+  cert_expiry_days: 365
 ```
 
 #### 3. Generate Certificates
 
 ```bash
-sudo -u gaia gaia certs generate --output-dir /etc/gaia/certs
+# With config file, certs go to /etc/gaia/certs automatically
+sudo -u gaia gaia certs generate --config /etc/gaia/gaia-config.yaml
 ```
 
 #### 4. Initialize Database
 
 ```bash
-sudo -u gaia gaia init --db-file /var/lib/gaia/gaia.db
+sudo -u gaia gaia init --config /etc/gaia/gaia-config.yaml
 ```
 
 #### 5. Create Systemd Service
@@ -1337,7 +1472,7 @@ After=network.target
 Type=simple
 User=gaia
 Group=gaia
-ExecStart=/usr/local/bin/gaia daemon start --config /etc/gaia/config.yaml
+ExecStart=/usr/local/bin/gaia daemon start --config /etc/gaia/gaia-config.yaml
 Restart=on-failure
 RestartSec=5s
 WorkingDirectory=/var/lib/gaia

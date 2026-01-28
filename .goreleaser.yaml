@@ -28,8 +28,8 @@ builds:
     ldflags:
       - -s -w
       - -X github.com/stain-win/gaia/apps/gaia/cmd.version={{.Version}}
-      - -X github.com/stain-win/gaia/apps/gaia/cmd.commit={{.Commit}}
-      - -X github.com/stain-win/gaia/apps/gaia/cmd.date={{.Date}}
+      - -X github.com/stain-win/gaia/apps/gaia/cmd.gitCommit={{.Commit}}
+      - -X github.com/stain-win/gaia/apps/gaia/cmd.buildDate={{.Date}}
 
 archives:
   - id: gaia-archive
