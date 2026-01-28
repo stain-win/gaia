@@ -133,6 +133,70 @@ gaia_client_cert_file: "gaia_client.crt"
 gaia_client_key_file: "gaia_client.key"
 
 # =============================================================================
+# Audit Logging Configuration
+# =============================================================================
+# Gaia provides comprehensive audit logging following HashiCorp Vault's best practices.
+# All sensitive data is automatically HMAC-hashed before being written to logs.
+# Audit logs capture Who, What, When, Where for every operation.
+
+audit:
+  # Enable audit logging
+  # Default: false
+  # Set to true to enable audit logging
+  enabled: false
+
+  # HMAC key for hashing sensitive values
+  # Default: auto-generated
+  # Used to create consistent hashes of sensitive data for correlation without exposure.
+  # IMPORTANT: Change this to a secure random value in production!
+  # hmac_key: "your-secure-random-key-here"
+
+  # Log incoming requests
+  # Default: true
+  # When enabled, logs are created when requests are received
+  log_request: true
+
+  # Log outgoing responses
+  # Default: true
+  # When enabled, logs are created when responses are sent
+  log_response: true
+
+  # Audit backends configuration
+  # Gaia supports multiple backends simultaneously:
+  # - file: JSON lines to a rotating file or stdout (recommended for Docker/ELK/Splunk)
+  # - internal: Store in BoltDB (good for "it just works" experience)
+  # - webhook: HTTP POST to external endpoint (for real-time SIEM integration)
+  backends:
+    # Example: File backend (stdout for Docker/container logs)
+    # - type: "file"
+    #   path: "-"  # "-" means stdout, or specify a file path
+    #   options:
+    #     max_size_mb: 100      # Max file size before rotation
+    #     max_backups: 5        # Number of old files to keep
+    #     max_age_days: 30      # Days to keep old files
+
+    # Example: File backend (rotating file)
+    # - type: "file"
+    #   path: "/var/log/gaia/audit.log"
+    #   options:
+    #     max_size_mb: 100
+    #     max_backups: 10
+    #     max_age_days: 90
+
+    # Example: Internal backend (BoltDB storage)
+    # - type: "internal"
+    #   options:
+    #     retention_days: 30    # Days to retain audit entries
+
+    # Example: Webhook backend (external SIEM)
+    # - type: "webhook"
+    #   path: "https://siem.example.com/gaia/audit"
+    #   options:
+    #     rate_limit_per_sec: 100   # Max requests per second
+    #     timeout_seconds: 10       # Request timeout
+    #     headers: '{"Authorization": "Bearer YOUR_TOKEN"}'
+
+# =============================================================================
 # Example Configurations
 # =============================================================================
 

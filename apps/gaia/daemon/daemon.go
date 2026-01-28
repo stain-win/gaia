@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stain-win/gaia/apps/gaia/audit"
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/encrypt"
 	gaiaerrors "github.com/stain-win/gaia/apps/gaia/internal/errors"
@@ -69,6 +70,7 @@ type Daemon struct {
 	server      *grpc.Server
 	db          *bbolt.DB
 	policyStore *policy.Store
+	auditLogger *audit.Logger
 	key         []byte
 	caCert      *x509.Certificate
 	caKey       *rsa.PrivateKey
@@ -131,6 +133,15 @@ func (d *Daemon) Start(cfg *config.Config) error {
 	}
 	d.dbLock.Unlock()
 
+	// Initialize audit logger
+	if err := d.initAuditLogger(); err != nil {
+		gaialog.Get().Warn("failed to initialize audit logger, continuing without audit", "error", err)
+		d.auditLogger = audit.NoopLogger()
+	}
+
+	// Create audit interceptor
+	auditInterceptor := audit.NewInterceptor(d.auditLogger)
+
 	serverOpts := []grpc.ServerOption{
 		grpc.Creds(creds),
 		grpc.MaxConcurrentStreams(100),
@@ -140,6 +151,8 @@ func (d *Daemon) Start(cfg *config.Config) error {
 			MinTime:             5 * time.Minute,
 			PermitWithoutStream: true,
 		}),
+		grpc.ChainUnaryInterceptor(auditInterceptor.UnaryServerInterceptor()),
+		grpc.ChainStreamInterceptor(auditInterceptor.StreamServerInterceptor()),
 	}
 
 	d.server = grpc.NewServer(serverOpts...)
@@ -197,6 +210,14 @@ func (d *Daemon) Start(cfg *config.Config) error {
 	}
 
 	d.status = StatusStopped
+
+	// Close audit logger first to flush any pending entries
+	if d.auditLogger != nil {
+		if err := d.auditLogger.Close(); err != nil {
+			gaialog.Get().Error("failed to close audit logger", "error", err)
+		}
+	}
+
 	if err := d.db.Close(); err != nil {
 		gaialog.Get().Error("failed to close database during shutdown", "error", err)
 	}
@@ -876,6 +897,66 @@ func (d *Daemon) openDB() error {
 		d.db.Close()
 		return fmt.Errorf("failed to initialize policy store: %w", err)
 	}
+
+	return nil
+}
+
+// initAuditLogger initializes the audit logger with configured backends.
+func (d *Daemon) initAuditLogger() error {
+	auditCfg := d.config.Audit
+
+	if !auditCfg.Enabled {
+		gaialog.Get().Info("audit logging is disabled")
+		d.auditLogger = audit.NoopLogger()
+		return nil
+	}
+
+	if len(auditCfg.Backends) == 0 {
+		gaialog.Get().Warn("audit logging enabled but no backends configured, using default file backend")
+		// Default to file backend writing to stdout
+		auditCfg.Backends = []config.AuditBackendConfig{
+			{Type: "file", Path: "-"},
+		}
+	}
+
+	// Convert config backend configs to audit backend configs
+	var backendConfigs []audit.BackendConfig
+	for _, bc := range auditCfg.Backends {
+		backendConfigs = append(backendConfigs, audit.BackendConfig{
+			Type: bc.Type,
+			Path: bc.Path,
+			Options: audit.BackendOptions{
+				MaxSizeMB:       bc.Options.MaxSizeMB,
+				MaxBackups:      bc.Options.MaxBackups,
+				MaxAgeDays:      bc.Options.MaxAgeDays,
+				RetentionDays:   bc.Options.RetentionDays,
+				RateLimitPerSec: bc.Options.RateLimitPerSec,
+				TimeoutSeconds:  bc.Options.TimeoutSeconds,
+				Headers:         bc.Options.Headers,
+			},
+		})
+	}
+
+	// Create backends
+	backends, err := audit.NewBackendsFromConfig(backendConfigs, d.db)
+	if err != nil {
+		return fmt.Errorf("failed to create audit backends: %w", err)
+	}
+
+	// Create the logger
+	loggerCfg := audit.LoggerConfig{
+		Enabled:     true,
+		HMACKey:     auditCfg.HMACKey,
+		LogRequest:  auditCfg.LogRequest,
+		LogResponse: auditCfg.LogResponse,
+	}
+
+	d.auditLogger = audit.NewLogger(loggerCfg, backends...)
+
+	gaialog.Get().Info("audit logging initialized",
+		slog.Int("backends", len(backends)),
+		slog.Bool("log_request", auditCfg.LogRequest),
+		slog.Bool("log_response", auditCfg.LogResponse))
 
 	return nil
 }

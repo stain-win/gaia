@@ -40,11 +40,44 @@ type TLSConfig struct {
 	CertExpiryDays int    `yaml:"cert_expiry_days"` // Certificate validity period in days
 }
 
+// AuditBackendConfig holds settings for a single audit backend.
+type AuditBackendConfig struct {
+	Type    string              `yaml:"type"`              // Backend type: "file", "internal", "webhook"
+	Path    string              `yaml:"path,omitempty"`    // Path for file backend or URL for webhook
+	Options AuditBackendOptions `yaml:"options,omitempty"` // Backend-specific options
+}
+
+// AuditBackendOptions holds optional settings for audit backends.
+type AuditBackendOptions struct {
+	// File backend options
+	MaxSizeMB  int `yaml:"max_size_mb,omitempty"`  // Maximum file size in MB before rotation
+	MaxBackups int `yaml:"max_backups,omitempty"`  // Maximum number of old files to keep
+	MaxAgeDays int `yaml:"max_age_days,omitempty"` // Maximum days to keep old files
+
+	// Internal backend options
+	RetentionDays int `yaml:"retention_days,omitempty"` // Days to retain entries in BoltDB
+
+	// Webhook backend options
+	RateLimitPerSec int    `yaml:"rate_limit_per_sec,omitempty"` // Max requests per second
+	TimeoutSeconds  int    `yaml:"timeout_seconds,omitempty"`    // Request timeout
+	Headers         string `yaml:"headers,omitempty"`            // Custom headers as JSON object
+}
+
+// AuditConfig holds settings for audit logging.
+type AuditConfig struct {
+	Enabled     bool                 `yaml:"enabled"`            // Enable audit logging
+	HMACKey     string               `yaml:"hmac_key,omitempty"` // HMAC key for hashing sensitive values
+	LogRequest  bool                 `yaml:"log_request"`        // Log incoming requests
+	LogResponse bool                 `yaml:"log_response"`       // Log outgoing responses
+	Backends    []AuditBackendConfig `yaml:"backends,omitempty"` // List of audit backends
+}
+
 // Config holds all configurable settings for Gaia.
 type Config struct {
 	Daemon DaemonConfig `yaml:"daemon"` // Daemon-specific settings
 	Log    LogConfig    `yaml:"log"`    // Logging settings
 	TLS    TLSConfig    `yaml:"tls"`    // TLS/mTLS settings
+	Audit  AuditConfig  `yaml:"audit"`  // Audit logging settings
 
 	GRPCClientTimeout   time.Duration `yaml:"grpc_client_timeout"`    // Timeout for gRPC client operations
 	GaiaTuiTickInterval time.Duration `yaml:"gaia_tui_tick_interval"` // TUI refresh interval
@@ -77,6 +110,12 @@ func NewDefaultConfig() *Config {
 			KeyAlgorithm:   "ECDSA",
 			KeySize:        "P256",
 			CertExpiryDays: 365,
+		},
+		Audit: AuditConfig{
+			Enabled:     false, // Disabled by default for backward compatibility
+			LogRequest:  true,
+			LogResponse: true,
+			Backends:    nil, // No backends configured by default
 		},
 		GRPCClientTimeout:   5 * time.Second,
 		GaiaTuiTickInterval: 2 * time.Second,

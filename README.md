@@ -37,6 +37,7 @@ Gaia is a **lightweight, secure, and self-hosted secrets management daemon** des
   - [Policy Management](#policy-management)
   - [Secret Management](#secret-management)
   - [Bulk Import/Export](#bulk-importexport)
+- [Audit Logging](#audit-logging)
 - [Production Deployment](#production-deployment)
 - [Architecture & Security](#architecture--security)
 - [Building from Source](#building-from-source)
@@ -1077,6 +1078,200 @@ gaia state
 # Backup database
 cp /var/lib/gaia/gaia.db /backup/gaia-$(date +%Y%m%d).db
 ```
+
+---
+
+## Audit Logging
+
+Gaia provides comprehensive audit logging following HashiCorp Vault's best practices. All secret operations are logged with structured data, and sensitive values are automatically HMAC-hashed to prevent data leakage.
+
+### Features
+
+- **Structured Logging** - JSON format following Who, What, When, Where pattern
+- **Sensitive Data Protection** - Automatic HMAC-SHA256 hashing of secrets
+- **Multiple Backends** - File, Internal (BoltDB), or Webhook
+- **Asynchronous** - Non-blocking operation, won't slow down requests
+- **Request/Response Tracking** - Correlate requests with their outcomes
+
+### Configuration
+
+Enable audit logging in your `gaia-config.yaml`:
+
+```yaml
+audit:
+  # Enable audit logging
+  enabled: true
+  
+  # HMAC key for hashing sensitive values (CHANGE THIS!)
+  hmac_key: "your-secure-random-key-here"
+  
+  # Log incoming requests
+  log_request: true
+  
+  # Log outgoing responses
+  log_response: true
+  
+  # Configure one or more backends
+  backends:
+    # File backend - JSON lines to file or stdout
+    - type: "file"
+      path: "/var/log/gaia/audit.log"
+      options:
+        max_size_mb: 100      # Rotate at 100MB
+        max_backups: 10       # Keep 10 old files
+        max_age_days: 90      # Keep for 90 days
+```
+
+### Backend Types
+
+#### File Backend (Recommended for Docker/ELK/Splunk)
+
+Writes JSON lines to a file or stdout. Perfect for:
+- Docker container logging
+- ELK Stack integration
+- Splunk ingestion
+- CloudWatch Logs
+
+```yaml
+backends:
+  # Write to file with rotation
+  - type: "file"
+    path: "/var/log/gaia/audit.log"
+    options:
+      max_size_mb: 100
+      max_backups: 10
+      max_age_days: 90
+  
+  # Or write to stdout (great for Docker)
+  - type: "file"
+    path: "-"  # "-" means stdout
+```
+
+#### Internal Backend (Default/Simple)
+
+Stores audit entries in BoltDB alongside your secrets. Good for:
+- Simple deployments
+- Small-scale usage
+- Built-in retention management
+
+```yaml
+backends:
+  - type: "internal"
+    options:
+      retention_days: 30  # Auto-cleanup after 30 days
+```
+
+#### Webhook Backend (SIEM Integration)
+
+Sends audit entries to an HTTP endpoint in real-time. Ideal for:
+- Security Information and Event Management (SIEM)
+- Custom security dashboards
+- Real-time alerting
+
+```yaml
+backends:
+  - type: "webhook"
+    path: "https://siem.example.com/gaia/audit"
+    options:
+      rate_limit_per_sec: 100   # Max requests per second
+      timeout_seconds: 10       # Request timeout
+      headers: '{"Authorization": "Bearer YOUR_TOKEN"}'
+```
+
+### Audit Entry Format
+
+Each audit entry contains:
+
+```json
+{
+  "type": "request",
+  "time": "2024-01-15T10:30:00.123456789Z",
+  "auth": {
+    "client_identity": "webapp-prod",
+    "client_type": "client"
+  },
+  "request": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "operation": "/gaia.GaiaClient/GetSecret",
+    "path": "webapp-prod/production/database_url",
+    "namespace": "production",
+    "remote_addr": "10.0.1.50:45678"
+  }
+}
+```
+
+Response entries include additional fields:
+
+```json
+{
+  "type": "response",
+  "time": "2024-01-15T10:30:00.125000000Z",
+  "auth": {
+    "client_identity": "webapp-prod"
+  },
+  "request": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "operation": "/gaia.GaiaClient/GetSecret"
+  },
+  "response": {
+    "success": true,
+    "status_code": 0
+  }
+}
+```
+
+### Sensitive Data Protection
+
+Gaia automatically protects sensitive data in audit logs:
+
+1. **Secret Values** - Never logged, HMAC-hashed if referenced
+2. **Passphrases** - Never logged
+3. **Private Keys** - Never logged
+4. **API Keys/Tokens** - HMAC-hashed
+
+Example of redacted data:
+```json
+{
+  "request": {
+    "data": {
+      "namespace": "production",
+      "secret_id": "database_url",
+      "value": "hmac-sha256:a1b2c3d4e5f6..."
+    }
+  }
+}
+```
+
+### Multiple Backends
+
+You can configure multiple backends for redundancy:
+
+```yaml
+audit:
+  enabled: true
+  backends:
+    # Primary: File for ELK
+    - type: "file"
+      path: "/var/log/gaia/audit.log"
+    
+    # Secondary: Internal for local queries
+    - type: "internal"
+      options:
+        retention_days: 7
+    
+    # Tertiary: SIEM webhook
+    - type: "webhook"
+      path: "https://siem.example.com/gaia"
+```
+
+### Best Practices
+
+1. **Always Change HMAC Key** - Use a unique, random key in production
+2. **Monitor Log Volume** - Adjust retention based on usage
+3. **Secure Log Files** - Set proper file permissions (600)
+4. **Rate Limit Webhooks** - Prevent overwhelming external systems
+5. **Correlate by Request ID** - Match requests to responses
+6. **Regular Review** - Periodically review audit logs for anomalies
 
 ---
 
