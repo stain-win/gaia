@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
@@ -602,26 +605,78 @@ func runSecurityAudit(cfg *config.Config) error {
 	serverCertPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.ServerCert)
 	clientCertPath := filepath.Join(cfg.TLS.CertsDirectory, "gaia-cli.crt")
 
-	if _, err := os.Stat(caCertPath); os.IsNotExist(err) {
+	// Helper function to check certificate expiry
+	checkCertExpiry := func(certPath, name string) (exists bool, expired bool, expiringSoon bool, expiryDate time.Time) {
+		certPEM, err := os.ReadFile(certPath)
+		if err != nil {
+			return false, false, false, time.Time{}
+		}
+
+		block, _ := pem.Decode(certPEM)
+		if block == nil {
+			return true, false, false, time.Time{}
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return true, false, false, time.Time{}
+		}
+
+		now := time.Now()
+		expired = now.After(cert.NotAfter)
+		expiringSoon = !expired && time.Until(cert.NotAfter) < 30*24*time.Hour
+		return true, expired, expiringSoon, cert.NotAfter
+	}
+
+	// Check CA certificate
+	if exists, expired, expiringSoon, expiryDate := checkCertExpiry(caCertPath, "CA"); !exists {
 		fmt.Println(wizardErrorStyle.Render("✗ CA certificate not found"))
 		issues++
-	} else {
-		fmt.Println(wizardSuccessStyle.Render("✓ CA certificate present"))
-		// TODO: Check expiry
-	}
-
-	if _, err := os.Stat(serverCertPath); os.IsNotExist(err) {
-		fmt.Println(wizardErrorStyle.Render("✗ Server certificate not found"))
+	} else if expired {
+		fmt.Println(wizardErrorStyle.Render("✗ CA certificate has EXPIRED"))
+		fmt.Printf("  Expired on: %s\n", expiryDate.Format("2006-01-02"))
 		issues++
-	} else {
-		fmt.Println(wizardSuccessStyle.Render("✓ Server certificate present"))
-	}
-
-	if _, err := os.Stat(clientCertPath); os.IsNotExist(err) {
-		fmt.Println(wizardWarningStyle.Render("⚠ Default client certificate not found"))
+	} else if expiringSoon {
+		fmt.Println(wizardWarningStyle.Render("⚠ CA certificate expires soon"))
+		fmt.Printf("  Expires on: %s (%d days remaining)\n", expiryDate.Format("2006-01-02"), int(time.Until(expiryDate).Hours()/24))
 		warnings++
 	} else {
-		fmt.Println(wizardSuccessStyle.Render("✓ Client certificate present"))
+		fmt.Println(wizardSuccessStyle.Render("✓ CA certificate valid"))
+		fmt.Printf("  Expires on: %s\n", expiryDate.Format("2006-01-02"))
+	}
+
+	// Check server certificate
+	if exists, expired, expiringSoon, expiryDate := checkCertExpiry(serverCertPath, "Server"); !exists {
+		fmt.Println(wizardErrorStyle.Render("✗ Server certificate not found"))
+		issues++
+	} else if expired {
+		fmt.Println(wizardErrorStyle.Render("✗ Server certificate has EXPIRED"))
+		fmt.Printf("  Expired on: %s\n", expiryDate.Format("2006-01-02"))
+		issues++
+	} else if expiringSoon {
+		fmt.Println(wizardWarningStyle.Render("⚠ Server certificate expires soon"))
+		fmt.Printf("  Expires on: %s (%d days remaining)\n", expiryDate.Format("2006-01-02"), int(time.Until(expiryDate).Hours()/24))
+		warnings++
+	} else {
+		fmt.Println(wizardSuccessStyle.Render("✓ Server certificate valid"))
+		fmt.Printf("  Expires on: %s\n", expiryDate.Format("2006-01-02"))
+	}
+
+	// Check client certificate
+	if exists, expired, expiringSoon, expiryDate := checkCertExpiry(clientCertPath, "Client"); !exists {
+		fmt.Println(wizardWarningStyle.Render("⚠ Default client certificate not found"))
+		warnings++
+	} else if expired {
+		fmt.Println(wizardErrorStyle.Render("✗ Client certificate has EXPIRED"))
+		fmt.Printf("  Expired on: %s\n", expiryDate.Format("2006-01-02"))
+		issues++
+	} else if expiringSoon {
+		fmt.Println(wizardWarningStyle.Render("⚠ Client certificate expires soon"))
+		fmt.Printf("  Expires on: %s (%d days remaining)\n", expiryDate.Format("2006-01-02"), int(time.Until(expiryDate).Hours()/24))
+		warnings++
+	} else {
+		fmt.Println(wizardSuccessStyle.Render("✓ Client certificate valid"))
+		fmt.Printf("  Expires on: %s\n", expiryDate.Format("2006-01-02"))
 	}
 
 	// Check file permissions (Unix only)

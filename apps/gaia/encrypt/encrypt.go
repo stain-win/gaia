@@ -17,13 +17,34 @@ import (
 
 const (
 	KeyLen = 32 // AES-256
+
+	// Scrypt parameters for key derivation
+	// N = 2^17 = 131072 (recommended minimum for 2024+ security standards)
+	// r = 8 (block size)
+	// p = 1 (parallelization)
+	// These parameters provide strong resistance against brute-force attacks.
+	// WARNING: Changing these parameters will break existing databases!
+	scryptN = 1 << 17
+	scryptR = 8
+	scryptP = 1
 )
 
 // DeriveKey derives a key from the passphrase and salt using scrypt.
+// Uses secure parameters: N=2^17, r=8, p=1
 func DeriveKey(passphrase, salt []byte) ([]byte, error) {
-	key, err := scrypt.Key(passphrase, salt, 1<<15, 8, 1, KeyLen)
+	key, err := scrypt.Key(passphrase, salt, scryptN, scryptR, scryptP, KeyLen)
 	if err != nil {
 		return nil, gaiaerrors.NewCryptoError("derive_key", "failed to derive key using scrypt", err)
+	}
+	return key, nil
+}
+
+// DeriveKeyLegacy derives a key using legacy scrypt parameters (N=2^15).
+// Only use this for migrating existing databases.
+func DeriveKeyLegacy(passphrase, salt []byte) ([]byte, error) {
+	key, err := scrypt.Key(passphrase, salt, 1<<15, 8, 1, KeyLen)
+	if err != nil {
+		return nil, gaiaerrors.NewCryptoError("derive_key_legacy", "failed to derive key using scrypt", err)
 	}
 	return key, nil
 }

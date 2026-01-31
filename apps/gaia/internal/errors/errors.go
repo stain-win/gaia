@@ -14,6 +14,7 @@ var (
 	ErrDaemonNotRunning     = errors.New("daemon not running")
 	ErrDaemonAlreadyRunning = errors.New("daemon already running")
 	ErrInvalidPassphrase    = errors.New("invalid passphrase")
+	ErrUnlockRateLimited    = errors.New("too many failed unlock attempts, please try again later")
 	ErrDatabaseExists       = errors.New("database already exists")
 	ErrClientNotFound       = errors.New("client not found")
 	ErrClientExists         = errors.New("client already exists")

@@ -31,6 +31,8 @@ func mapErrorToGRPCStatus(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, gaiaerrors.ErrInvalidPassphrase):
 		return status.Error(codes.Unauthenticated, "invalid passphrase")
+	case errors.Is(err, gaiaerrors.ErrUnlockRateLimited):
+		return status.Error(codes.ResourceExhausted, err.Error())
 	case errors.Is(err, gaiaerrors.ErrClientNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, gaiaerrors.ErrClientExists):
@@ -248,12 +250,23 @@ func (s *gaiaAdminServer) Lock(_ context.Context, _ *pb.LockRequest) (*pb.LockRe
 	return &pb.LockResponse{Success: true}, nil
 }
 
-// Unlock handles the Unlock RPC call.
+// Unlock handles the Unlock RPC call with rate limiting protection.
+// After maxUnlockAttempts (5) failed attempts, the unlock is locked out for unlockLockoutTime (5 minutes).
 func (s *gaiaAdminServer) Unlock(_ context.Context, req *pb.UnlockRequest) (*pb.UnlockResponse, error) {
-	err := s.d.UnlockDB(req.Passphrase)
-	if err != nil {
+	// Check rate limiting
+	if err := s.d.checkUnlockRateLimit(); err != nil {
 		return &pb.UnlockResponse{Success: false}, mapErrorToGRPCStatus(err)
 	}
+
+	err := s.d.UnlockDB(req.Passphrase)
+	if err != nil {
+		// Record failed attempt
+		s.d.recordFailedUnlockAttempt()
+		return &pb.UnlockResponse{Success: false}, mapErrorToGRPCStatus(err)
+	}
+
+	// Reset failed attempts on success
+	s.d.resetUnlockAttempts()
 	return &pb.UnlockResponse{Success: true}, nil
 }
 

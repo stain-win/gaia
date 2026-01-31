@@ -64,6 +64,13 @@ type Client struct {
 	TimeCreated string `json:"time_created"`
 }
 
+// Rate limiting constants for unlock attempts
+const (
+	maxUnlockAttempts  = 5                // Maximum failed attempts before lockout
+	unlockLockoutTime  = 5 * time.Minute  // Lockout duration after max attempts
+	unlockAttemptReset = 15 * time.Minute // Reset attempt counter after this duration
+)
+
 // Daemon represents the state of the Gaia daemon.
 type Daemon struct {
 	config      *config.Config
@@ -80,6 +87,12 @@ type Daemon struct {
 	stopChannel chan struct{}
 	stopOnce    sync.Once // Ensures shutdown runs only once
 	createdAt   time.Time
+
+	// Rate limiting for unlock attempts
+	unlockAttempts    int       // Current number of failed attempts
+	unlockLastAttempt time.Time // Time of last unlock attempt
+	unlockLockedUntil time.Time // If set, unlock is locked out until this time
+	unlockLock        sync.Mutex
 }
 
 // NewDaemon creates a new Daemon instance with the default configuration.
@@ -364,6 +377,68 @@ func (d *Daemon) LockDB() {
 	d.key = nil
 	d.isLocked = true
 	gaialog.Get().Info("Daemon is now in a locked state.")
+}
+
+// checkUnlockRateLimit checks if unlock attempts are rate limited.
+// Returns an error if too many failed attempts have occurred.
+func (d *Daemon) checkUnlockRateLimit() error {
+	d.unlockLock.Lock()
+	defer d.unlockLock.Unlock()
+
+	now := time.Now()
+
+	// Check if currently locked out
+	if !d.unlockLockedUntil.IsZero() && now.Before(d.unlockLockedUntil) {
+		remaining := d.unlockLockedUntil.Sub(now).Round(time.Second)
+		gaialog.Get().Warn("unlock attempt rejected due to rate limiting",
+			"remaining_lockout", remaining.String(),
+			"failed_attempts", d.unlockAttempts)
+		return fmt.Errorf("%w: try again in %v", gaiaerrors.ErrUnlockRateLimited, remaining)
+	}
+
+	// Reset lockout if it has expired
+	if !d.unlockLockedUntil.IsZero() && now.After(d.unlockLockedUntil) {
+		d.unlockLockedUntil = time.Time{}
+		d.unlockAttempts = 0
+	}
+
+	// Reset attempt counter if enough time has passed since last attempt
+	if !d.unlockLastAttempt.IsZero() && now.Sub(d.unlockLastAttempt) > unlockAttemptReset {
+		d.unlockAttempts = 0
+	}
+
+	return nil
+}
+
+// recordFailedUnlockAttempt records a failed unlock attempt and triggers lockout if needed.
+func (d *Daemon) recordFailedUnlockAttempt() {
+	d.unlockLock.Lock()
+	defer d.unlockLock.Unlock()
+
+	d.unlockAttempts++
+	d.unlockLastAttempt = time.Now()
+
+	gaialog.Get().Warn("failed unlock attempt",
+		"attempt_number", d.unlockAttempts,
+		"max_attempts", maxUnlockAttempts)
+
+	// Trigger lockout if max attempts exceeded
+	if d.unlockAttempts >= maxUnlockAttempts {
+		d.unlockLockedUntil = time.Now().Add(unlockLockoutTime)
+		gaialog.Get().Error("unlock rate limit triggered",
+			"lockout_until", d.unlockLockedUntil.Format(time.RFC3339),
+			"lockout_duration", unlockLockoutTime.String())
+	}
+}
+
+// resetUnlockAttempts resets the failed unlock attempt counter after successful unlock.
+func (d *Daemon) resetUnlockAttempts() {
+	d.unlockLock.Lock()
+	defer d.unlockLock.Unlock()
+
+	d.unlockAttempts = 0
+	d.unlockLastAttempt = time.Time{}
+	d.unlockLockedUntil = time.Time{}
 }
 
 // UnlockDB validates the passphrase, loads the decryption key, and loads the CA credentials.

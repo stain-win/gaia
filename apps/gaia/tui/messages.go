@@ -11,6 +11,18 @@ import (
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
 
+// Centralized timeout constants for TUI operations
+const (
+	// defaultTimeout is the standard timeout for most gRPC operations
+	defaultTimeout = 10 * time.Second
+
+	// quickTimeout is for fast operations like status checks
+	quickTimeout = 5 * time.Second
+
+	// longTimeout is for operations that may take longer (e.g., bulk operations)
+	longTimeout = 60 * time.Second
+)
+
 // BackMsg is a custom message to signal returning to the previous menu.
 type BackMsg struct{}
 
@@ -117,7 +129,7 @@ func fetchPoliciesCmd(cfg *config.Config) tea.Cmd {
 		defer conn.Close()
 
 		client := pb.NewGaiaAdminClient(conn)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 		defer cancel()
 
 		res, err := client.ListPolicies(ctx, &pb.ListPoliciesRequest{})
@@ -170,7 +182,7 @@ func fetchClientsCmd(cfg *config.Config) tea.Cmd {
 		defer conn.Close()
 
 		client := pb.NewGaiaAdminClient(conn)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), quickTimeout)
 		defer cancel()
 
 		res, err := client.ListClients(ctx, &pb.ListClientsRequest{})
@@ -234,7 +246,7 @@ func fetchAllClientsCmd(cfg *config.Config) tea.Cmd {
 
 		client := pb.NewGaiaAdminClient(conn)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), quickTimeout)
 		defer cancel()
 
 		res, err := client.ListClients(ctx, &pb.ListClientsRequest{})
@@ -256,7 +268,7 @@ func fetchSecretsForClientCmd(cfg *config.Config, clientName string) tea.Cmd {
 
 		client := pb.NewGaiaAdminClient(conn)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), quickTimeout)
 		defer cancel()
 
 		res, err := client.ListSecrets(ctx, &pb.ListSecretsRequest{ClientName: clientName})
@@ -277,7 +289,7 @@ func registerClientCmd(cfg *config.Config, clientName string) tea.Cmd {
 		defer conn.Close()
 
 		client := pb.NewGaiaAdminClient(conn)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 		defer cancel()
 
 		res, err := client.RegisterClient(ctx, &pb.RegisterClientRequest{ClientName: clientName})
@@ -314,7 +326,7 @@ func unlockDaemonCmd(cfg *config.Config, passphrase string) tea.Cmd {
 		defer conn.Close()
 
 		client := pb.NewGaiaAdminClient(conn)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 		defer cancel()
 
 		res, err := client.Unlock(ctx, &pb.UnlockRequest{Passphrase: passphrase})
@@ -338,7 +350,7 @@ func fetchClientsForPolicyCmd(cfg *config.Config, operation string) tea.Cmd {
 		defer conn.Close()
 
 		client := pb.NewGaiaAdminClient(conn)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), quickTimeout)
 		defer cancel()
 
 		res, err := client.ListClients(ctx, &pb.ListClientsRequest{})
@@ -365,7 +377,7 @@ func fetchPolicyCmd(cfg *config.Config, clientName string) tea.Cmd {
 		defer conn.Close()
 
 		client := pb.NewGaiaAdminClient(conn)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 		defer cancel()
 
 		res, err := client.GetPolicy(ctx, &pb.GetPolicyRequest{ClientName: clientName})
@@ -388,7 +400,7 @@ func savePolicyCmd(cfg *config.Config, pol policy.Policy) tea.Cmd {
 		defer conn.Close()
 
 		client := pb.NewGaiaAdminClient(conn)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 		defer cancel()
 
 		// Convert to protobuf
@@ -413,7 +425,7 @@ func deletePolicyCmd(cfg *config.Config, clientName string) tea.Cmd {
 		defer conn.Close()
 
 		client := pb.NewGaiaAdminClient(conn)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 		defer cancel()
 
 		_, err = client.DeletePolicy(ctx, &pb.DeletePolicyRequest{ClientName: clientName})

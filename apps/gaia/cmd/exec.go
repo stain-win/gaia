@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
+
+// envVarSanitizer replaces any character that's not A-Z, 0-9, or _ with underscore
+var envVarSanitizer = regexp.MustCompile(`[^A-Z0-9_]`)
 
 var execCmd = &cobra.Command{
 	Use:   "exec -- <command> [args...]",
@@ -60,8 +64,11 @@ func runExec(cmd *cobra.Command, args []string) error {
 	env := os.Environ()
 	for _, ns := range resp.Namespaces {
 		for _, secret := range ns.Secrets {
+			// Build env var name: GAIA_<namespace>_<key>
+			// Sanitize to only allow A-Z, 0-9, and underscore
 			envVarName := fmt.Sprintf("GAIA_%s_%s", ns.Name, secret.Id)
-			envVarName = strings.ToUpper(strings.ReplaceAll(envVarName, "-", "_"))
+			envVarName = strings.ToUpper(envVarName)
+			envVarName = envVarSanitizer.ReplaceAllString(envVarName, "_")
 			env = append(env, fmt.Sprintf("%s=%s", envVarName, secret.Value))
 		}
 	}
