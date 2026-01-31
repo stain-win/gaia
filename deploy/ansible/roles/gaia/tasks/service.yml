@@ -1,0 +1,46 @@
+---
+# Setup systemd service for Gaia
+
+- name: Deploy systemd service file
+  ansible.builtin.template:
+    src: gaia.service.j2
+    dest: /etc/systemd/system/{{ gaia_service_name }}.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart gaia
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable Gaia service
+  ansible.builtin.systemd:
+    name: "{{ gaia_service_name }}"
+    enabled: "{{ gaia_service_enabled }}"
+
+- name: Start Gaia service
+  ansible.builtin.systemd:
+    name: "{{ gaia_service_name }}"
+    state: started
+  when: gaia_service_started | bool
+
+- name: Check if database is initialized
+  ansible.builtin.stat:
+    path: "{{ gaia_db_file }}"
+  register: gaia_db_stat
+
+- name: Display database initialization reminder
+  ansible.builtin.debug:
+    msg: |
+      ⚠️  Database not initialized!
+      
+      Run the following command to initialize:
+        sudo -u {{ gaia_user }} {{ gaia_binary_path }} init --config {{ gaia_config_file }}
+      
+      Then start and unlock the daemon:
+        sudo systemctl start {{ gaia_service_name }}
+        sudo -u {{ gaia_user }} {{ gaia_binary_path }} daemon unlock --config {{ gaia_config_file }}
+  when: not gaia_db_stat.stat.exists

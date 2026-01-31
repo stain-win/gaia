@@ -1,0 +1,93 @@
+---
+# Main task file for Gaia role
+#
+# Orchestrates all installation and configuration tasks
+
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_version }}.yml"
+        - "{{ ansible_distribution | lower }}.yml"
+        - "{{ ansible_os_family | lower }}.yml"
+        - "default.yml"
+      paths:
+        - "{{ role_path }}/vars"
+      skip: true
+  tags: always
+
+- name: Create Gaia system group
+  ansible.builtin.group:
+    name: "{{ gaia_group }}"
+    system: true
+    state: present
+  tags: [install, configure]
+
+- name: Create Gaia system user
+  ansible.builtin.user:
+    name: "{{ gaia_user }}"
+    group: "{{ gaia_group }}"
+    system: true
+    shell: /bin/false
+    home: "{{ gaia_data_dir }}"
+    create_home: false
+    comment: "Gaia Secrets Management Daemon"
+  tags: [install, configure]
+
+- name: Add admin users to gaia group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: "{{ gaia_group }}"
+    append: true
+  loop: "{{ gaia_admin_users }}"
+  when: gaia_admin_users | length > 0
+  tags: [install, configure]
+
+- name: Create required directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default(gaia_user) }}"
+    group: "{{ item.group | default(gaia_group) }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop:
+    - { path: "{{ gaia_config_dir }}", mode: "0750" }
+    - { path: "{{ gaia_certs_dir }}", mode: "0750" }  # Group-readable for admin users
+    - { path: "{{ gaia_data_dir }}", mode: "0750" }
+    - { path: "{{ gaia_log_dir }}", mode: "0750" }
+    - { path: "{{ gaia_backup_dir }}", mode: "0750" }
+  loop_control:
+    label: "{{ item.path }}"
+  tags: [install, configure]
+
+# Include task files
+- name: Install Gaia binary
+  ansible.builtin.import_tasks: install.yml
+  tags: [install]
+
+- name: Configure Gaia
+  ansible.builtin.import_tasks: configure.yml
+  tags: [configure]
+
+- name: Generate certificates
+  ansible.builtin.import_tasks: certificates.yml
+  tags: [certificates]
+
+- name: Configure Docker ACLs for container access
+  ansible.builtin.import_tasks: docker_acl.yml
+  when: gaia_docker_acl_enabled | bool
+  tags: [certificates, docker]
+
+- name: Setup systemd service
+  ansible.builtin.import_tasks: service.yml
+  tags: [service]
+
+- name: Configure firewall
+  ansible.builtin.import_tasks: firewall.yml
+  when: gaia_configure_firewall | bool
+  tags: [firewall]
+
+- name: Setup backup script
+  ansible.builtin.import_tasks: backup.yml
+  when: gaia_backup_enabled | bool
+  tags: [backup]

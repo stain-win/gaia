@@ -1,0 +1,36 @@
+---
+# Configure Gaia daemon
+
+- name: Deploy Gaia configuration file
+  ansible.builtin.template:
+    src: gaia-config.yaml.j2
+    dest: "{{ gaia_config_file }}"
+    owner: "{{ gaia_user }}"
+    group: "{{ gaia_group }}"
+    mode: "0640"
+    backup: true
+  notify: restart gaia
+
+- name: Set up logrotate for Gaia logs
+  ansible.builtin.template:
+    src: logrotate.conf.j2
+    dest: /etc/logrotate.d/gaia
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Ensure database directory has correct ownership
+  ansible.builtin.file:
+    path: "{{ gaia_data_dir }}"
+    state: directory
+    owner: "{{ gaia_user }}"
+    group: "{{ gaia_group }}"
+    mode: "0750"
+
+- name: Ensure certificates directory has correct permissions
+  ansible.builtin.file:
+    path: "{{ gaia_certs_dir }}"
+    state: directory
+    owner: "{{ gaia_user }}"
+    group: "{{ gaia_group }}"
+    mode: "0700"

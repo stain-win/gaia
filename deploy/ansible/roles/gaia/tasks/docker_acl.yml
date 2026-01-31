@@ -1,0 +1,156 @@
+---
+# Configure ACLs for Docker container access to client certificates
+#
+# This uses Default Access Control Lists (ACLs) to automatically grant
+# read permissions to the docker group for any newly created files in
+# the certs directory. This is the cleanest solution because:
+#
+# - No need to change Gaia's umask
+# - No need to restart the gaia service
+# - New client certs automatically inherit the correct permissions
+# - Docker containers can read certs without being root
+#
+# Requirements:
+# - ACL support enabled on the filesystem (most modern Linux distros)
+# - acl package installed (setfacl/getfacl commands)
+#
+# Equivalent manual commands:
+#   sudo setfacl -R -m g:docker:rX /etc/gaia/certs   # Recursive for existing
+#   sudo setfacl -d -m g:docker:rX /etc/gaia/certs   # Default for new files
+
+- name: Ensure ACL package is installed
+  ansible.builtin.package:
+    name: acl
+    state: present
+
+- name: Check if docker group exists
+  ansible.builtin.getent:
+    database: group
+    key: "{{ gaia_docker_group }}"
+  register: docker_group_check
+  failed_when: false
+
+- name: Warn if docker group does not exist
+  ansible.builtin.debug:
+    msg: |
+      ⚠️  Warning: Group '{{ gaia_docker_group }}' does not exist.
+      ACLs will be configured but won't be effective until the group is created.
+      Install Docker first, then re-run this playbook.
+  when: docker_group_check.ansible_facts.getent_group is not defined or 
+        docker_group_check.ansible_facts.getent_group[gaia_docker_group] is none
+
+# Block for when docker group exists
+- name: Configure ACLs for Docker group
+  when:
+    - docker_group_check.ansible_facts.getent_group is defined
+    - docker_group_check.ansible_facts.getent_group[gaia_docker_group] is not none
+  block:
+    # Set base ownership and permissions (chmod -R 750)
+    - name: Set base ownership on certs directory
+      ansible.builtin.file:
+        path: "{{ gaia_certs_dir }}"
+        owner: "{{ gaia_user }}"
+        group: "{{ gaia_group }}"
+        mode: "0750"
+        recurse: true
+
+    # Set ACL on config directory for traversal to certs
+    # Equivalent: setfacl -m g:docker:rx /etc/gaia
+    - name: Set ACL for docker group on config directory (traversal)
+      ansible.posix.acl:
+        path: "{{ gaia_config_dir }}"
+        entity: "{{ gaia_docker_group }}"
+        etype: group
+        permissions: rx
+        state: present
+
+    # Apply recursive ACL for existing files using shell command
+    # This is equivalent to: setfacl -R -m g:docker:rX /etc/gaia/certs
+    # The capital X grants execute only on directories (not files)
+    - name: Apply recursive ACL for docker group on existing certs (setfacl -R)
+      ansible.builtin.command:
+        cmd: "setfacl -R -m g:{{ gaia_docker_group }}:rX {{ gaia_certs_dir }}"
+      changed_when: true
+
+    # Set default ACL for NEW files created in the directory
+    # This is equivalent to: setfacl -d -m g:docker:rX /etc/gaia/certs
+    - name: Set default ACL for docker group on certs directory (setfacl -d)
+      ansible.builtin.command:
+        cmd: "setfacl -d -m g:{{ gaia_docker_group }}:rX {{ gaia_certs_dir }}"
+      changed_when: true
+
+    # Remove ACL from sensitive files (CA key and server key should NOT be readable by docker)
+    - name: Remove docker group ACL from CA private key (security)
+      ansible.builtin.command:
+        cmd: "setfacl -x g:{{ gaia_docker_group }} {{ gaia_certs_dir }}/ca.key"
+      failed_when: false
+      changed_when: true
+
+    - name: Remove docker group ACL from server private key (security)
+      ansible.builtin.command:
+        cmd: "setfacl -x g:{{ gaia_docker_group }} {{ gaia_certs_dir }}/server.key"
+      failed_when: false
+      changed_when: true
+
+    # Ensure CA key and server key have restrictive permissions (no group/other access)
+    - name: Ensure CA private key is protected
+      ansible.builtin.file:
+        path: "{{ gaia_certs_dir }}/ca.key"
+        mode: "0600"
+      failed_when: false
+
+    - name: Ensure server private key is protected
+      ansible.builtin.file:
+        path: "{{ gaia_certs_dir }}/server.key"
+        mode: "0600"
+      failed_when: false
+
+# Optional: Add ACLs for additional admin users (like TUI users not in docker group)
+- name: Apply ACLs for admin users on certs directory
+  when: gaia_admin_users | length > 0
+  block:
+    - name: Apply recursive ACL for admin users on existing certs
+      ansible.builtin.command:
+        cmd: "setfacl -R -m u:{{ item }}:rX {{ gaia_certs_dir }}"
+      loop: "{{ gaia_admin_users }}"
+      changed_when: true
+
+    - name: Set default ACL for admin users on new certs
+      ansible.builtin.command:
+        cmd: "setfacl -d -m u:{{ item }}:rX {{ gaia_certs_dir }}"
+      loop: "{{ gaia_admin_users }}"
+      changed_when: true
+
+- name: Display ACL configuration summary
+  ansible.builtin.debug:
+    msg: |
+      ✅ ACLs configured for Docker container access:
+      
+      Commands executed:
+        setfacl -R -m g:{{ gaia_docker_group }}:rX {{ gaia_certs_dir }}  (recursive)
+        setfacl -d -m g:{{ gaia_docker_group }}:rX {{ gaia_certs_dir }}  (default for new files)
+      
+      Protected files (ACL removed, mode 0600):
+        - ca.key (CA private key)
+        - server.key (server private key)
+      
+      {% if gaia_admin_users | length > 0 %}
+      Admin users with ACL access:
+      {% for user in gaia_admin_users %}
+        - {{ user }}
+      {% endfor %}
+      {% endif %}
+      
+      To verify ACLs:
+        getfacl {{ gaia_certs_dir }}
+      
+      Expected output should show:
+        default:group:{{ gaia_docker_group }}:r-x
+      
+      Docker containers can now read client certificates by mounting:
+        -v {{ gaia_certs_dir }}/<client>.crt:/app/certs/client.crt:ro
+        -v {{ gaia_certs_dir }}/<client>.key:/app/certs/client.key:ro
+        -v {{ gaia_certs_dir }}/ca.crt:/app/certs/ca.crt:ro
+  when:
+    - docker_group_check.ansible_facts.getent_group is defined
+    - docker_group_check.ansible_facts.getent_group[gaia_docker_group] is not none

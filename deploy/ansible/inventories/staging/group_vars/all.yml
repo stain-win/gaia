@@ -1,0 +1,34 @@
+---
+# Staging Environment Variables
+#
+# Less strict settings for development/testing
+
+gaia_version: "latest"
+gaia_listen_addr: "0.0.0.0:50051"
+gaia_timeout: "30s"
+
+# Admin users - add your SSH user here
+gaia_admin_users:
+  - ubuntu          # Replace with your SSH username
+
+# More verbose logging for debugging
+gaia_log_level: "debug"
+
+# Shorter certificate validity for testing
+gaia_cert_expiry_days: 30
+
+# Audit logging (enabled for testing)
+gaia_audit_enabled: true
+gaia_audit_hmac_key: "staging-test-key-change-for-production"
+gaia_audit_log_request: true
+gaia_audit_log_response: true
+gaia_audit_retention_days: 7
+
+# Backup settings (smaller retention for staging)
+gaia_backup_enabled: true
+gaia_backup_dir: "/backup/gaia"
+gaia_backup_retention_days: 7
+
+# No firewall restrictions in staging
+gaia_configure_firewall: false
+gaia_firewall_allowed_ips: []

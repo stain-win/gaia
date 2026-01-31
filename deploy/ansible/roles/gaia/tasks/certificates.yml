@@ -1,0 +1,92 @@
+---
+# Generate mTLS certificates for Gaia
+#
+# Permission model:
+# - CA key (ca.key): 0600 - Only gaia user (critical secret)
+# - Server key (server.key): 0600 - Only gaia user (daemon secret)
+# - Admin key (gaia.key): 0640 - Group readable for CLI/TUI admin access
+# - Certificates (.crt): 0644 - Readable by all (public part)
+#
+# Users in the 'gaia' group can use the CLI/TUI to manage the daemon.
+
+- name: Check if CA certificate exists
+  ansible.builtin.stat:
+    path: "{{ gaia_certs_dir }}/ca.crt"
+  register: gaia_ca_cert
+
+- name: Generate certificates
+  when: not gaia_ca_cert.stat.exists
+  block:
+    - name: Generate Gaia certificates
+      ansible.builtin.command:
+        cmd: "{{ gaia_binary_path }} certs generate --config {{ gaia_config_file }}"
+      become: true
+      become_user: "{{ gaia_user }}"
+      register: gaia_certs_generate
+      changed_when: "'Generated' in gaia_certs_generate.stdout or gaia_certs_generate.rc == 0"
+
+    - name: Display certificate generation output
+      ansible.builtin.debug:
+        msg: "{{ gaia_certs_generate.stdout_lines | default(['Certificates generated successfully']) }}"
+
+# Set permissions on certificate files
+# CRITICAL: Private keys must be protected!
+
+- name: Set permissions on CA private key (restricted)
+  ansible.builtin.file:
+    path: "{{ gaia_certs_dir }}/ca.key"
+    owner: "{{ gaia_user }}"
+    group: "{{ gaia_group }}"
+    mode: "0600"
+  failed_when: false
+
+- name: Set permissions on server private key (restricted)
+  ansible.builtin.file:
+    path: "{{ gaia_certs_dir }}/server.key"
+    owner: "{{ gaia_user }}"
+    group: "{{ gaia_group }}"
+    mode: "0600"
+  failed_when: false
+
+- name: Set permissions on admin/client private key (group readable for CLI/TUI access)
+  ansible.builtin.file:
+    path: "{{ gaia_certs_dir }}/{{ item }}"
+    owner: "{{ gaia_user }}"
+    group: "{{ gaia_group }}"
+    mode: "0640"
+  loop:
+    - gaia.key
+  failed_when: false
+
+- name: Set permissions on certificates (public parts, readable)
+  ansible.builtin.file:
+    path: "{{ gaia_certs_dir }}/{{ item }}"
+    owner: "{{ gaia_user }}"
+    group: "{{ gaia_group }}"
+    mode: "0644"
+  loop:
+    - ca.crt
+    - server.crt
+    - gaia.crt
+  failed_when: false
+
+- name: Verify certificates exist
+  ansible.builtin.stat:
+    path: "{{ gaia_certs_dir }}/{{ item }}"
+  loop:
+    - ca.crt
+    - ca.key
+    - server.crt
+    - server.key
+    - gaia.crt
+    - gaia.key
+  register: gaia_cert_files
+
+- name: Display certificate status
+  ansible.builtin.debug:
+    msg: >-
+      Certificate {{ item.item }}:
+      {% if item.stat.exists %}✅ exists{% else %}❌ missing{% endif %}
+  loop: "{{ gaia_cert_files.results }}"
+  loop_control:
+    label: "{{ item.item }}"

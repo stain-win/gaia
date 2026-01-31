@@ -1,0 +1,12 @@
+---
+# Ansible Galaxy Requirements
+# Install with: ansible-galaxy install -r requirements.yml
+
+collections:
+  # Community general collection (for UFW module)
+  - name: community.general
+    version: ">=7.0.0"
+
+  # Ansible POSIX collection (for firewalld module)
+  - name: ansible.posix
+    version: ">=1.5.0"

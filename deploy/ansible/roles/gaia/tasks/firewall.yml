@@ -1,0 +1,94 @@
+---
+# Configure firewall rules for Gaia
+
+- name: Determine firewall type
+  block:
+    - name: Check if UFW is installed
+      ansible.builtin.command: which ufw
+      register: ufw_check
+      changed_when: false
+      failed_when: false
+
+    - name: Check if firewalld is installed
+      ansible.builtin.command: which firewall-cmd
+      register: firewalld_check
+      changed_when: false
+      failed_when: false
+
+    - name: Set firewall type
+      ansible.builtin.set_fact:
+        gaia_firewall_type: >-
+          {% if ufw_check.rc == 0 %}ufw{% elif firewalld_check.rc == 0 %}firewalld{% else %}none{% endif %}
+
+# UFW Configuration (Ubuntu/Debian)
+- name: Configure UFW
+  when: gaia_firewall_type == 'ufw'
+  block:
+    - name: Extract port from listen address
+      ansible.builtin.set_fact:
+        gaia_port: "{{ gaia_listen_addr.split(':')[-1] }}"
+
+    - name: Allow Gaia port from specific IPs (UFW)
+      community.general.ufw:
+        rule: allow
+        port: "{{ gaia_port }}"
+        proto: tcp
+        from_ip: "{{ item }}"
+        comment: "Gaia secrets daemon"
+      loop: "{{ gaia_firewall_allowed_ips }}"
+      when: gaia_firewall_allowed_ips | length > 0
+
+    - name: Allow Gaia port from any (UFW) when no IPs specified
+      community.general.ufw:
+        rule: allow
+        port: "{{ gaia_port }}"
+        proto: tcp
+        comment: "Gaia secrets daemon"
+      when: gaia_firewall_allowed_ips | length == 0
+
+# Firewalld Configuration (RHEL/CentOS)
+- name: Configure firewalld
+  when: gaia_firewall_type == 'firewalld'
+  block:
+    - name: Extract port from listen address
+      ansible.builtin.set_fact:
+        gaia_port: "{{ gaia_listen_addr.split(':')[-1] }}"
+
+    - name: Create firewalld zone for Gaia
+      ansible.posix.firewalld:
+        zone: gaia
+        state: present
+        permanent: true
+      when: gaia_firewall_allowed_ips | length > 0
+
+    - name: Add allowed sources to Gaia zone
+      ansible.posix.firewalld:
+        zone: gaia
+        source: "{{ item }}"
+        state: enabled
+        permanent: true
+        immediate: true
+      loop: "{{ gaia_firewall_allowed_ips }}"
+      when: gaia_firewall_allowed_ips | length > 0
+
+    - name: Allow Gaia port in zone
+      ansible.posix.firewalld:
+        zone: "{{ 'gaia' if gaia_firewall_allowed_ips | length > 0 else 'public' }}"
+        port: "{{ gaia_port }}/tcp"
+        state: enabled
+        permanent: true
+        immediate: true
+
+- name: Display firewall configuration message
+  ansible.builtin.debug:
+    msg: |
+      Firewall configured:
+      - Type: {{ gaia_firewall_type }}
+      - Port: {{ gaia_port | default(gaia_listen_addr.split(':')[-1]) }}
+      - Allowed IPs: {{ gaia_firewall_allowed_ips | default(['any']) | join(', ') }}
+  when: gaia_firewall_type != 'none'
+
+- name: Warn about no firewall
+  ansible.builtin.debug:
+    msg: "⚠️  No firewall detected (UFW or firewalld). Consider enabling a firewall for production."
+  when: gaia_firewall_type == 'none'

@@ -1,0 +1,180 @@
+---
+# Default variables for Gaia role
+#
+# These can be overridden in inventory group_vars, host_vars, or via --extra-vars
+
+# =============================================================================
+# VERSION & INSTALLATION
+# =============================================================================
+
+# Gaia version to install ("latest" or specific version like "v1.0.0")
+gaia_version: "latest"
+
+# GitHub repository for downloading releases
+gaia_github_repo: "stain-win/gaia"
+
+# Installation directory for the binary
+gaia_install_dir: "/usr/local/bin"
+
+# =============================================================================
+# USER & DIRECTORIES
+# =============================================================================
+
+# System user and group for running Gaia daemon
+gaia_user: "gaia"
+gaia_group: "gaia"
+
+# Admin users - these users will be added to the gaia group
+# and will be able to run gaia CLI/TUI commands to manage the daemon.
+# They will have access to admin certificates for daemon communication.
+# Example: ["ubuntu", "admin", "deploy"]
+gaia_admin_users: []
+
+# =============================================================================
+# DOCKER / ACL CONFIGURATION
+# =============================================================================
+
+# Enable ACL-based permissions for Docker containers
+# This sets default ACLs on the certs directory so that newly generated
+# client certificates are automatically readable by the docker group.
+# Perfect for containerized services that need to read Gaia client certs.
+gaia_docker_acl_enabled: false
+
+# Group that should have read access to client certificates
+# Typically "docker" for Docker containers
+gaia_docker_group: "docker"
+
+# Configuration directory
+gaia_config_dir: "/etc/gaia"
+
+# Certificates directory (inside config dir)
+gaia_certs_dir: "{{ gaia_config_dir }}/certs"
+
+# Data directory (database storage)
+gaia_data_dir: "/var/lib/gaia"
+
+# Log directory
+gaia_log_dir: "/var/log/gaia"
+
+# Database file path
+gaia_db_file: "{{ gaia_data_dir }}/gaia.db"
+
+# =============================================================================
+# DAEMON CONFIGURATION
+# =============================================================================
+
+# Listen address for gRPC server
+gaia_listen_addr: "0.0.0.0:50051"
+
+# Operation timeout
+gaia_timeout: "10s"
+
+# Log level (debug, info, warn, error)
+gaia_log_level: "info"
+
+# Log file path (inside log dir)
+gaia_log_file: "{{ gaia_log_dir }}/gaia.log"
+
+# =============================================================================
+# TLS CONFIGURATION
+# =============================================================================
+
+# Certificate expiry in days
+gaia_cert_expiry_days: 365
+
+# =============================================================================
+# AUDIT LOGGING
+# =============================================================================
+
+# Enable audit logging
+gaia_audit_enabled: true
+
+# HMAC key for hashing sensitive data in audit logs
+# IMPORTANT: Change this in production!
+gaia_audit_hmac_key: "change-me-in-production-use-random-64-char-string"
+
+# Log incoming requests
+gaia_audit_log_request: true
+
+# Log outgoing responses
+gaia_audit_log_response: true
+
+# Audit log file path
+gaia_audit_log_path: "{{ gaia_log_dir }}/audit.log"
+
+# Audit log retention (for internal backend)
+gaia_audit_retention_days: 30
+
+# Maximum audit log file size in MB (for file rotation)
+gaia_audit_max_size_mb: 100
+
+# Number of backup files to keep
+gaia_audit_max_backups: 10
+
+# Maximum age of audit log files in days
+gaia_audit_max_age_days: 90
+
+# =============================================================================
+# FIREWALL
+# =============================================================================
+
+# Whether to configure firewall rules
+gaia_configure_firewall: false
+
+# IPs/subnets allowed to access Gaia port
+gaia_firewall_allowed_ips: []
+
+# =============================================================================
+# BACKUP
+# =============================================================================
+
+# Enable automated backups
+gaia_backup_enabled: true
+
+# Backup directory
+gaia_backup_dir: "/backup/gaia"
+
+# Number of days to keep backups
+gaia_backup_retention_days: 30
+
+# =============================================================================
+# LOGROTATE
+# =============================================================================
+
+# Log rotation size trigger
+gaia_logrotate_size: "100M"
+
+# Number of rotated logs to keep
+gaia_logrotate_rotate: 10
+
+# Compress rotated logs
+gaia_logrotate_compress: true
+
+# =============================================================================
+# SYSTEMD
+# =============================================================================
+
+# Systemd service name
+gaia_service_name: "gaia"
+
+# Enable service to start on boot
+gaia_service_enabled: true
+
+# Start service after installation (set to false for manual start)
+gaia_service_started: false
+
+# =============================================================================
+# ARCHITECTURE MAPPING
+# =============================================================================
+
+# Map ansible_architecture to Gaia release architecture names
+gaia_arch_map:
+  x86_64: "x86_64"
+  amd64: "x86_64"
+  aarch64: "arm64"
+  arm64: "arm64"
+
+# Map ansible_system to Gaia release OS names
+gaia_os_map:
+  Linux: "Linux"
+  Darwin: "Darwin"

@@ -1,0 +1,15 @@
+---
+# Gaia role variables (internal use)
+
+# Computed architecture for downloads
+gaia_arch: "{{ gaia_arch_map[ansible_architecture] | default('x86_64') }}"
+gaia_os: "{{ gaia_os_map[ansible_system] | default('Linux') }}"
+
+# Download URL template
+gaia_download_url_template: "https://github.com/{{ gaia_github_repo }}/releases/download/{{ gaia_actual_version }}/gaia_{{ gaia_actual_version }}_{{ gaia_os }}_{{ gaia_arch }}.tar.gz"
+
+# Config file path
+gaia_config_file: "{{ gaia_config_dir }}/gaia-config.yaml"
+
+# Binary path
+gaia_binary_path: "{{ gaia_install_dir }}/gaia"

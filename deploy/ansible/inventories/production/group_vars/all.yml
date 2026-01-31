@@ -1,0 +1,58 @@
+---
+# Production Environment Variables
+#
+# These variables apply to all hosts in the production inventory.
+# Override in host_vars for individual server customization.
+
+# Gaia version to install
+# Use "latest" for the most recent release, or specify a version like "v1.0.0"
+gaia_version: "latest"
+
+# Admin users - these users will be added to the 'gaia' group
+# and can run gaia CLI/TUI commands to manage the daemon.
+# Add your SSH user here to manage Gaia after deployment.
+gaia_admin_users:
+  - ubuntu          # Default Ubuntu user
+  # - admin         # Add other admin users as needed
+  # - deploy        # Deployment user
+
+# Docker container access (ACL-based)
+# Enable if you have Docker containers that need to read client certificates.
+# This sets default ACLs so new certs are automatically readable by docker group.
+gaia_docker_acl_enabled: false   # Set to true if using Docker
+gaia_docker_group: "docker"      # Group name for Docker (usually "docker")
+
+# Network configuration
+gaia_listen_addr: "0.0.0.0:50051"
+gaia_timeout: "10s"
+
+# Logging configuration
+gaia_log_level: "info"
+
+# Certificate settings
+gaia_cert_expiry_days: 365
+
+# Audit logging (recommended for production)
+gaia_audit_enabled: true
+gaia_audit_hmac_key: "CHANGE_THIS_TO_A_RANDOM_64_CHAR_STRING"
+gaia_audit_log_request: true
+gaia_audit_log_response: true
+gaia_audit_retention_days: 90
+
+# Backup settings
+gaia_backup_enabled: true
+gaia_backup_dir: "/backup/gaia"
+gaia_backup_retention_days: 30
+
+# Firewall configuration (set to true to enable)
+gaia_configure_firewall: false
+gaia_firewall_allowed_ips: []
+  # Example: Allow only specific IPs/subnets
+  # - 10.0.1.0/24        # Application servers subnet
+  # - 192.168.1.50       # Admin workstation
+  # - 172.16.0.0/16      # Docker network
+
+# Log rotation settings
+gaia_logrotate_size: "100M"
+gaia_logrotate_rotate: 10
+gaia_logrotate_compress: true

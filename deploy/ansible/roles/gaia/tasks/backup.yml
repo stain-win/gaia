@@ -1,0 +1,36 @@
+---
+# Setup backup script for Gaia
+
+- name: Create backup directory
+  ansible.builtin.file:
+    path: "{{ gaia_backup_dir }}"
+    state: directory
+    owner: "{{ gaia_user }}"
+    group: "{{ gaia_group }}"
+    mode: "0750"
+
+- name: Deploy backup script
+  ansible.builtin.template:
+    src: gaia-backup.sh.j2
+    dest: /usr/local/bin/gaia-backup.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create cron job for daily backups
+  ansible.builtin.cron:
+    name: "Gaia daily backup"
+    minute: "0"
+    hour: "2"
+    job: "/usr/local/bin/gaia-backup.sh >> {{ gaia_log_dir }}/backup.log 2>&1"
+    user: root
+    state: present
+
+- name: Display backup configuration
+  ansible.builtin.debug:
+    msg: |
+      Backup configured:
+      - Script: /usr/local/bin/gaia-backup.sh
+      - Backup directory: {{ gaia_backup_dir }}
+      - Schedule: Daily at 2:00 AM
+      - Retention: {{ gaia_backup_retention_days }} days

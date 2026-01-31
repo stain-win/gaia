@@ -1404,7 +1404,36 @@ audit:
 
 ## Production Deployment
 
-### System Service Setup (Linux)
+### Automated Deployment with Ansible (Recommended)
+
+For automated, repeatable deployments, use the included Ansible playbook:
+
+```bash
+cd deploy/ansible
+
+# Install required Ansible collections
+ansible-galaxy install -r requirements.yml
+
+# Edit inventory with your server details
+nano inventories/production/hosts.yml
+
+# Run the playbook
+ansible-playbook -i inventories/production/hosts.yml site.yml
+```
+
+The Ansible playbook handles:
+- ✅ Binary download and installation
+- ✅ System user and directory creation
+- ✅ mTLS certificate generation
+- ✅ Configuration file deployment
+- ✅ Systemd service setup
+- ✅ Firewall configuration (optional)
+- ✅ Automated backup setup
+- ✅ Log rotation
+
+See [deploy/ansible/README.md](deploy/ansible/README.md) for detailed documentation.
+
+### Manual System Service Setup (Linux)
 
 #### 1. Create User and Directories
 

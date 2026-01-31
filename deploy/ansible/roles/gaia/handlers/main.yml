@@ -1,0 +1,22 @@
+---
+# Handlers for Gaia role
+
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: restart gaia
+  ansible.builtin.systemd:
+    name: "{{ gaia_service_name }}"
+    state: restarted
+  when: gaia_service_started | bool
+
+- name: start gaia
+  ansible.builtin.systemd:
+    name: "{{ gaia_service_name }}"
+    state: started
+
+- name: stop gaia
+  ansible.builtin.systemd:
+    name: "{{ gaia_service_name }}"
+    state: stopped

@@ -1,0 +1,77 @@
+---
+# Gaia Secrets Management - Main Playbook
+#
+# This playbook installs and configures Gaia on target servers.
+#
+# Usage:
+#   ansible-playbook -i inventories/production/hosts.yml site.yml
+#
+# Tags:
+#   install     - Download and install Gaia binary
+#   configure   - Configure Gaia (config file, directories)
+#   certificates - Generate mTLS certificates
+#   service     - Setup systemd service
+#
+# Author: Gaia Team
+# License: MIT
+
+- name: Deploy Gaia Secrets Management Daemon
+  hosts: gaia_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Validate target OS
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family in ['Debian', 'RedHat']
+        fail_msg: "This playbook only supports Debian/Ubuntu or RHEL/CentOS based systems"
+        success_msg: "Target OS {{ ansible_distribution }} {{ ansible_distribution_version }} is supported"
+      tags: always
+
+    - name: Display deployment info
+      ansible.builtin.debug:
+        msg: |
+          Deploying Gaia to {{ inventory_hostname }}
+          - OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          - Architecture: {{ ansible_architecture }}
+          - Gaia Version: {{ gaia_version | default('latest') }}
+      tags: always
+
+  roles:
+    - role: gaia
+      tags: [gaia]
+
+  post_tasks:
+    - name: Display post-installation instructions
+      ansible.builtin.debug:
+        msg: |
+          
+          ════════════════════════════════════════════════════════════════
+          ✅ Gaia installation complete!
+          ════════════════════════════════════════════════════════════════
+          
+          Next steps:
+          
+          1. Initialize the database (if first install):
+             sudo -u gaia gaia init --config /etc/gaia/gaia-config.yaml
+          
+          2. Start the daemon:
+             sudo systemctl start gaia
+          
+          3. Unlock the daemon:
+             sudo -u gaia gaia daemon unlock --config /etc/gaia/gaia-config.yaml
+          
+          4. Verify status:
+             sudo systemctl status gaia
+             sudo -u gaia gaia daemon status --config /etc/gaia/gaia-config.yaml
+          
+          5. Create client certificates for your applications:
+             sudo -u gaia gaia certs create-client --name myapp --config /etc/gaia/gaia-config.yaml
+          
+          Certificate files are in: /etc/gaia/certs/
+          Database file is in: /var/lib/gaia/gaia.db
+          
+          For more info: https://github.com/stain-win/gaia
+          ════════════════════════════════════════════════════════════════
+      tags: always

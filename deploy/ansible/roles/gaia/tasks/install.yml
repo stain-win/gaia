@@ -1,0 +1,108 @@
+---
+# Install Gaia binary from GitHub releases
+
+- name: Get latest Gaia version from GitHub
+  when: gaia_version == "latest"
+  block:
+    - name: Fetch latest release info from GitHub API
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ gaia_github_repo }}/releases/latest"
+        method: GET
+        return_content: true
+        headers:
+          Accept: "application/vnd.github.v3+json"
+      register: gaia_latest_release
+      changed_when: false
+
+    - name: Set actual version from latest release
+      ansible.builtin.set_fact:
+        gaia_actual_version: "{{ gaia_latest_release.json.tag_name }}"
+
+- name: Use specified version
+  ansible.builtin.set_fact:
+    gaia_actual_version: "{{ gaia_version }}"
+  when: gaia_version != "latest"
+
+- name: Display version to be installed
+  ansible.builtin.debug:
+    msg: "Installing Gaia version: {{ gaia_actual_version }}"
+
+- name: Check if Gaia is already installed
+  ansible.builtin.stat:
+    path: "{{ gaia_binary_path }}"
+  register: gaia_binary_stat
+
+- name: Get installed Gaia version
+  ansible.builtin.command: "{{ gaia_binary_path }} version"
+  register: gaia_installed_version
+  changed_when: false
+  failed_when: false
+  when: gaia_binary_stat.stat.exists
+
+- name: Determine if installation/upgrade is needed
+  ansible.builtin.set_fact:
+    gaia_needs_install: >-
+      {{ not gaia_binary_stat.stat.exists or
+         (gaia_installed_version.stdout is defined and 
+          gaia_actual_version not in gaia_installed_version.stdout) }}
+
+- name: Download and install Gaia
+  when: gaia_needs_install | bool
+  block:
+    - name: Create temporary download directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: gaia_
+      register: gaia_temp_dir
+
+    - name: Construct download URL
+      ansible.builtin.set_fact:
+        gaia_download_url: "{{ gaia_download_url_template }}"
+
+    - name: Display download URL
+      ansible.builtin.debug:
+        msg: "Downloading from: {{ gaia_download_url }}"
+
+    - name: Download Gaia release archive
+      ansible.builtin.get_url:
+        url: "{{ gaia_download_url }}"
+        dest: "{{ gaia_temp_dir.path }}/gaia.tar.gz"
+        mode: "0644"
+      register: gaia_download
+
+    - name: Extract Gaia binary
+      ansible.builtin.unarchive:
+        src: "{{ gaia_temp_dir.path }}/gaia.tar.gz"
+        dest: "{{ gaia_temp_dir.path }}"
+        remote_src: true
+
+    - name: Stop Gaia service if running (for upgrade)
+      ansible.builtin.systemd:
+        name: "{{ gaia_service_name }}"
+        state: stopped
+      failed_when: false
+      when: gaia_binary_stat.stat.exists
+
+    - name: Install Gaia binary
+      ansible.builtin.copy:
+        src: "{{ gaia_temp_dir.path }}/gaia"
+        dest: "{{ gaia_binary_path }}"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      notify: restart gaia
+
+    - name: Clean up temporary directory
+      ansible.builtin.file:
+        path: "{{ gaia_temp_dir.path }}"
+        state: absent
+
+- name: Verify Gaia installation
+  ansible.builtin.command: "{{ gaia_binary_path }} version"
+  register: gaia_version_check
+  changed_when: false
+
+- name: Display installed version
+  ansible.builtin.debug:
+    msg: "Gaia installed: {{ gaia_version_check.stdout }}"
