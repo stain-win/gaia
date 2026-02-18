@@ -20,7 +20,9 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+
 	"time"
 
 	"github.com/google/uuid"
@@ -294,8 +296,12 @@ func (s *gaiaAdminServer) Stop(_ context.Context, _ *pb.StopRequest) (*pb.StopRe
 	s.d.stopOnce.Do(func() {
 		close(s.d.stopChannel)
 	})
-
 	return &pb.StopResponse{Success: true}, nil
+}
+
+// ListSecretsStream implements the streaming RPC for listing secrets.
+func (s *gaiaAdminServer) ListSecretsStream(req *pb.ListSecretsRequest, stream pb.GaiaAdmin_ListSecretsStreamServer) error {
+	return s.d.ListSecretsStream(req.ClientName, stream)
 }
 
 // InitializeDB creates the encrypted BoltDB, derives the key, and stores a hash of the key for validation.
@@ -901,6 +907,57 @@ func (d *Daemon) ListSecrets(clientName string) (map[string]map[string]string, e
 	})
 
 	return allSecrets, err
+}
+
+// ListSecretsStream streams all secrets for a given client to the client.
+func (d *Daemon) ListSecretsStream(clientName string, stream pb.GaiaAdmin_ListSecretsStreamServer) error {
+	d.dbLock.RLock()
+	defer d.dbLock.RUnlock()
+
+	if d.isLocked {
+		return gaiaerrors.ErrDaemonLocked
+	}
+
+	return d.db.View(func(tx *bbolt.Tx) error {
+		client, _, err := d.findClientByName(tx, clientName)
+		if err != nil {
+			return err
+		}
+
+		prefix := []byte(client.ID + "\x00")
+		c := tx.Bucket([]byte(secretsBucket)).Cursor()
+
+		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
+			// Use bytes.SplitN instead of converting to string for better performance
+			parts := bytes.SplitN(k, nullByte, 3)
+			if len(parts) != 3 {
+				continue
+			}
+
+			namespace := string(parts[1])
+			secretKey := string(parts[2])
+
+			decryptedValue, err := encrypt.Decrypt(d.key, string(v))
+			if err != nil {
+				gaialog.Get().Warn("failed to decrypt secret, skipping", "key", string(k), "error", err)
+				continue
+			}
+
+			// Sanitize value to remove null bytes if present
+			val := strings.ReplaceAll(string(decryptedValue), "\x00", "")
+
+			if err := stream.Send(&pb.ListSecretsStreamResponse{
+				Namespace: namespace,
+				Secret: &pb.Secret{
+					Id:    secretKey,
+					Value: val,
+				},
+			}); err != nil {
+				return fmt.Errorf("failed to send secret to stream: %w", err)
+			}
+		}
+		return nil
+	})
 }
 
 // ImportSecrets performs a bulk, transactional import of secrets.

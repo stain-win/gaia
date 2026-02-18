@@ -19,22 +19,23 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	GaiaAdmin_AddSecret_FullMethodName      = "/gaia.GaiaAdmin/AddSecret"
-	GaiaAdmin_DeleteSecret_FullMethodName   = "/gaia.GaiaAdmin/DeleteSecret"
-	GaiaAdmin_ListSecrets_FullMethodName    = "/gaia.GaiaAdmin/ListSecrets"
-	GaiaAdmin_GetStatus_FullMethodName      = "/gaia.GaiaAdmin/GetStatus"
-	GaiaAdmin_Stop_FullMethodName           = "/gaia.GaiaAdmin/Stop"
-	GaiaAdmin_Unlock_FullMethodName         = "/gaia.GaiaAdmin/Unlock"
-	GaiaAdmin_Lock_FullMethodName           = "/gaia.GaiaAdmin/Lock"
-	GaiaAdmin_RegisterClient_FullMethodName = "/gaia.GaiaAdmin/RegisterClient"
-	GaiaAdmin_ListClients_FullMethodName    = "/gaia.GaiaAdmin/ListClients"
-	GaiaAdmin_ListNamespaces_FullMethodName = "/gaia.GaiaAdmin/ListNamespaces"
-	GaiaAdmin_RevokeClient_FullMethodName   = "/gaia.GaiaAdmin/RevokeClient"
-	GaiaAdmin_ImportSecrets_FullMethodName  = "/gaia.GaiaAdmin/ImportSecrets"
-	GaiaAdmin_ListPolicies_FullMethodName   = "/gaia.GaiaAdmin/ListPolicies"
-	GaiaAdmin_GetPolicy_FullMethodName      = "/gaia.GaiaAdmin/GetPolicy"
-	GaiaAdmin_SetPolicy_FullMethodName      = "/gaia.GaiaAdmin/SetPolicy"
-	GaiaAdmin_DeletePolicy_FullMethodName   = "/gaia.GaiaAdmin/DeletePolicy"
+	GaiaAdmin_AddSecret_FullMethodName         = "/gaia.GaiaAdmin/AddSecret"
+	GaiaAdmin_DeleteSecret_FullMethodName      = "/gaia.GaiaAdmin/DeleteSecret"
+	GaiaAdmin_ListSecrets_FullMethodName       = "/gaia.GaiaAdmin/ListSecrets"
+	GaiaAdmin_GetStatus_FullMethodName         = "/gaia.GaiaAdmin/GetStatus"
+	GaiaAdmin_Stop_FullMethodName              = "/gaia.GaiaAdmin/Stop"
+	GaiaAdmin_Unlock_FullMethodName            = "/gaia.GaiaAdmin/Unlock"
+	GaiaAdmin_Lock_FullMethodName              = "/gaia.GaiaAdmin/Lock"
+	GaiaAdmin_RegisterClient_FullMethodName    = "/gaia.GaiaAdmin/RegisterClient"
+	GaiaAdmin_ListClients_FullMethodName       = "/gaia.GaiaAdmin/ListClients"
+	GaiaAdmin_ListNamespaces_FullMethodName    = "/gaia.GaiaAdmin/ListNamespaces"
+	GaiaAdmin_RevokeClient_FullMethodName      = "/gaia.GaiaAdmin/RevokeClient"
+	GaiaAdmin_ImportSecrets_FullMethodName     = "/gaia.GaiaAdmin/ImportSecrets"
+	GaiaAdmin_ListSecretsStream_FullMethodName = "/gaia.GaiaAdmin/ListSecretsStream"
+	GaiaAdmin_ListPolicies_FullMethodName      = "/gaia.GaiaAdmin/ListPolicies"
+	GaiaAdmin_GetPolicy_FullMethodName         = "/gaia.GaiaAdmin/GetPolicy"
+	GaiaAdmin_SetPolicy_FullMethodName         = "/gaia.GaiaAdmin/SetPolicy"
+	GaiaAdmin_DeletePolicy_FullMethodName      = "/gaia.GaiaAdmin/DeletePolicy"
 )
 
 // GaiaAdminClient is the client API for GaiaAdmin service.
@@ -53,6 +54,7 @@ type GaiaAdminClient interface {
 	ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error)
 	RevokeClient(ctx context.Context, in *RevokeClientRequest, opts ...grpc.CallOption) (*RevokeClientResponse, error)
 	ImportSecrets(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[ImportSecretsRequest, ImportSecretsResponse], error)
+	ListSecretsStream(ctx context.Context, in *ListSecretsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ListSecretsStreamResponse], error)
 	// Policy management
 	ListPolicies(ctx context.Context, in *ListPoliciesRequest, opts ...grpc.CallOption) (*ListPoliciesResponse, error)
 	GetPolicy(ctx context.Context, in *GetPolicyRequest, opts ...grpc.CallOption) (*GetPolicyResponse, error)
@@ -191,6 +193,25 @@ func (c *gaiaAdminClient) ImportSecrets(ctx context.Context, opts ...grpc.CallOp
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type GaiaAdmin_ImportSecretsClient = grpc.ClientStreamingClient[ImportSecretsRequest, ImportSecretsResponse]
 
+func (c *gaiaAdminClient) ListSecretsStream(ctx context.Context, in *ListSecretsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ListSecretsStreamResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &GaiaAdmin_ServiceDesc.Streams[1], GaiaAdmin_ListSecretsStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ListSecretsRequest, ListSecretsStreamResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type GaiaAdmin_ListSecretsStreamClient = grpc.ServerStreamingClient[ListSecretsStreamResponse]
+
 func (c *gaiaAdminClient) ListPolicies(ctx context.Context, in *ListPoliciesRequest, opts ...grpc.CallOption) (*ListPoliciesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListPoliciesResponse)
@@ -247,6 +268,7 @@ type GaiaAdminServer interface {
 	ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error)
 	RevokeClient(context.Context, *RevokeClientRequest) (*RevokeClientResponse, error)
 	ImportSecrets(grpc.ClientStreamingServer[ImportSecretsRequest, ImportSecretsResponse]) error
+	ListSecretsStream(*ListSecretsRequest, grpc.ServerStreamingServer[ListSecretsStreamResponse]) error
 	// Policy management
 	ListPolicies(context.Context, *ListPoliciesRequest) (*ListPoliciesResponse, error)
 	GetPolicy(context.Context, *GetPolicyRequest) (*GetPolicyResponse, error)
@@ -297,6 +319,9 @@ func (UnimplementedGaiaAdminServer) RevokeClient(context.Context, *RevokeClientR
 }
 func (UnimplementedGaiaAdminServer) ImportSecrets(grpc.ClientStreamingServer[ImportSecretsRequest, ImportSecretsResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method ImportSecrets not implemented")
+}
+func (UnimplementedGaiaAdminServer) ListSecretsStream(*ListSecretsRequest, grpc.ServerStreamingServer[ListSecretsStreamResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method ListSecretsStream not implemented")
 }
 func (UnimplementedGaiaAdminServer) ListPolicies(context.Context, *ListPoliciesRequest) (*ListPoliciesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListPolicies not implemented")
@@ -536,6 +561,17 @@ func _GaiaAdmin_ImportSecrets_Handler(srv interface{}, stream grpc.ServerStream)
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type GaiaAdmin_ImportSecretsServer = grpc.ClientStreamingServer[ImportSecretsRequest, ImportSecretsResponse]
 
+func _GaiaAdmin_ListSecretsStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListSecretsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(GaiaAdminServer).ListSecretsStream(m, &grpc.GenericServerStream[ListSecretsRequest, ListSecretsStreamResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type GaiaAdmin_ListSecretsStreamServer = grpc.ServerStreamingServer[ListSecretsStreamResponse]
+
 func _GaiaAdmin_ListPolicies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListPoliciesRequest)
 	if err := dec(in); err != nil {
@@ -681,6 +717,11 @@ var GaiaAdmin_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "ImportSecrets",
 			Handler:       _GaiaAdmin_ImportSecrets_Handler,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "ListSecretsStream",
+			Handler:       _GaiaAdmin_ListSecretsStream_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "gaia.proto",

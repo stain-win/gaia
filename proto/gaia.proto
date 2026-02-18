@@ -17,6 +17,7 @@ service GaiaAdmin {
   rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse);
   rpc RevokeClient(RevokeClientRequest) returns (RevokeClientResponse);
   rpc ImportSecrets(stream ImportSecretsRequest) returns (ImportSecretsResponse);
+  rpc ListSecretsStream(ListSecretsRequest) returns (stream ListSecretsStreamResponse);
 
   // Policy management
   rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse);
@@ -167,6 +168,11 @@ message ListSecretsResponse {
 
 message ListSecretsRequest {
   string client_name = 1;
+}
+
+message ListSecretsStreamResponse {
+  string namespace = 1;
+  Secret secret = 2;
 }
 
 // Policy messages
