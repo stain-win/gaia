@@ -9,7 +9,7 @@ package proto
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	_ "google.golang.org/protobuf/types/known/emptypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -223,186 +223,6 @@ func (x *ClientListSecretsRequest) GetNamespace() string {
 	return ""
 }
 
-type StatusResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StatusResponse) Reset() {
-	*x = StatusResponse{}
-	mi := &file_gaia_client_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StatusResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StatusResponse) ProtoMessage() {}
-
-func (x *StatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_client_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StatusResponse.ProtoReflect.Descriptor instead.
-func (*StatusResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_client_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *StatusResponse) GetStatus() string {
-	if x != nil {
-		return x.Status
-	}
-	return ""
-}
-
-type NamespaceResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespaces    []string               `protobuf:"bytes,1,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *NamespaceResponse) Reset() {
-	*x = NamespaceResponse{}
-	mi := &file_gaia_client_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *NamespaceResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*NamespaceResponse) ProtoMessage() {}
-
-func (x *NamespaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_client_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use NamespaceResponse.ProtoReflect.Descriptor instead.
-func (*NamespaceResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_client_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *NamespaceResponse) GetNamespaces() []string {
-	if x != nil {
-		return x.Namespaces
-	}
-	return nil
-}
-
-// Request for getting secrets from the common area.
-type GetCommonSecretsRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// If provided, returns secrets only for this namespace.
-	// If omitted, returns secrets for all namespaces in the common area.
-	Namespace     *string `protobuf:"bytes,1,opt,name=namespace,proto3,oneof" json:"namespace,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetCommonSecretsRequest) Reset() {
-	*x = GetCommonSecretsRequest{}
-	mi := &file_gaia_client_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetCommonSecretsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetCommonSecretsRequest) ProtoMessage() {}
-
-func (x *GetCommonSecretsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_client_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetCommonSecretsRequest.ProtoReflect.Descriptor instead.
-func (*GetCommonSecretsRequest) Descriptor() ([]byte, []int) {
-	return file_gaia_client_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *GetCommonSecretsRequest) GetNamespace() string {
-	if x != nil && x.Namespace != nil {
-		return *x.Namespace
-	}
-	return ""
-}
-
-// Response containing secrets from the common area, grouped by namespace.
-type GetCommonSecretsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespaces    []*Namespace           `protobuf:"bytes,1,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetCommonSecretsResponse) Reset() {
-	*x = GetCommonSecretsResponse{}
-	mi := &file_gaia_client_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetCommonSecretsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetCommonSecretsResponse) ProtoMessage() {}
-
-func (x *GetCommonSecretsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_client_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetCommonSecretsResponse.ProtoReflect.Descriptor instead.
-func (*GetCommonSecretsResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_client_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *GetCommonSecretsResponse) GetNamespaces() []*Namespace {
-	if x != nil {
-		return x.Namespaces
-	}
-	return nil
-}
-
 type ListSecretsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Namespaces    []*Namespace           `protobuf:"bytes,1,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
@@ -412,7 +232,7 @@ type ListSecretsResponse struct {
 
 func (x *ListSecretsResponse) Reset() {
 	*x = ListSecretsResponse{}
-	mi := &file_gaia_client_proto_msgTypes[8]
+	mi := &file_gaia_client_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -424,7 +244,7 @@ func (x *ListSecretsResponse) String() string {
 func (*ListSecretsResponse) ProtoMessage() {}
 
 func (x *ListSecretsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gaia_client_proto_msgTypes[8]
+	mi := &file_gaia_client_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -437,7 +257,7 @@ func (x *ListSecretsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSecretsResponse.ProtoReflect.Descriptor instead.
 func (*ListSecretsResponse) Descriptor() ([]byte, []int) {
-	return file_gaia_client_proto_rawDescGZIP(), []int{8}
+	return file_gaia_client_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListSecretsResponse) GetNamespaces() []*Namespace {
@@ -462,31 +282,14 @@ const file_gaia_client_proto_rawDesc = "" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x0e\n" +
 	"\x02id\x18\x02 \x01(\tR\x02id\"8\n" +
 	"\x18ClientListSecretsRequest\x12\x1c\n" +
-	"\tnamespace\x18\x01 \x01(\tR\tnamespace\"(\n" +
-	"\x0eStatusResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status\"3\n" +
-	"\x11NamespaceResponse\x12\x1e\n" +
-	"\n" +
-	"namespaces\x18\x01 \x03(\tR\n" +
-	"namespaces\"J\n" +
-	"\x17GetCommonSecretsRequest\x12!\n" +
-	"\tnamespace\x18\x01 \x01(\tH\x00R\tnamespace\x88\x01\x01B\f\n" +
-	"\n" +
-	"_namespace\"K\n" +
-	"\x18GetCommonSecretsResponse\x12/\n" +
-	"\n" +
-	"namespaces\x18\x01 \x03(\v2\x0f.gaia.NamespaceR\n" +
-	"namespaces\"F\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\"F\n" +
 	"\x13ListSecretsResponse\x12/\n" +
 	"\n" +
 	"namespaces\x18\x01 \x03(\v2\x0f.gaia.NamespaceR\n" +
-	"namespaces2\xd9\x02\n" +
+	"namespaces2\x89\x01\n" +
 	"\n" +
 	"GaiaClient\x121\n" +
-	"\tGetSecret\x12\x16.gaia.GetSecretRequest\x1a\f.gaia.Secret\x129\n" +
-	"\tGetStatus\x12\x16.google.protobuf.Empty\x1a\x14.gaia.StatusResponse\x12@\n" +
-	"\rGetNamespaces\x12\x16.google.protobuf.Empty\x1a\x17.gaia.NamespaceResponse\x12Q\n" +
-	"\x10GetCommonSecrets\x12\x1d.gaia.GetCommonSecretsRequest\x1a\x1e.gaia.GetCommonSecretsResponse\x12H\n" +
+	"\tGetSecret\x12\x16.gaia.GetSecretRequest\x1a\f.gaia.Secret\x12H\n" +
 	"\vListSecrets\x12\x1e.gaia.ClientListSecretsRequest\x1a\x19.gaia.ListSecretsResponseB)Z'github.com/stain-win/gaia/libs/go/protob\x06proto3"
 
 var (
@@ -501,38 +304,26 @@ func file_gaia_client_proto_rawDescGZIP() []byte {
 	return file_gaia_client_proto_rawDescData
 }
 
-var file_gaia_client_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_gaia_client_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_gaia_client_proto_goTypes = []any{
 	(*Secret)(nil),                   // 0: gaia.Secret
 	(*Namespace)(nil),                // 1: gaia.Namespace
 	(*GetSecretRequest)(nil),         // 2: gaia.GetSecretRequest
 	(*ClientListSecretsRequest)(nil), // 3: gaia.ClientListSecretsRequest
-	(*StatusResponse)(nil),           // 4: gaia.StatusResponse
-	(*NamespaceResponse)(nil),        // 5: gaia.NamespaceResponse
-	(*GetCommonSecretsRequest)(nil),  // 6: gaia.GetCommonSecretsRequest
-	(*GetCommonSecretsResponse)(nil), // 7: gaia.GetCommonSecretsResponse
-	(*ListSecretsResponse)(nil),      // 8: gaia.ListSecretsResponse
-	(*emptypb.Empty)(nil),            // 9: google.protobuf.Empty
+	(*ListSecretsResponse)(nil),      // 4: gaia.ListSecretsResponse
 }
 var file_gaia_client_proto_depIdxs = []int32{
 	0, // 0: gaia.Namespace.secrets:type_name -> gaia.Secret
-	1, // 1: gaia.GetCommonSecretsResponse.namespaces:type_name -> gaia.Namespace
-	1, // 2: gaia.ListSecretsResponse.namespaces:type_name -> gaia.Namespace
-	2, // 3: gaia.GaiaClient.GetSecret:input_type -> gaia.GetSecretRequest
-	9, // 4: gaia.GaiaClient.GetStatus:input_type -> google.protobuf.Empty
-	9, // 5: gaia.GaiaClient.GetNamespaces:input_type -> google.protobuf.Empty
-	6, // 6: gaia.GaiaClient.GetCommonSecrets:input_type -> gaia.GetCommonSecretsRequest
-	3, // 7: gaia.GaiaClient.ListSecrets:input_type -> gaia.ClientListSecretsRequest
-	0, // 8: gaia.GaiaClient.GetSecret:output_type -> gaia.Secret
-	4, // 9: gaia.GaiaClient.GetStatus:output_type -> gaia.StatusResponse
-	5, // 10: gaia.GaiaClient.GetNamespaces:output_type -> gaia.NamespaceResponse
-	7, // 11: gaia.GaiaClient.GetCommonSecrets:output_type -> gaia.GetCommonSecretsResponse
-	8, // 12: gaia.GaiaClient.ListSecrets:output_type -> gaia.ListSecretsResponse
-	8, // [8:13] is the sub-list for method output_type
-	3, // [3:8] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	1, // 1: gaia.ListSecretsResponse.namespaces:type_name -> gaia.Namespace
+	2, // 2: gaia.GaiaClient.GetSecret:input_type -> gaia.GetSecretRequest
+	3, // 3: gaia.GaiaClient.ListSecrets:input_type -> gaia.ClientListSecretsRequest
+	0, // 4: gaia.GaiaClient.GetSecret:output_type -> gaia.Secret
+	4, // 5: gaia.GaiaClient.ListSecrets:output_type -> gaia.ListSecretsResponse
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_gaia_client_proto_init() }
@@ -540,14 +331,13 @@ func file_gaia_client_proto_init() {
 	if File_gaia_client_proto != nil {
 		return
 	}
-	file_gaia_client_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gaia_client_proto_rawDesc), len(file_gaia_client_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

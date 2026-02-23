@@ -34,34 +34,6 @@ pub struct ClientListSecretsRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct StatusResponse {
-    #[prost(string, tag = "1")]
-    pub status: ::prost::alloc::string::String,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct NamespaceResponse {
-    #[prost(string, repeated, tag = "1")]
-    pub namespaces: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-}
-/// Request for getting secrets from the common area.
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetCommonSecretsRequest {
-    /// If provided, returns secrets only for this namespace.
-    /// If omitted, returns secrets for all namespaces in the common area.
-    #[prost(string, optional, tag = "1")]
-    pub namespace: ::core::option::Option<::prost::alloc::string::String>,
-}
-/// Response containing secrets from the common area, grouped by namespace.
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetCommonSecretsResponse {
-    #[prost(message, repeated, tag = "1")]
-    pub namespaces: ::prost::alloc::vec::Vec<Namespace>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListSecretsResponse {
     #[prost(message, repeated, tag = "1")]
     pub namespaces: ::prost::alloc::vec::Vec<Namespace>,
@@ -170,77 +142,6 @@ pub mod gaia_client_client {
             );
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new("gaia.GaiaClient", "GetSecret"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn get_status(
-            &mut self,
-            request: impl tonic::IntoRequest<()>,
-        ) -> std::result::Result<tonic::Response<super::StatusResponse>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/gaia.GaiaClient/GetStatus",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("gaia.GaiaClient", "GetStatus"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn get_namespaces(
-            &mut self,
-            request: impl tonic::IntoRequest<()>,
-        ) -> std::result::Result<
-            tonic::Response<super::NamespaceResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/gaia.GaiaClient/GetNamespaces",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("gaia.GaiaClient", "GetNamespaces"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn get_common_secrets(
-            &mut self,
-            request: impl tonic::IntoRequest<super::GetCommonSecretsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetCommonSecretsResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/gaia.GaiaClient/GetCommonSecrets",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("gaia.GaiaClient", "GetCommonSecrets"));
             self.inner.unary(req, path, codec).await
         }
         /// New: ListSecrets returns all secrets for the authenticated client plus common when not filtered.

@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Client is a high-level Gaia client for interacting with the Gaia daemon.
@@ -85,9 +84,14 @@ func NewClient(cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("failed to connect to Gaia daemon: %w", err)
 	}
 
-	// Verify connection with a simple status check
+	// Verify connection with a ListSecrets call (empty namespace)
+	// This confirms mTLS is working and daemon is reachable
 	client := pb.NewGaiaClientClient(conn)
-	_, err = client.GetStatus(ctx, &emptypb.Empty{})
+	// We use a short timeout for the verification check
+	verifyCtx, verifyCancel := context.WithTimeout(ctx, 2*time.Second)
+	defer verifyCancel()
+
+	_, err = client.ListSecrets(verifyCtx, &pb.ClientListSecretsRequest{})
 	if err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("failed to verify connection to Gaia daemon: %w", err)
@@ -119,39 +123,14 @@ func (c *Client) GetSecret(ctx context.Context, namespace, id string) (string, e
 	return resp.Value, nil
 }
 
-// GetCommonSecrets fetches secrets from the "common" area.
-// If a namespace is provided, it fetches secrets only for that namespace.
-// If no namespace is provided, it fetches secrets from all namespaces in the common area.
-func (c *Client) GetCommonSecrets(ctx context.Context, namespace ...string) (map[string]map[string]string, error) {
-	req := &pb.GetCommonSecretsRequest{}
-	if len(namespace) > 0 && namespace[0] != "" {
-		ns := namespace[0]
-		req.Namespace = &ns
-	}
-
-	resp, err := c.client.GetCommonSecrets(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	secrets := make(map[string]map[string]string)
-	for _, ns := range resp.GetNamespaces() {
-		secrets[ns.Name] = make(map[string]string)
-		for _, s := range ns.Secrets {
-			secrets[ns.Name][s.Id] = s.Value
-		}
-	}
-	return secrets, nil
-}
-
-// LoadEnv fetches all secrets from the "common" area and loads them into the
+// LoadEnv fetches all secrets available to the client and loads them into the
 // current process's environment.
 //
 // The environment variables are formatted as GAIA_NAMESPACE_KEY.
 func (c *Client) LoadEnv(ctx context.Context) error {
-	secrets, err := c.GetCommonSecrets(ctx)
+	secrets, err := c.ListSecrets(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to fetch common secrets: %w", err)
+		return fmt.Errorf("failed to fetch secrets: %w", err)
 	}
 
 	for namespace, kv := range secrets {
@@ -165,24 +144,6 @@ func (c *Client) LoadEnv(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-// GetStatus checks the current operational status of the Gaia daemon.
-func (c *Client) GetStatus(ctx context.Context) (string, error) {
-	resp, err := c.client.GetStatus(ctx, &emptypb.Empty{})
-	if err != nil {
-		return "", err
-	}
-	return resp.Status, nil
-}
-
-// GetNamespaces lists all namespaces the authenticated client has access to.
-func (c *Client) GetNamespaces(ctx context.Context) ([]string, error) {
-	resp, err := c.client.GetNamespaces(ctx, &emptypb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Namespaces, nil
 }
 
 // ListSecrets fetches all secrets for the authenticated client.

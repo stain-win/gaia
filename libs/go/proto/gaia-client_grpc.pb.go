@@ -11,7 +11,6 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -20,11 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	GaiaClient_GetSecret_FullMethodName        = "/gaia.GaiaClient/GetSecret"
-	GaiaClient_GetStatus_FullMethodName        = "/gaia.GaiaClient/GetStatus"
-	GaiaClient_GetNamespaces_FullMethodName    = "/gaia.GaiaClient/GetNamespaces"
-	GaiaClient_GetCommonSecrets_FullMethodName = "/gaia.GaiaClient/GetCommonSecrets"
-	GaiaClient_ListSecrets_FullMethodName      = "/gaia.GaiaClient/ListSecrets"
+	GaiaClient_GetSecret_FullMethodName   = "/gaia.GaiaClient/GetSecret"
+	GaiaClient_ListSecrets_FullMethodName = "/gaia.GaiaClient/ListSecrets"
 )
 
 // GaiaClientClient is the client API for GaiaClient service.
@@ -32,9 +28,6 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GaiaClientClient interface {
 	GetSecret(ctx context.Context, in *GetSecretRequest, opts ...grpc.CallOption) (*Secret, error)
-	GetStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StatusResponse, error)
-	GetNamespaces(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*NamespaceResponse, error)
-	GetCommonSecrets(ctx context.Context, in *GetCommonSecretsRequest, opts ...grpc.CallOption) (*GetCommonSecretsResponse, error)
 	// New: ListSecrets returns all secrets for the authenticated client plus common when not filtered.
 	ListSecrets(ctx context.Context, in *ClientListSecretsRequest, opts ...grpc.CallOption) (*ListSecretsResponse, error)
 }
@@ -57,36 +50,6 @@ func (c *gaiaClientClient) GetSecret(ctx context.Context, in *GetSecretRequest, 
 	return out, nil
 }
 
-func (c *gaiaClientClient) GetStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StatusResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StatusResponse)
-	err := c.cc.Invoke(ctx, GaiaClient_GetStatus_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *gaiaClientClient) GetNamespaces(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*NamespaceResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(NamespaceResponse)
-	err := c.cc.Invoke(ctx, GaiaClient_GetNamespaces_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *gaiaClientClient) GetCommonSecrets(ctx context.Context, in *GetCommonSecretsRequest, opts ...grpc.CallOption) (*GetCommonSecretsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetCommonSecretsResponse)
-	err := c.cc.Invoke(ctx, GaiaClient_GetCommonSecrets_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *gaiaClientClient) ListSecrets(ctx context.Context, in *ClientListSecretsRequest, opts ...grpc.CallOption) (*ListSecretsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListSecretsResponse)
@@ -102,9 +65,6 @@ func (c *gaiaClientClient) ListSecrets(ctx context.Context, in *ClientListSecret
 // for forward compatibility.
 type GaiaClientServer interface {
 	GetSecret(context.Context, *GetSecretRequest) (*Secret, error)
-	GetStatus(context.Context, *emptypb.Empty) (*StatusResponse, error)
-	GetNamespaces(context.Context, *emptypb.Empty) (*NamespaceResponse, error)
-	GetCommonSecrets(context.Context, *GetCommonSecretsRequest) (*GetCommonSecretsResponse, error)
 	// New: ListSecrets returns all secrets for the authenticated client plus common when not filtered.
 	ListSecrets(context.Context, *ClientListSecretsRequest) (*ListSecretsResponse, error)
 	mustEmbedUnimplementedGaiaClientServer()
@@ -119,15 +79,6 @@ type UnimplementedGaiaClientServer struct{}
 
 func (UnimplementedGaiaClientServer) GetSecret(context.Context, *GetSecretRequest) (*Secret, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSecret not implemented")
-}
-func (UnimplementedGaiaClientServer) GetStatus(context.Context, *emptypb.Empty) (*StatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetStatus not implemented")
-}
-func (UnimplementedGaiaClientServer) GetNamespaces(context.Context, *emptypb.Empty) (*NamespaceResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetNamespaces not implemented")
-}
-func (UnimplementedGaiaClientServer) GetCommonSecrets(context.Context, *GetCommonSecretsRequest) (*GetCommonSecretsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetCommonSecrets not implemented")
 }
 func (UnimplementedGaiaClientServer) ListSecrets(context.Context, *ClientListSecretsRequest) (*ListSecretsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListSecrets not implemented")
@@ -171,60 +122,6 @@ func _GaiaClient_GetSecret_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GaiaClient_GetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GaiaClientServer).GetStatus(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: GaiaClient_GetStatus_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GaiaClientServer).GetStatus(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _GaiaClient_GetNamespaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GaiaClientServer).GetNamespaces(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: GaiaClient_GetNamespaces_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GaiaClientServer).GetNamespaces(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _GaiaClient_GetCommonSecrets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetCommonSecretsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GaiaClientServer).GetCommonSecrets(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: GaiaClient_GetCommonSecrets_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GaiaClientServer).GetCommonSecrets(ctx, req.(*GetCommonSecretsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _GaiaClient_ListSecrets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ClientListSecretsRequest)
 	if err := dec(in); err != nil {
@@ -253,18 +150,6 @@ var GaiaClient_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSecret",
 			Handler:    _GaiaClient_GetSecret_Handler,
-		},
-		{
-			MethodName: "GetStatus",
-			Handler:    _GaiaClient_GetStatus_Handler,
-		},
-		{
-			MethodName: "GetNamespaces",
-			Handler:    _GaiaClient_GetNamespaces_Handler,
-		},
-		{
-			MethodName: "GetCommonSecrets",
-			Handler:    _GaiaClient_GetCommonSecrets_Handler,
 		},
 		{
 			MethodName: "ListSecrets",

@@ -13,20 +13,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Connect to the Gaia daemon
     let mut client = GaiaClient::connect(config).await?;
 
-    // Check daemon status
-    let status = client.get_status().await?;
-    println!("Daemon status: {}", status.status);
-
-    if !client.is_unlocked().await? {
-        eprintln!("Error: Daemon is locked. Please unlock it first.");
-        return Ok(());
-    }
-
     // List available namespaces
-    let namespaces = client.get_namespaces().await?;
+    let namespaces = client.list_secrets(None).await?;
     println!("\nAvailable namespaces:");
-    for ns in namespaces.namespaces {
-        println!("  - {}", ns);
+    for ns in namespaces {
+        println!("  - {}", ns.name);
     }
 
     Ok(())

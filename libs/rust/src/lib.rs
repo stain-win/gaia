@@ -49,6 +49,5 @@ pub use client::GaiaClient;
 pub use config::GaiaClientConfig;
 pub use error::{GaiaError, Result};
 pub use proto::{
-    gaia_client_client::GaiaClientClient, GetCommonSecretsRequest, GetSecretRequest, Namespace,
-    NamespaceResponse, Secret, StatusResponse,
+    gaia_client_client::GaiaClientClient, GetSecretRequest, Namespace, Secret,
 };
