@@ -84,6 +84,60 @@ var (
 )
 
 // Content box styles
+// Title banner style (blue/purple background)
+var viewerTitleStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#FFFFFF")).
+	Background(lipgloss.Color("#6366F1")).
+	Bold(true).
+	Padding(0, 1)
+
+// Subtitle style (grey text)
+var viewerSubtitleStyle = lipgloss.NewStyle().
+	Foreground(colorTextMuted).
+	Padding(1, 0, 1, 0)
+
+// Custom list item styles
+var (
+	itemTitleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#E5E7EB"))
+
+	itemDescStyle = lipgloss.NewStyle().
+			Foreground(colorTextMuted)
+
+	selectedItemTitleStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF79C6")).
+				Bold(true)
+
+	selectedItemDescStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#D5589E"))
+
+	paneBorderSelectedStyle = lipgloss.NewStyle().
+				Padding(0, 1)
+
+	paneBorderUnselectedStyle = lipgloss.NewStyle().
+					Padding(0, 1)
+
+	detailKeyStyle = lipgloss.NewStyle().
+			Foreground(colorTextMuted)
+
+	detailValueStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#E5E7EB"))
+
+	separatorStyle = lipgloss.NewStyle().
+			Foreground(colorBorder)
+
+	statusBarTextStyle = lipgloss.NewStyle().
+				Foreground(colorTextMuted).
+				Padding(0, 1)
+
+	statusBarReadyStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FFFFFF")).
+				Background(lipgloss.Color("#EF4444")).
+				Bold(true).
+				Padding(0, 1)
+)
+
+// Content box styles
 var (
 	contentBoxStyle = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).

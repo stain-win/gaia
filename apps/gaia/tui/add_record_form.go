@@ -1,12 +1,36 @@
 package tui
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// nameRule mirrors the server-side validation regex.
+var nameRule = regexp.MustCompile(`^[a-z0-9]([-_a-z0-9]{0,61}[a-z0-9])?$`)
+
+func validateName(label, v string) error {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return fmt.Errorf("%s is required", label)
+	}
+	if !nameRule.MatchString(v) {
+		return fmt.Errorf("%s: 1-63 chars, lowercase a-z/0-9/hyphens/underscores, must start and end with a letter or number", label)
+	}
+	return nil
+}
+
+func validateNamespace(v string) error {
+	v = strings.TrimSpace(v)
+	if v == "common" {
+		return fmt.Errorf("'common' is a reserved namespace — use the 'common' client instead")
+	}
+	return validateName("namespace", v)
+}
 
 // AddRecordMsg is a message that signals the main TUI that a record has been added.
 type AddRecordMsg struct {
@@ -19,9 +43,10 @@ type AddRecordMsg struct {
 // addRecordFormModel represents the state of the form for adding a new secret.
 type addRecordFormModel struct {
 	form    *huh.Form
+	clients []string
 	width   int
 	height  int
-	success bool // true if the record was saved
+	success bool
 }
 
 func newAddRecordFormModel(clients []string) *addRecordFormModel {
@@ -42,26 +67,35 @@ func newAddRecordFormModel(clients []string) *addRecordFormModel {
 			huh.NewInput().
 				Key("namespace").
 				Title(lipgloss.NewStyle().Bold(true).Render("Namespace")).
-				Prompt(lipgloss.NewStyle().Foreground(lipgloss.Color("#00BFFF")).Render(">")).
-				Placeholder("e.g., 'production' or 'staging'").
-				Value(&namespace),
+				Prompt(lipgloss.NewStyle().Foreground(lipgloss.Color("#00BFFF")).Render("> ")).
+				Placeholder("e.g., production or staging").
+				Value(&namespace).
+				Validate(validateNamespace),
 			huh.NewInput().
 				Key("key").
 				Title(lipgloss.NewStyle().Bold(true).Render("Key")).
-				Prompt(lipgloss.NewStyle().Foreground(lipgloss.Color("#00BFFF")).Render(">")).
-				Placeholder("e.g., 'database_password'").
-				Value(&key),
+				Prompt(lipgloss.NewStyle().Foreground(lipgloss.Color("#00BFFF")).Render("> ")).
+				Placeholder("e.g., database-password").
+				Value(&key).
+				Validate(func(v string) error { return validateName("key", v) }),
 			huh.NewInput().
 				Key("value").
 				Title(lipgloss.NewStyle().Bold(true).Render("Value")).
-				Prompt(lipgloss.NewStyle().Foreground(lipgloss.Color("#00BFFF")).Render(">")).
-				Placeholder("e.g., 'super-secret-string'").
-				Value(&value),
+				Prompt(lipgloss.NewStyle().Foreground(lipgloss.Color("#00BFFF")).Render("> ")).
+				Placeholder("the secret value").
+				Value(&value).
+				Validate(func(v string) error {
+					if strings.TrimSpace(v) == "" {
+						return fmt.Errorf("value is required")
+					}
+					return nil
+				}),
 		),
-	).WithWidth(40)
+	).WithWidth(60)
 
 	return &addRecordFormModel{
 		form:    form,
+		clients: clients,
 		success: false,
 	}
 }
@@ -117,7 +151,7 @@ func (m *addRecordFormModel) View() string {
 }
 
 func (m *addRecordFormModel) resetForm() {
-	var clients []string
-	m.form = newAddRecordFormModel(clients).form
+	rebuilt := newAddRecordFormModel(m.clients)
+	m.form = rebuilt.form
 	m.success = false
 }

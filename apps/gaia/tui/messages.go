@@ -39,10 +39,6 @@ type SecretsFetchedMsg struct {
 
 type backToDataManagementMsg struct{}
 
-type recordAddResultMsg struct {
-	err error
-}
-
 // clientsLoadedMsg is sent when the list of clients has been fetched.
 type clientsLoadedMsg struct {
 	clients []*pb.Client
@@ -195,12 +191,12 @@ func fetchClientsCmd(cfg *config.Config) tea.Cmd {
 	}
 }
 
-// addRecordToDaemonCmd makes the gRPC call to add a new secret.
+// addRecordToDaemonCmd makes the gRPC call to add or update a secret.
 func addRecordToDaemonCmd(cfg *config.Config, clientName, namespace, key, value string) tea.Cmd {
 	return func() tea.Msg {
 		conn, err := getAdminClientConn(cfg)
 		if err != nil {
-			return recordAddResultMsg{err: err}
+			return recordAddedMsg{err: err}
 		}
 		defer conn.Close()
 
@@ -214,7 +210,7 @@ func addRecordToDaemonCmd(cfg *config.Config, clientName, namespace, key, value 
 			Id:         key,
 			Value:      value,
 		})
-		return recordAddResultMsg{err: err}
+		return recordAddedMsg{err: err}
 	}
 }
 

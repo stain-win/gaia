@@ -94,30 +94,11 @@ func getClientIdentity(ctx context.Context) (string, error) {
 	return clientCert.Subject.CommonName, nil
 }
 
-// checkPermission verifies if the authenticated client has permission to perform an action.
-func (s *gaiaAdminServer) checkPermission(ctx context.Context, clientName, namespace, secretKey string, capability string) error {
-	// Get the authenticated client's identity from the mTLS certificate
-	authenticatedClient, err := getClientIdentity(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get client identity: %w", err)
-	}
-
-	// Build the path for policy check: client/namespace/key
-	path := fmt.Sprintf("%s/%s", clientName, namespace)
-	if secretKey != "" {
-		path = fmt.Sprintf("%s/%s", path, secretKey)
-	}
-
-	// Check permission using the policy store
-	if err := s.d.policyStore.CheckPermission(authenticatedClient, path, policy.Capability(capability)); err != nil {
-		return fmt.Errorf("%w: %v", gaiaerrors.ErrPermissionDenied, err)
-	}
-
-	return nil
-}
-
 // AddSecret handles the AddSecret RPC call.
-func (s *gaiaAdminServer) AddSecret(ctx context.Context, req *pb.AddSecretRequest) (*pb.AddSecretResponse, error) {
+// The admin service is fully trusted (authenticated via mTLS with the admin cert),
+// so no per-client policy check is needed here. Policy enforcement is handled by
+// the gaiaClientServer for application clients.
+func (s *gaiaAdminServer) AddSecret(_ context.Context, req *pb.AddSecretRequest) (*pb.AddSecretResponse, error) {
 	if s.d.isLocked {
 		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
 	}
@@ -132,11 +113,6 @@ func (s *gaiaAdminServer) AddSecret(ctx context.Context, req *pb.AddSecretReques
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	// Check permission to write to this path
-	if err := s.checkPermission(ctx, req.ClientName, req.Namespace, req.Id, string(policy.CapabilityWrite)); err != nil {
-		return nil, mapErrorToGRPCStatus(err)
-	}
-
 	err := s.d.AddSecret(req.ClientName, req.Namespace, req.Id, req.Value)
 	if err != nil {
 		return &pb.AddSecretResponse{Success: false, Message: err.Error()}, nil
@@ -145,14 +121,10 @@ func (s *gaiaAdminServer) AddSecret(ctx context.Context, req *pb.AddSecretReques
 }
 
 // DeleteSecret handles the gRPC request to delete a secret.
-func (s *gaiaAdminServer) DeleteSecret(ctx context.Context, req *pb.DeleteSecretRequest) (*pb.DeleteSecretResponse, error) {
+// The admin service is fully trusted — no per-client policy check needed.
+func (s *gaiaAdminServer) DeleteSecret(_ context.Context, req *pb.DeleteSecretRequest) (*pb.DeleteSecretResponse, error) {
 	if s.d.isLocked {
 		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
-	}
-
-	// Check permission to delete from this path
-	if err := s.checkPermission(ctx, req.ClientName, req.Namespace, req.Id, string(policy.CapabilityDelete)); err != nil {
-		return nil, mapErrorToGRPCStatus(err)
 	}
 
 	if err := s.d.DeleteSecret(req.ClientName, req.Namespace, req.Id); err != nil {

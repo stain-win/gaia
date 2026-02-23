@@ -526,7 +526,7 @@ func (d *Daemon) RegisterClient(clientName string) error {
 		return fmt.Errorf("%w: 'common' is a reserved client name", gaiaerrors.ErrReservedName)
 	}
 
-	return d.db.Update(func(tx *bbolt.Tx) error {
+	err := d.db.Update(func(tx *bbolt.Tx) error {
 		// First, check if a client with this name already exists to prevent duplicates.
 		_, _, err := d.findClientByName(tx, clientName)
 		if err == nil {
@@ -554,18 +554,23 @@ func (d *Daemon) RegisterClient(clientName string) error {
 		}
 
 		gaialog.Get().Info("client registered", slog.String("client_name", clientName), slog.String("client_id", newClient.ID))
-
-		// Create default policy for the new client
-		defaultPolicy := policy.CreateDefaultPolicy(clientName)
-		if err := d.policyStore.SetPolicy(defaultPolicy); err != nil {
-			gaialog.Get().Warn("failed to create default policy", slog.String("client", clientName), slog.String("error", err.Error()))
-			// Don't fail the registration if policy creation fails
-		} else {
-			gaialog.Get().Info("default policy created", slog.String("client", clientName))
-		}
-
 		return nil
 	})
+
+	if err != nil {
+		return err
+	}
+
+	// Create default policy for the new client outside the db transaction
+	defaultPolicy := policy.CreateDefaultPolicy(clientName)
+	if err := d.policyStore.SetPolicy(defaultPolicy); err != nil {
+		gaialog.Get().Warn("failed to create default policy", slog.String("client", clientName), slog.String("error", err.Error()))
+		// Don't fail the registration if policy creation fails since the client was already created
+	} else {
+		gaialog.Get().Info("default policy created", slog.String("client", clientName))
+	}
+
+	return nil
 }
 
 // ListClients returns a list of all registered clients.
