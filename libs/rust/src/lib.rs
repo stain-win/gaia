@@ -45,7 +45,7 @@ mod config;
 mod error;
 mod tls;
 
-pub use client::GaiaClient;
+pub use client::{GaiaClient, LoadEnvOptions};
 pub use config::GaiaClientConfig;
 pub use error::{GaiaError, Result};
 pub use proto::{

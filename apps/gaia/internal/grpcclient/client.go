@@ -41,34 +41,34 @@ func NewAdminConnection(cfg *config.Config, opts *ClientOptions) (*grpc.ClientCo
 	clientCertFile := filepath.Join(cfg.TLS.CertsDirectory, cfg.GaiaClientCertFile)
 	clientKeyFile := filepath.Join(cfg.TLS.CertsDirectory, cfg.GaiaClientKeyFile)
 
+	// Check individual certificate files exist to give precise error messages
+	missingFiles := make([]string, 0, 3)
+	for _, f := range []string{caCertFile, clientCertFile, clientKeyFile} {
+		if _, err := os.Stat(f); os.IsNotExist(err) {
+			missingFiles = append(missingFiles, f)
+		}
+	}
+	if len(missingFiles) > 0 {
+		msg := "required certificate file(s) not found:\n"
+		for _, f := range missingFiles {
+			msg += fmt.Sprintf("  - %s\n", f)
+		}
+		msg += fmt.Sprintf("\nTo fix this:\n"+
+			"  1. Run: gaia setup (recommended)\n"+
+			"  2. Or run: gaia certs generate\n\n"+
+			"Looking in directory: %s", cfg.TLS.CertsDirectory)
+		return nil, fmt.Errorf("%s", msg)
+	}
+
 	// Load client certificate and key
 	clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("client certificate not found at '%s'\n\n"+
-				"To fix this:\n"+
-				"  1. Run: gaia setup (recommended)\n"+
-				"  2. Or run: gaia certs generate\n\n"+
-				"Expected certificate files:\n"+
-				"  - %s\n"+
-				"  - %s\n\n"+
-				"Looking in directory: %s",
-				clientCertFile, cfg.GaiaClientCertFile, cfg.GaiaClientKeyFile, cfg.TLS.CertsDirectory)
-		}
-		return nil, fmt.Errorf("failed to load client certificate from '%s': %w", clientCertFile, err)
+		return nil, fmt.Errorf("failed to load client certificate from '%s' and '%s': %w", clientCertFile, clientKeyFile, err)
 	}
 
 	// Load CA certificate
 	caCert, err := os.ReadFile(caCertFile)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("CA certificate not found at '%s'\n\n"+
-				"To fix this:\n"+
-				"  1. Run: gaia setup (recommended)\n"+
-				"  2. Or run: gaia certs generate\n\n"+
-				"Looking in directory: %s",
-				caCertFile, cfg.TLS.CertsDirectory)
-		}
 		return nil, fmt.Errorf("failed to read CA certificate from '%s': %w", caCertFile, err)
 	}
 

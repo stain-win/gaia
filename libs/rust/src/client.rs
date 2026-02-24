@@ -7,6 +7,36 @@ use crate::proto::{
 use crate::tls::create_tls_channel;
 use tonic::transport::Channel;
 
+/// Options for loading secrets into the environment.
+#[derive(Debug, Clone, Default)]
+pub struct LoadEnvOptions {
+    /// Prefix to prepend to environment variable names.
+    /// If strictly empty or None, no prefix is added.
+    pub prefix: Option<String>,
+    
+    /// Whether to include the namespace in the environment variable name.
+    pub use_namespace: bool,
+}
+
+impl LoadEnvOptions {
+    /// Create new options with default values (key only).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the prefix.
+    pub fn with_prefix(mut self, prefix: impl Into<String>) -> Self {
+        self.prefix = Some(prefix.into());
+        self
+    }
+
+    /// Set whether to use the namespace.
+    pub fn with_namespace(mut self, use_namespace: bool) -> Self {
+        self.use_namespace = use_namespace;
+        self
+    }
+}
+
 /// A client for interacting with the Gaia secret management daemon.
 ///
 /// The client uses mutual TLS (mTLS) for secure communication and provides
@@ -138,5 +168,59 @@ impl GaiaClient {
 
         let response = self.inner.list_secrets(request).await?;
         Ok(response.into_inner().namespaces)
+    }
+
+    /// Fetches all accessible secrets and loads them into the current process's environment.
+    ///
+    /// By default, environment variables are named after the secret key, converted to uppercase
+    /// with hyphens replaced by underscores. Optional prefix and namespace inclusion can be
+    /// configured via `LoadEnvOptions`.
+    ///
+    /// # Arguments
+    ///
+    /// * `options` - Optional configuration for env var naming
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use gaia_client::{GaiaClient, GaiaClientConfig, LoadEnvOptions};
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let config = GaiaClientConfig::new("localhost:50051", "ca.crt", "client.crt", "client.key");
+    /// # let mut client = GaiaClient::connect(config).await?;
+    /// // Load with default behavior (key only)
+    /// client.load_env(None).await?;
+    ///
+    /// // Load with prefix and namespace: GAIA_PRODUCTION_DATABASE_URL
+    /// client.load_env(Some(LoadEnvOptions::new().with_prefix("GAIA").with_namespace(true))).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn load_env(&mut self, options: Option<LoadEnvOptions>) -> Result<()> {
+        let opts = options.unwrap_or_default();
+        let namespaces = self.list_secrets(None).await?;
+
+        for ns in namespaces {
+            for secret in ns.secrets {
+                let mut parts = Vec::new();
+
+                if let Some(prefix) = &opts.prefix {
+                    if !prefix.is_empty() {
+                        parts.push(prefix.to_uppercase().replace("-", "_"));
+                    }
+                }
+
+                if opts.use_namespace {
+                    parts.push(ns.name.to_uppercase().replace("-", "_"));
+                }
+
+                parts.push(secret.id.to_uppercase().replace("-", "_"));
+
+                let env_var_name = parts.join("_");
+                std::env::set_var(env_var_name, secret.value);
+            }
+        }
+
+        Ok(())
     }
 }

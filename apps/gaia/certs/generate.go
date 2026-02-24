@@ -15,6 +15,14 @@ import (
 	"time"
 )
 
+// randomSerialNumber generates a cryptographically random 128-bit serial number
+// for use in X.509 certificates, as recommended by RFC 5280 §4.1.2.2.
+func randomSerialNumber() (*big.Int, error) {
+	// 128 bits = 16 bytes, giving sufficient uniqueness
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	return rand.Int(rand.Reader, serialNumberLimit)
+}
+
 // generateCA creates a self-signed Root Certificate Authority.
 func generateCA(commonName string, validityDays int) (*rsa.PrivateKey, *x509.Certificate, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -22,8 +30,13 @@ func generateCA(commonName string, validityDays int) (*rsa.PrivateKey, *x509.Cer
 		return nil, nil, fmt.Errorf("failed to generate CA key: %w", err)
 	}
 
+	serial, err := randomSerialNumber()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate serial number: %w", err)
+	}
+
 	template := x509.Certificate{
-		SerialNumber: big.NewInt(1),
+		SerialNumber: serial,
 		Subject: pkix.Name{
 			CommonName:   commonName,
 			Organization: []string{"Gaia Root CA"},
@@ -56,8 +69,13 @@ func generateCert(commonName string, caKey *rsa.PrivateKey, caCert *x509.Certifi
 		return nil, nil, fmt.Errorf("failed to generate key: %w", err)
 	}
 
+	serial, err := randomSerialNumber()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate serial number: %w", err)
+	}
+
 	template := x509.Certificate{
-		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		SerialNumber: serial,
 		Subject: pkix.Name{
 			CommonName: commonName,
 		},
@@ -67,8 +85,17 @@ func generateCert(commonName string, caKey *rsa.PrivateKey, caCert *x509.Certifi
 	}
 	if isServer {
 		template.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		// Always include localhost/127.0.0.1 and add the specified serverName
 		template.IPAddresses = []net.IP{net.ParseIP("127.0.0.1")}
 		template.DNSNames = []string{"localhost"}
+		// Add the serverName to SANs if it's not already localhost
+		if commonName != "localhost" {
+			if ip := net.ParseIP(commonName); ip != nil {
+				template.IPAddresses = append(template.IPAddresses, ip)
+			} else {
+				template.DNSNames = append(template.DNSNames, commonName)
+			}
+		}
 	} else {
 		template.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
 	}
@@ -96,8 +123,13 @@ func generateClientCert(commonName string, caKey *rsa.PrivateKey, caCert *x509.C
 		return nil, nil, fmt.Errorf("failed to generate ECDSA key: %w", err)
 	}
 
+	serial, err := randomSerialNumber()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate serial number: %w", err)
+	}
+
 	template := x509.Certificate{
-		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		SerialNumber: serial,
 		Subject: pkix.Name{
 			CommonName: commonName,
 		},
@@ -128,8 +160,13 @@ func generateClientCertData(clientName string, caCert *x509.Certificate, caKey *
 		return nil, nil, fmt.Errorf("failed to generate client ECDSA key: %w", err)
 	}
 
+	serial, err := randomSerialNumber()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate serial number: %w", err)
+	}
+
 	template := &x509.Certificate{
-		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		SerialNumber: serial,
 		Subject: pkix.Name{
 			CommonName: clientName,
 		},

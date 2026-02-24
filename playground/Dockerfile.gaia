@@ -1,0 +1,51 @@
+# Build stage for Gaia
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+
+# Copy go mod files first to cache dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the source code
+COPY . .
+
+# Build the gaia binary
+RUN CGO_ENABLED=0 GOOS=linux go build -o /gaia github.com/stain-win/gaia/apps/gaia
+
+# Final stage
+FROM alpine:latest
+
+WORKDIR /app
+
+# Copy the gaia binary from the builder stage
+COPY --from=builder /gaia /usr/local/bin/gaia
+
+# Create directories for config, data, and certs
+RUN mkdir -p /etc/gaia /var/lib/gaia /etc/gaia/certs
+
+# Set environment variables for Gaia
+ENV GAIA_LISTEN_ADDR="0.0.0.0:50051"
+ENV GAIA_DB_FILE="/var/lib/gaia/gaia.db"
+ENV GAIA_CERTS_DIR="/etc/gaia/certs"
+
+EXPOSE 50051
+
+# Create an entrypoint script to automatically initialize and start Gaia
+RUN echo '#!/bin/sh' > /entrypoint.sh && \
+    echo 'set -e' >> /entrypoint.sh && \
+    echo 'echo "Checking if Gaia is initialized..."' >> /entrypoint.sh && \
+    echo 'if [ ! -f "$GAIA_DB_FILE" ]; then' >> /entrypoint.sh && \
+    echo '  echo "Initializing Gaia with auto-certs..."' >> /entrypoint.sh && \
+    echo '  gaia init --auto-certs' >> /entrypoint.sh && \
+    echo 'fi' >> /entrypoint.sh && \
+    echo 'echo "Starting Gaia daemon..."' >> /entrypoint.sh && \
+    echo 'gaia start &' >> /entrypoint.sh && \
+    echo 'sleep 2' >> /entrypoint.sh && \
+    echo 'echo "Unlocking Gaia daemon..."' >> /entrypoint.sh && \
+    echo 'gaia unlock' >> /entrypoint.sh && \
+    echo 'echo "Gaia is ready!"' >> /entrypoint.sh && \
+    echo 'wait' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]

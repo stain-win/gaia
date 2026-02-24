@@ -104,6 +104,15 @@ func (e *AuthError) Unwrap() error {
 	return e.Err
 }
 
+// NewAuthError creates a new authentication error.
+func NewAuthError(client, message string, err error) *AuthError {
+	return &AuthError{
+		Client:  client,
+		Message: message,
+		Err:     err,
+	}
+}
+
 // CryptoError represents encryption/decryption failures.
 type CryptoError struct {
 	Op      string // Operation: "encrypt", "decrypt", "derive_key"

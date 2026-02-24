@@ -18,22 +18,20 @@ func WipeBytes(b []byte) {
 	}
 }
 
-// WipeString securely wipes a string by converting it to a byte slice and zeroing it.
-// Note: This doesn't guarantee the original string is cleared from memory since strings
-// are immutable in Go, but it helps clear copies and is better than nothing.
-// For maximum security, prefer working with []byte directly when handling sensitive data.
+// WipeString sets the string pointer to empty.
 //
-// Example usage:
+// Deprecated: This function CANNOT securely wipe Go strings from memory.
+// Go strings are immutable — []byte(*s) creates a copy, so zeroing it does NOT clear
+// the original string's backing memory. The original bytes remain until garbage collected.
 //
-//	password := "secret123"
-//	defer secutil.WipeString(&password)
+// For real security, handle sensitive data as []byte throughout your code and use
+// WipeBytes to zero the actual buffer:
+//
+//	passphrase, _ := term.ReadPassword(int(syscall.Stdin)) // returns []byte
+//	defer secutil.WipeBytes(passphrase)
 func WipeString(s *string) {
 	if s == nil || *s == "" {
 		return
 	}
-	// Convert to byte slice and wipe
-	b := []byte(*s)
-	WipeBytes(b)
-	// Clear the original string reference
 	*s = ""
 }

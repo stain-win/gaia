@@ -73,9 +73,9 @@ fmt.Printf("The secret is: %s\n", secret)
 
 ### Loading Secrets into the Environment
 
-Gaia can automatically fetch all secrets from the "common" area and load them as environment variables in your application. This is a powerful way to provide configuration to your application without hardcoding values.
+Gaia can automatically fetch all accessible secrets and load them as environment variables in your application. This is a powerful way to provide configuration to your application without hardcoding values.
 
-Environment variables are formatted as `GAIA_NAMESPACE_KEY`.
+By default, environment variables are named directly after the secret key. They are converted to uppercase and hyphens are replaced with underscores.
 
 ```go
 if err := gaiaClient.LoadEnv(context.Background()); err != nil {
@@ -83,7 +83,11 @@ if err := gaiaClient.LoadEnv(context.Background()); err != nil {
 }
 
 // Your application can now access the secrets via os.Getenv()
-apiKey := os.Getenv("GAIA_THIRD_PARTY_API_KEY")
+apiKey := os.Getenv("THIRD_PARTY_API_KEY")
+
+// You can also configure a custom prefix and include the namespace:
+// gaiaClient.LoadEnv(context.Background(), client.LoadEnvOptions{Prefix: "GAIA", UseNamespace: true})
+// envVar := os.Getenv("GAIA_PRODUCTION_THIRD_PARTY_API_KEY")
 ```
 
 ### Fetching Common Secrets
@@ -164,9 +168,9 @@ Fetches all secrets for the authenticated client (own namespaces + common). Opti
 
 Returns: `map[namespace]map[key]value`
 
-#### `LoadEnv(ctx context.Context) error`
+#### `LoadEnv(ctx context.Context, opts ...LoadEnvOptions) error`
 
-Fetches all secrets from the "common" area and loads them into the current process's environment. Environment variables are formatted as `GAIA_NAMESPACE_KEY`.
+Fetches all accessible secrets and loads them into the current process's environment. By default, environment variables are named after the secret key. Optional prefix and namespace inclusion can be configured via `LoadEnvOptions`.
 
 ## Configuration
 

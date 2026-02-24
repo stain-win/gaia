@@ -29,12 +29,11 @@ func GenerateCA(cfg *config.Config, commonName string) error {
 		return fmt.Errorf("failed to save CA certificate: %w", err)
 	}
 
-	keyPath := filepath.Join(cfg.TLS.CertsDirectory, "ca.key") // Assuming ca.key is the standard name
+	keyPath := filepath.Join(cfg.TLS.CertsDirectory, "ca.key")
 	if err := saveKey(keyPath, caKey); err != nil {
 		return fmt.Errorf("failed to save CA key: %w", err)
 	}
 
-	fmt.Printf("Generated Root CA: %s and %s\n", certPath, keyPath)
 	return nil
 }
 
@@ -63,7 +62,6 @@ func GenerateServerCertificate(cfg *config.Config, serverName string) error {
 		return fmt.Errorf("failed to save server key: %w", err)
 	}
 
-	fmt.Printf("Generated server certificate: %s and %s\n", certPath, keyPath)
 	return nil
 }
 
@@ -79,7 +77,6 @@ func GenerateClientCertificate(cfg *config.Config, clientName string) error {
 		return err
 	}
 
-	// Use ECDSA-based client certificate generation
 	clientKey, clientCert, err := generateClientCert(clientName, caKey, caCert, cfg.TLS.CertExpiryDays)
 	if err != nil {
 		return fmt.Errorf("failed to generate client certificate: %w", err)
@@ -91,12 +88,10 @@ func GenerateClientCertificate(cfg *config.Config, clientName string) error {
 	}
 
 	keyPath := filepath.Join(cfg.TLS.CertsDirectory, clientName+".key")
-	// Use the flexible savePrivateKey that handles both ECDSA and RSA
 	if err := savePrivateKey(keyPath, clientKey); err != nil {
 		return fmt.Errorf("failed to save client key: %w", err)
 	}
 
-	fmt.Printf("Generated client certificate (ECDSA): %s and %s\n", certPath, keyPath)
 	return nil
 }
 

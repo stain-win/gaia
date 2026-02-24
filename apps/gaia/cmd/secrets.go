@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -224,31 +225,9 @@ This format is compatible with the 'gaia secrets import' command.`,
 			for {
 				resp, err := stream.Recv()
 				if err != nil {
-					// io.EOF means stream is done
-					if err.Error() == "EOF" { // check for EOF string or use error comparison if available
+					if err == io.EOF {
 						break
 					}
-					// Check for grpc EOF properly? the stream return io.EOF when done.
-					// But we are using a generated client, stream.Recv() returns err == io.EOF
-					// Let's rely on standard practice.
-					if err.Error() == "EOF" {
-						break
-					}
-					// Better check
-					if err.Error() == "EOF" {
-						break
-					}
-					// Actually, let's use the error string heavily because I can't import io easily in this block without checking
-					// wait, io is not imported in secrets.go. I should import it or use string check.
-					// Actually simple: `if err != nil` -> check if it is EOF.
-					// Since I cannot ensure `io` is imported in this ReplacementChunk without seeing imports...
-					// I'll assume standard grpc behavior.
-
-					// Actually, checking err.Error() == "EOF" is brittle but often works.
-					// A better way: import "io" at top of file.
-					// But I am replacing RunE block.
-					// Let's assume io is NOT imported in secrets.go currently.
-					// I will check imports first.
 					return fmt.Errorf("stream error: %w", err)
 				}
 

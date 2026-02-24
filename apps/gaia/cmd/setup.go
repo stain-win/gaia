@@ -529,7 +529,7 @@ func printSetupSuccess(cfg *config.Config) {
 			fmt.Sprintf("  Certificates: %s\n", cfg.TLS.CertsDirectory) +
 			"\n" +
 			wizardInfoStyle.Render("Next steps:") + "\n" +
-			"  1. Start the daemon:  " + wizardHighlightStyle.Render("gaia daemon start") + "\n" +
+			"  1. Start the daemon:  " + wizardHighlightStyle.Render("gaia start") + "\n" +
 			"  2. Launch the TUI:    " + wizardHighlightStyle.Render("gaia") + "\n" +
 			"  3. Unlock with your passphrase and add secrets!",
 	)
@@ -603,7 +603,7 @@ func runSecurityAudit(cfg *config.Config) error {
 	// Check certificates
 	caCertPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.CACert)
 	serverCertPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.ServerCert)
-	clientCertPath := filepath.Join(cfg.TLS.CertsDirectory, "gaia-cli.crt")
+	clientCertPath := filepath.Join(cfg.TLS.CertsDirectory, "gaia_client.crt")
 
 	// Helper function to check certificate expiry
 	checkCertExpiry := func(certPath, name string) (exists bool, expired bool, expiringSoon bool, expiryDate time.Time) {

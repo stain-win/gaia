@@ -38,6 +38,18 @@ export interface GaiaClientConfig {
    * Default: false
    */
   insecure?: boolean;
+
+  /**
+   * Override the path to the gaia-client.proto file.
+   * Useful in environments like Next.js standalone where __dirname resolution fails.
+   */
+  protoPath?: string;
+
+  /**
+   * Override the expected server hostname for TLS certificate validation.
+   * Useful in Docker Compose where the hostname is 'gaia' but the cert is for 'localhost'.
+   */
+  hostOverride?: string;
 }
 
 /**
@@ -60,6 +72,23 @@ export interface Namespace {
  * Map of namespace names to their secrets (key-value pairs).
  */
 export type SecretsMap = Record<string, Record<string, string>>;
+
+/**
+ * Options for loading secrets into the environment.
+ */
+export interface LoadEnvOptions {
+  /**
+   * Prefix to prepend to environment variable names.
+   * If undefined or empty, no prefix is added.
+   */
+  prefix?: string;
+
+  /**
+   * Whether to include the namespace in the environment variable name.
+   * Default: false
+   */
+  useNamespace?: boolean;
+}
 
 /**
  * High-level Gaia client for interacting with the Gaia daemon.
@@ -92,8 +121,8 @@ export class GaiaClient {
    * @throws {Error} If secure connection is requested but certificate paths are missing
    */
   constructor(private config: GaiaClientConfig) {
-    // Proto file is relative to this module
-    this.protoPath = path.join(__dirname, "../proto/gaia-client.proto");
+    // Proto file is relative to this module by default, but can be overridden
+    this.protoPath = config.protoPath || path.join(__dirname, "../proto/gaia-client.proto");
 
     if (!config.insecure) {
       if (
@@ -142,10 +171,16 @@ export class GaiaClient {
       credentials = grpc.credentials.createSsl(caCert, clientKey, clientCert);
     }
 
-    this.client = new GaiaClientService(this.config.address, credentials, {
+    const options: any = {
       "grpc.keepalive_time_ms": 10000,
       "grpc.keepalive_timeout_ms": 5000,
-    });
+    };
+
+    if (this.config.hostOverride) {
+      options["grpc.ssl_target_name_override"] = this.config.hostOverride;
+    }
+
+    this.client = new GaiaClientService(this.config.address, credentials, options);
 
     // Test connection
     return new Promise((resolve, reject) => {
@@ -207,51 +242,40 @@ export class GaiaClient {
    * ```
    */
   /**
-   * Fetches all secrets from the "common" area and loads them into process.env.
+   * Fetches all accessible secrets and loads them into process.env.
    *
-   * Environment variables are formatted as GAIA_NAMESPACE_KEY.
-   * Hyphens in names are replaced with underscores, and names are uppercased.
+   * By default, environment variables are named after the secret key, converted to uppercase with hyphens replaced by underscores.
+   * Optional prefix and namespace inclusion can be configured via LoadEnvOptions.
    *
+   * @param options - Configure prefix and namespace inclusion in env var names.
+   * 
    * @example
    * ```typescript
    * await client.loadEnv();
+   * // Now you can access: process.env.DATABASE_URL
+   * 
+   * await client.loadEnv({ prefix: 'GAIA', useNamespace: true });
    * // Now you can access: process.env.GAIA_PRODUCTION_DATABASE_URL
    * ```
    */
-  async loadEnv(): Promise<void> {
-    // Fetch all secrets, including common
+  async loadEnv(options?: LoadEnvOptions): Promise<void> {
     const secrets = await this.listSecrets();
 
-    // Filter for common namespace only?
-    // The original behavior was just common secrets.
-    // listSecrets returns client secrets + common.
-    // If we want to replicate original behavior we should filter for 'common' namespace,
-    // OR maybe the intention of LoadEnv is to load EVERYTHING?
-    // The original doc said "Fetches all secrets from the 'common' area".
-    // So let's stick to that for safety.
-
-    // However, listSecrets doesn't guarantee 'common' is in the map if it's empty.
-    // And actually, listSecrets returns ALL namespaces.
-    // If the user wants to load their OWN secrets into env, they probably should.
-    // But sticking to the doc: "from the 'common' area".
-
-    // Wait, with listSecrets we get everything.
-    // Let's assume we want to load EVERYTHING available to the client.
-    // That seems more useful than just common.
-    // But to be safe and backward compatible with the description "common area", maybe we should target that?
-    // Actually, widespread pattern is to load all accessible configuration.
-    // Let's load everything.
-
     for (const [namespace, kv] of Object.entries(secrets)) {
-      // If we want to strictly follow old behavior:
-      // if (namespace !== 'common') continue;
-      // But that reduces utility. Let's load all.
-
       for (const [key, value] of Object.entries(kv)) {
-        const envVarName = `GAIA_${namespace}_${key}`
-          .toUpperCase()
-          .replace(/-/g, "_");
+        const parts: string[] = [];
 
+        if (options?.prefix) {
+          parts.push(options.prefix.toUpperCase().replace(/-/g, "_"));
+        }
+
+        if (options?.useNamespace) {
+          parts.push(namespace.toUpperCase().replace(/-/g, "_"));
+        }
+
+        parts.push(key.toUpperCase().replace(/-/g, "_"));
+
+        const envVarName = parts.join("_");
         process.env[envVarName] = value;
       }
     }

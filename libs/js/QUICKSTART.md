@@ -60,7 +60,7 @@ try {
 
   // Load into environment
   await client.loadEnv();
-  console.log(process.env.GAIA_PRODUCTION_DATABASE_URL);
+  console.log(process.env.DATABASE_URL);
 
 } finally {
   await client.close();
@@ -130,7 +130,7 @@ async function init() {
 
 // Use secrets
 app.get('/api/data', async (req, res) => {
-  const dbUrl = process.env.GAIA_PRODUCTION_DATABASE_URL;
+  const dbUrl = process.env.DATABASE_URL;
   // ... use dbUrl
 });
 

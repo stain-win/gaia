@@ -9,9 +9,9 @@ import (
 	"os"
 )
 
-// saveCert writes a certificate to a file.
+// saveCert writes a certificate to a file with explicit 0644 permissions.
 func saveCert(filename string, cert *x509.Certificate) error {
-	file, err := os.Create(filename)
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
@@ -92,9 +92,20 @@ func loadCA(certPath, keyPath string) (*x509.Certificate, *rsa.PrivateKey, error
 	if caKeyBlock == nil {
 		return nil, nil, fmt.Errorf("failed to decode CA private key PEM")
 	}
+
+	// Try PKCS#1 first (traditional RSA format), then fall back to PKCS#8
 	caKey, err := x509.ParsePKCS1PrivateKey(caKeyBlock.Bytes)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse CA private key: %w", err)
+		// Fallback to PKCS#8 (modern format that supports multiple key types)
+		pkcs8Key, pkcs8Err := x509.ParsePKCS8PrivateKey(caKeyBlock.Bytes)
+		if pkcs8Err != nil {
+			return nil, nil, fmt.Errorf("failed to parse CA private key (tried PKCS#1 and PKCS#8): %w", err)
+		}
+		var ok bool
+		caKey, ok = pkcs8Key.(*rsa.PrivateKey)
+		if !ok {
+			return nil, nil, fmt.Errorf("CA private key is not RSA (got %T)", pkcs8Key)
+		}
 	}
 
 	return caCert, caKey, nil

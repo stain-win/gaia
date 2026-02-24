@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -38,7 +37,7 @@ Configuration values can be overridden from the config file using flags.
 For example:
   gaia start --db-file /var/lib/gaia/data.db
   gaia start --grpc-port :60051`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Starting Gaia daemon. Press Ctrl+C to stop.")
 
 		cfg := gaiaDaemon.GetConfig()
@@ -52,15 +51,15 @@ For example:
 		}
 		if certsDir != "" {
 			cfg.TLS.CertsDirectory = certsDir
-			cfg.TLS.CACert = "/ca.crt"
-			cfg.TLS.ServerCert = "/server.crt"
-			cfg.TLS.ServerKey = "/server.key"
+			cfg.TLS.CACert = "ca.crt"
+			cfg.TLS.ServerCert = "server.crt"
+			cfg.TLS.ServerKey = "server.key"
 		}
 
-		err := gaiaDaemon.Start(cfg)
-		if err != nil {
-			log.Fatalf("Daemon failed to start: %v", err)
+		if err := gaiaDaemon.Start(cfg); err != nil {
+			return fmt.Errorf("daemon failed to start: %w", err)
 		}
+		return nil
 	},
 }
 
@@ -69,7 +68,7 @@ var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop the Gaia daemon",
 	Long:  `The stop command gracefully shuts down the running Gaia daemon.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Sending stop command to Gaia daemon...")
 		ctx, cancel := context.WithTimeout(context.Background(), DaemonStopTimeout)
 		defer cancel()
@@ -77,19 +76,17 @@ var stopCmd = &cobra.Command{
 		cfg := gaiaDaemon.GetConfig()
 		conn, err := getClientConn(cfg)
 		if err != nil {
-			fmt.Printf("Error: could not connect to daemon. Is it running? %v\n", err)
-			return
+			return fmt.Errorf("could not connect to daemon (is it running?): %w", err)
 		}
 		defer conn.Close()
 
 		client := pb.NewGaiaAdminClient(conn)
-		_, err = client.Stop(ctx, &pb.StopRequest{})
-		if err != nil {
-			fmt.Printf("Error sending stop command to daemon: %v\n", err)
-			return
+		if _, err = client.Stop(ctx, &pb.StopRequest{}); err != nil {
+			return fmt.Errorf("failed to send stop command: %w", err)
 		}
 
 		fmt.Println("Gaia daemon stop command sent successfully.")
+		return nil
 	},
 }
 
@@ -97,33 +94,31 @@ var stopCmd = &cobra.Command{
 var restartCmd = &cobra.Command{
 	Use:   "restart",
 	Short: "Restart the Gaia daemon",
-	Long:  `The restart command stops and then starts the Gaia daemon.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Running gaia restart...")
+	Long: `The restart command stops the running Gaia daemon.
+
+Since the daemon runs in the foreground, you will need to start it again
+manually after it stops. This is equivalent to running 'gaia stop' followed
+by 'gaia start'.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fmt.Println("Stopping Gaia daemon for restart...")
 		ctx, cancel := context.WithTimeout(context.Background(), DaemonStopTimeout)
 		defer cancel()
 
 		cfg := gaiaDaemon.GetConfig()
 		conn, err := getClientConn(cfg)
 		if err != nil {
-			fmt.Printf("Error: could not connect to daemon for restart. Is it running? %v\n", err)
-			return
+			return fmt.Errorf("could not connect to daemon (is it running?): %w", err)
 		}
 		defer conn.Close()
 
 		client := pb.NewGaiaAdminClient(conn)
-		_, err = client.Stop(ctx, &pb.StopRequest{})
-		if err != nil {
-			fmt.Printf("Error sending stop command to daemon: %v\n", err)
-			return
+		if _, err = client.Stop(ctx, &pb.StopRequest{}); err != nil {
+			return fmt.Errorf("failed to send stop command: %w", err)
 		}
 
-		err = gaiaDaemon.Start(cfg)
-		if err != nil {
-			log.Printf("Daemon failed to start: %v", err)
-			return
-		}
-		fmt.Println("Gaia daemon restarted successfully.")
+		fmt.Println("Gaia daemon stopped successfully.")
+		fmt.Println("To complete the restart, run: gaia start")
+		return nil
 	},
 }
 
@@ -132,7 +127,7 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show the status of the Gaia daemon",
 	Long:  `The status command returns the current operational status of the Gaia daemon.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := gaiaDaemon.GetConfig()
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.GRPCClientTimeout)
 		defer cancel()
@@ -140,18 +135,18 @@ var statusCmd = &cobra.Command{
 		conn, err := getClientConn(cfg)
 		if err != nil {
 			fmt.Printf("Gaia daemon status: %s\n", daemon.StatusStopped)
-			return
+			return nil
 		}
 		defer conn.Close()
 
 		client := pb.NewGaiaAdminClient(conn)
 		res, err := client.GetStatus(ctx, &pb.GetStatusRequest{})
 		if err != nil {
-			fmt.Printf("Error getting daemon status: %v\n", err)
-			return
+			return fmt.Errorf("failed to get daemon status: %w", err)
 		}
 
 		fmt.Printf("Gaia daemon status: %s\n", res.Status)
+		return nil
 	},
 }
 

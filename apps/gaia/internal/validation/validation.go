@@ -30,7 +30,11 @@ func ValidateName(name string) error {
 }
 
 // ValidateClient validates a client name.
+// The name "common" is reserved for the common namespace's internal storage.
 func ValidateClient(name string) error {
+	if name == "common" {
+		return fmt.Errorf("%w: 'common' is a reserved client name", gaiaerrors.ErrReservedName)
+	}
 	if err := ValidateName(name); err != nil {
 		return fmt.Errorf("invalid client name: %w", err)
 	}

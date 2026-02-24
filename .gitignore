@@ -32,7 +32,7 @@ go.work.sum
 # .idea/
 # .vscode/
 .gemini/
-
+.ai/
 .nx/installation
 .nx/cache
 .nx/workspace-data

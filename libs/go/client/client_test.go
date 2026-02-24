@@ -119,7 +119,7 @@ func TestClient(t *testing.T) {
 		})
 	})
 
-	t.Run("LoadEnv", func(t *testing.T) {
+	t.Run("LoadEnv Default (Key Only)", func(t *testing.T) {
 		mockServer.ListSecretsFunc = func(ctx context.Context, in *pb.ClientListSecretsRequest) (*pb.ListSecretsResponse, error) {
 			return &pb.ListSecretsResponse{
 				Namespaces: []*pb.Namespace{
@@ -129,6 +129,27 @@ func TestClient(t *testing.T) {
 		}
 
 		err := client.LoadEnv(context.Background())
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		val := os.Getenv("KEY_ONE")
+		if val != "val1" {
+			t.Errorf("Expected env var KEY_ONE to be 'val1', got '%s'", val)
+		}
+		os.Unsetenv("KEY_ONE") // Clean up
+	})
+
+	t.Run("LoadEnv Configured (Prefix and Namespace)", func(t *testing.T) {
+		mockServer.ListSecretsFunc = func(ctx context.Context, in *pb.ClientListSecretsRequest) (*pb.ListSecretsResponse, error) {
+			return &pb.ListSecretsResponse{
+				Namespaces: []*pb.Namespace{
+					{Name: "ns-one", Secrets: []*pb.Secret{{Id: "key-one", Value: "val1"}}},
+				},
+			}, nil
+		}
+
+		err := client.LoadEnv(context.Background(), LoadEnvOptions{Prefix: "GAIA", UseNamespace: true})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}

@@ -58,12 +58,14 @@ func TestValidateClient(t *testing.T) {
 		name      string
 		input     string
 		wantError bool
+		checkErr  error
 	}{
-		{"valid client name", "web-app", false},
-		{"valid with numbers", "client123", false},
-		{"invalid uppercase", "WebApp", true},
-		{"invalid special chars", "web@app", true},
-		{"empty", "", true},
+		{"valid client name", "web-app", false, nil},
+		{"valid with numbers", "client123", false, nil},
+		{"reserved common", "common", true, gaiaerrors.ErrReservedName},
+		{"invalid uppercase", "WebApp", true, nil},
+		{"invalid special chars", "web@app", true, nil},
+		{"empty", "", true, nil},
 	}
 
 	for _, tt := range tests {
@@ -71,6 +73,10 @@ func TestValidateClient(t *testing.T) {
 			err := ValidateClient(tt.input)
 			if (err != nil) != tt.wantError {
 				t.Errorf("ValidateClient(%q) error = %v, wantError %v", tt.input, err, tt.wantError)
+			}
+
+			if tt.checkErr != nil && !errors.Is(err, tt.checkErr) {
+				t.Errorf("ValidateClient(%q) expected error %v, got %v", tt.input, tt.checkErr, err)
 			}
 		})
 	}

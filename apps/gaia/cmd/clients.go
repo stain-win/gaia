@@ -11,6 +11,10 @@ import (
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
 
+// clientOutputDir is the output directory for registered client certificates.
+// This is separate from the certs command's outputDir to avoid conflicts.
+var clientOutputDir string
+
 // clientsCmd represents the base command for client management.
 var clientsCmd = &cobra.Command{
 	Use:   "clients",
@@ -53,17 +57,17 @@ with the Gaia daemon.`,
 			return fmt.Errorf("gRPC RegisterClient failed: %w", err)
 		}
 
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := os.MkdirAll(clientOutputDir, 0755); err != nil {
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 
-		certPath := filepath.Join(outputDir, clientName+".crt")
+		certPath := filepath.Join(clientOutputDir, clientName+".crt")
 		if err := os.WriteFile(certPath, []byte(res.Certificate), 0644); err != nil {
 			return fmt.Errorf("failed to write certificate file: %w", err)
 		}
 		fmt.Printf("  ✓ Certificate saved to: %s\n", certPath)
 
-		keyPath := filepath.Join(outputDir, clientName+".key")
+		keyPath := filepath.Join(clientOutputDir, clientName+".key")
 		if err := os.WriteFile(keyPath, []byte(res.PrivateKey), 0600); err != nil {
 			return fmt.Errorf("failed to write private key file: %w", err)
 		}
@@ -77,5 +81,5 @@ with the Gaia daemon.`,
 func init() {
 	clientsCmd.AddCommand(registerClientCmd)
 
-	registerClientCmd.Flags().StringVarP(&outputDir, "output-dir", "o", "./certs", "Output directory for the new client certificate and key")
+	registerClientCmd.Flags().StringVarP(&clientOutputDir, "output-dir", "o", "./certs", "Output directory for the new client certificate and key")
 }

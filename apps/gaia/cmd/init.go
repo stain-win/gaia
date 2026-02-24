@@ -135,6 +135,22 @@ func runInit(_ *cobra.Command, _ []string) error {
 }
 
 func promptForPassphrase() (string, error) {
+	if envPass := os.Getenv("GAIA_PASSPHRASE"); envPass != "" {
+		// IMPORTANT: Clear the environment variable immediately so it doesn't linger
+		// in the process environment block or leak to child processes.
+		os.Unsetenv("GAIA_PASSPHRASE")
+
+		fmt.Println("Using master passphrase from GAIA_PASSPHRASE environment variable.")
+		// We still validate the passphrase strength
+		if len(envPass) < 8 {
+			return "", errors.New("passphrase from env var must be at least 8 characters")
+		}
+		if _, err := encrypt.ValidatePassword(envPass); err != nil {
+			return "", fmt.Errorf("weak passphrase in env var: %v", err)
+		}
+		return envPass, nil
+	}
+
 	var passphrase string
 	var passphraseConfirm string
 
@@ -207,6 +223,11 @@ func handleCertificateSetup(cfg *config.Config) (bool, error) {
 	if certsExist {
 		fmt.Println(infoStyle.Render("Existing certificates found"))
 
+		if autoGenCerts {
+			fmt.Println(infoStyle.Render("Automated mode: relying on existing certs..."))
+			return false, nil
+		}
+
 		var useCerts bool
 		useForm := huh.NewForm(
 			huh.NewGroup(
@@ -230,28 +251,32 @@ func handleCertificateSetup(cfg *config.Config) (bool, error) {
 	// Prompt for certificate generation
 	var generateCerts bool
 
-	certForm := huh.NewForm(
-		huh.NewGroup(
-			huh.NewNote().
-				Title("mTLS Certificates").
-				Description("Gaia uses mutual TLS (mTLS) for secure communication.\n"+
-					"This requires:\n"+
-					"  • A Certificate Authority (CA)\n"+
-					"  • A server certificate\n"+
-					"  • Client certificates (generated when registering clients)\n"),
-		),
-		huh.NewGroup(
-			huh.NewConfirm().
-				Title("Generate certificates now?").
-				Description("Recommended for new installations").
-				Value(&generateCerts).
-				Affirmative("Yes, generate them").
-				Negative("No, I'll do it later"),
-		),
-	)
+	if autoGenCerts {
+		generateCerts = true
+	} else {
+		certForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewNote().
+					Title("mTLS Certificates").
+					Description("Gaia uses mutual TLS (mTLS) for secure communication.\n"+
+						"This requires:\n"+
+						"  • A Certificate Authority (CA)\n"+
+						"  • A server certificate\n"+
+						"  • Client certificates (generated when registering clients)\n"),
+			),
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title("Generate certificates now?").
+					Description("Recommended for new installations").
+					Value(&generateCerts).
+					Affirmative("Yes, generate them").
+					Negative("No, I'll do it later"),
+			),
+		)
 
-	if err := certForm.Run(); err != nil {
-		return false, err
+		if err := certForm.Run(); err != nil {
+			return false, err
+		}
 	}
 
 	if !generateCerts {
@@ -309,8 +334,8 @@ func initializeDatabase(cfg *config.Config, passphrase string) error {
 	}
 
 	// Initialize the database
-	gaiaDaemon := daemon.NewDaemon(cfg)
-	if err := gaiaDaemon.InitializeDB(passphrase); err != nil {
+	d := daemon.NewDaemon(cfg)
+	if err := d.InitializeDB(passphrase); err != nil {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
 

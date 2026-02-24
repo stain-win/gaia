@@ -126,21 +126,28 @@ const prodSecrets = await client.getCommonSecrets('production');
 // { production: { api_key: '...', db_url: '...' } }
 ```
 
-##### `loadEnv(): Promise<void>`
+##### `loadEnv(options?: LoadEnvOptions): Promise<void>`
 
-Loads all common secrets into `process.env`.
+Loads all accessible secrets into `process.env`.
 
-Environment variables are formatted as `GAIA_NAMESPACE_KEY`.
-- Namespace and key names are uppercased
+By default, environment variables are named directly after the secret key.
+- Key names are uppercased
 - Hyphens are replaced with underscores
+
+You can optionally configure a prefix or include the namespace via `options`.
 
 **Example:**
 ```typescript
+// Load with default behavior (key only)
 await client.loadEnv();
 
 // Secrets are now available as environment variables:
-console.log(process.env.GAIA_PRODUCTION_DATABASE_URL);
-console.log(process.env.GAIA_PRODUCTION_API_KEY);
+console.log(process.env.DATABASE_URL);
+console.log(process.env.API_KEY);
+
+// To load with a custom prefix and namespace included:
+// await client.loadEnv({ prefix: 'GAIA', useNamespace: true });
+// console.log(process.env.GAIA_PRODUCTION_DATABASE_URL);
 ```
 
 ##### `getStatus(): Promise<string>`

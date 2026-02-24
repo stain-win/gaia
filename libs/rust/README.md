@@ -189,6 +189,27 @@ let prod_secrets = client.list_secrets(Some("production".to_string())).await?;
 
 **Note:** This is the recommended method for fetching all secrets at once, as it's more efficient than making multiple individual requests.
 
+#### `load_env(options: Option<LoadEnvOptions>) -> Result<()>` ⭐ NEW
+
+Fetches all accessible secrets and loads them into the current process's environment.
+
+By default, environment variables are named directly after the secret key, converted to uppercase with hyphens replaced by underscores.
+You can optionally configure a custom prefix or include the namespace via `LoadEnvOptions`.
+
+```rust
+use gaia_client::LoadEnvOptions;
+
+// Load with default behavior (key only)
+client.load_env(None).await?;
+
+// The secret "database_url" from any accessible namespace is now available as:
+let db = std::env::var("DATABASE_URL")?;
+
+// To load with a custom prefix and namespace:
+// client.load_env(Some(LoadEnvOptions::new().with_prefix("GAIA").with_namespace(true))).await?;
+// let db = std::env::var("GAIA_PRODUCTION_DATABASE_URL")?;
+```
+
 ## Examples
 
 The library includes several examples in the `examples/` directory:

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"syscall"
 	"time"
 
@@ -52,14 +53,27 @@ var unlockCmd = &cobra.Command{
 The daemon must be unlocked before it can serve secrets to clients. You will be
 prompted to enter the master passphrase securely.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Print("Enter master passphrase: ")
-		passphrase, err := term.ReadPassword(int(syscall.Stdin))
-		if err != nil {
-			return fmt.Errorf("failed to read passphrase: %w", err)
+		var passphrase []byte
+		var err error
+
+		if envPass := os.Getenv("GAIA_PASSPHRASE"); envPass != "" {
+			// IMPORTANT: Clear the environment variable immediately so it doesn't linger
+			// in the process environment block or leak to child processes.
+			os.Unsetenv("GAIA_PASSPHRASE")
+
+			fmt.Println("Using master passphrase from GAIA_PASSPHRASE environment variable.")
+			passphrase = []byte(envPass)
+		} else {
+			fmt.Print("Enter master passphrase: ")
+			passphrase, err = term.ReadPassword(int(syscall.Stdin))
+			if err != nil {
+				return fmt.Errorf("failed to read passphrase: %w", err)
+			}
+			fmt.Println() // Newline after password input
 		}
+
 		// Ensure passphrase is wiped from memory when function exits
 		defer secutil.WipeBytes(passphrase)
-		fmt.Println() // Newline after password input
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()

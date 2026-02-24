@@ -123,11 +123,29 @@ func (c *Client) GetSecret(ctx context.Context, namespace, id string) (string, e
 	return resp.Value, nil
 }
 
+// LoadEnvOptions allows to configure how secrets are loaded into the environment.
+type LoadEnvOptions struct {
+	// Prefix is a string to prepend to the environment variable name.
+	// E.g., "GAIA". If empty, no prefix is added.
+	Prefix string
+
+	// UseNamespace determines if the namespace should be included in the env var name.
+	// If true, it will be included (e.g., PREFIX_NAMESPACE_KEY).
+	UseNamespace bool
+}
+
 // LoadEnv fetches all secrets available to the client and loads them into the
 // current process's environment.
 //
-// The environment variables are formatted as GAIA_NAMESPACE_KEY.
-func (c *Client) LoadEnv(ctx context.Context) error {
+// By default, the environment variables are named after the secret key,
+// converted to uppercase with hyphens replaced by underscores.
+// Optional prefix and namespace inclusion can be configured via LoadEnvOptions.
+func (c *Client) LoadEnv(ctx context.Context, opts ...LoadEnvOptions) error {
+	var opt LoadEnvOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
 	secrets, err := c.ListSecrets(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch secrets: %w", err)
@@ -135,9 +153,22 @@ func (c *Client) LoadEnv(ctx context.Context) error {
 
 	for namespace, kv := range secrets {
 		for key, value := range kv {
-			envVarName := fmt.Sprintf("GAIA_%s_%s", namespace, key)
+			var parts []string
+
+			if opt.Prefix != "" {
+				parts = append(parts, opt.Prefix)
+			}
+
+			if opt.UseNamespace {
+				parts = append(parts, namespace)
+			}
+
+			parts = append(parts, key)
+
+			envVarName := strings.Join(parts, "_")
 			envVarName = strings.ToUpper(envVarName)
 			envVarName = strings.ReplaceAll(envVarName, "-", "_")
+
 			if err := os.Setenv(envVarName, value); err != nil {
 				return fmt.Errorf("failed to set env var %s: %w", envVarName, err)
 			}
