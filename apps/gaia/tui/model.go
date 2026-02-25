@@ -7,6 +7,16 @@ import (
 	"github.com/stain-win/gaia/apps/gaia/config"
 )
 
+// messageType identifies the severity of a status message.
+type messageType int
+
+const (
+	msgInfo messageType = iota
+	msgSuccess
+	msgError
+	msgWarning
+)
+
 type screen int
 
 const (
@@ -64,6 +74,7 @@ type model struct {
 	inspector               *inspectorModel
 	unlockFormModel         *unlockFormModel
 	statusMessage           string
+	statusMessageType       messageType
 	// Policy management state
 	policies           []policyListItem
 	selectedPolicy     *policyDetailModel
@@ -166,4 +177,34 @@ func initialModel(config *config.Config) *model {
 	)
 
 	return &m
+}
+
+// setInfo sets the status message with info styling.
+func (m *model) setInfo(msg string) {
+	m.statusMessage = msg
+	m.statusMessageType = msgInfo
+}
+
+// setSuccess sets the status message with success styling.
+func (m *model) setSuccess(msg string) {
+	m.statusMessage = msg
+	m.statusMessageType = msgSuccess
+}
+
+// setError sets the status message with error styling.
+func (m *model) setError(msg string) {
+	m.statusMessage = msg
+	m.statusMessageType = msgError
+}
+
+// setWarning sets the status message with warning styling.
+func (m *model) setWarning(msg string) {
+	m.statusMessage = msg
+	m.statusMessageType = msgWarning
+}
+
+// clearStatus clears the status message.
+func (m *model) clearStatus() {
+	m.statusMessage = ""
+	m.statusMessageType = msgInfo
 }

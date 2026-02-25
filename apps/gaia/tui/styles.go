@@ -51,7 +51,31 @@ var (
 				Bold(true).
 				Padding(0, 1)
 
-	// Message styles
+	// Message banner styles
+	messageBannerBase = lipgloss.NewStyle().
+				Padding(0, 2).
+				Bold(true)
+
+	errorBannerStyle = messageBannerBase.
+				Foreground(lipgloss.Color("#FFFFFF")).
+				Background(lipgloss.Color("#7F1D1D")).
+				BorderForeground(colorError)
+
+	successBannerStyle = messageBannerBase.
+				Foreground(lipgloss.Color("#FFFFFF")).
+				Background(lipgloss.Color("#064E3B")).
+				BorderForeground(colorSuccess)
+
+	warningBannerStyle = messageBannerBase.
+				Foreground(lipgloss.Color("#FFFFFF")).
+				Background(lipgloss.Color("#78350F")).
+				BorderForeground(colorWarning)
+
+	infoBannerStyle = messageBannerBase.
+			Foreground(colorText).
+			Background(colorBgDark)
+
+	// Legacy message styles (kept for compatibility)
 	messageStyle = lipgloss.NewStyle().
 			Foreground(colorTextMuted).
 			Italic(true)
@@ -143,4 +167,22 @@ var (
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(colorBorder).
 		Padding(1, 2)
+)
+
+// Breadcrumb styles
+var (
+	breadcrumbBarStyle = lipgloss.NewStyle().
+				Foreground(colorTextMuted).
+				Background(colorBgDarker).
+				Padding(0, 1)
+
+	breadcrumbSegmentStyle = lipgloss.NewStyle().
+				Foreground(colorTextMuted)
+
+	breadcrumbActiveStyle = lipgloss.NewStyle().
+				Foreground(colorAccent).
+				Bold(true)
+
+	breadcrumbSepStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#4B5563"))
 )

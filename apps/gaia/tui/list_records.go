@@ -252,9 +252,11 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 			if m.focusedPane == secretsPane && m.secretsList.SelectedItem() != nil {
 				return m.startEditing()
 			} else if m.focusedPane == clientsPane {
-				// Automatically moving to secretsPane, as the list is already rebuilt
-				m.focusedPane = secretsPane
-				m.updateFocusStates()
+				// Only move to secrets pane if the selected client has secrets
+				if len(m.allSecrets) > 0 {
+					m.focusedPane = secretsPane
+					m.updateFocusStates()
+				}
 				return m, nil
 			}
 		}
@@ -333,6 +335,13 @@ func (m *inspectorModel) startEditing() (*inspectorModel, tea.Cmd) {
 }
 
 func (m *inspectorModel) updateEditView(msg tea.Msg) (*inspectorModel, tea.Cmd) {
+	// Intercept ESC before passing to the form for immediate cancel
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+		m.editing = false
+		m.statusMessage = fmt.Sprintf("Ready | %d keys found", len(m.allSecrets))
+		return m, nil
+	}
+
 	var cmds []tea.Cmd
 	form, cmd := m.editForm.Update(msg)
 	if f, ok := form.(*huh.Form); ok {
@@ -408,7 +417,14 @@ func (m *inspectorModel) View() string {
 	}
 
 	// --- Top Left: Client Selector ---
-	clientHeader := viewerSubtitleStyle.Render(" Select Client ")
+	clientCount := len(m.clientsList.Items())
+	var clientHeader string
+	if clientCount > 5 {
+		selIdx := m.clientsList.Index() + 1
+		clientHeader = viewerSubtitleStyle.Render(fmt.Sprintf(" Clients (%d/%d) ", selIdx, clientCount))
+	} else {
+		clientHeader = viewerSubtitleStyle.Render(fmt.Sprintf(" Clients (%d) ", clientCount))
+	}
 	clientsViewBox := lipgloss.JoinVertical(lipgloss.Left, clientHeader, m.clientsList.View())
 	// Let's add the horizontal separator using a bottom border on the top-left pane
 	topPaneStyle := lipgloss.NewStyle().
@@ -477,7 +493,9 @@ func (m *inspectorModel) SetSize(w, h int) {
 	leftPaneWidth := w / 3
 	rightPaneWidth := w - leftPaneWidth
 
-	clientsHeight := 6
+	// Always reserve space for 5 clients; scrolling kicks in for larger lists.
+	// The DefaultDelegate renders each item at ~2 lines (title + cursor padding).
+	clientsHeight := 5*2 + 2 // 5 items × 2 lines each + header chrome
 	m.clientsList.SetSize(leftPaneWidth-4, clientsHeight)
 
 	sHeight := mainHeight - clientsHeight - 8

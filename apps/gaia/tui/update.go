@@ -121,15 +121,15 @@ func (m *model) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "Unlock Gaia":
 			m.unlockFormModel = newUnlockFormModel()
 			m.activeScreen = unlockScreen
-			m.statusMessage = ""
+			m.clearStatus()
 			return m, m.unlockFormModel.Init()
 		case "Manage Data", "Manage Data (Locked)", "Manage Data (Offline)":
 			if isDaemonLocked(m.daemonStatus) {
-				m.statusMessage = "⚠️ Cannot access data - Gaia is locked. Please unlock first."
+				m.setWarning("Cannot access data - Gaia is locked. Please unlock first.")
 				return m, nil
 			}
 			if isOffline(m.daemonStatus) {
-				m.statusMessage = "⚠️ Cannot access data - Daemon is not running. Please start the daemon."
+				m.setWarning("Cannot access data - Daemon is not running. Please start the daemon.")
 				return m, nil
 			}
 			m.activeScreen = dataManagement
@@ -159,28 +159,27 @@ func (m *model) updateDataManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "Add New Record":
 				// Check if the daemon is locked or offline
 				if isDaemonLocked(m.daemonStatus) {
-					m.statusMessage = "⚠️ Cannot add records - Gaia is locked. Please unlock first."
+					m.setWarning("Cannot add records - Gaia is locked. Please unlock first.")
 					m.activeScreen = mainMenu
 					return m, nil
 				}
 				if isOffline(m.daemonStatus) {
-					m.statusMessage = "⚠️ Cannot add records - Daemon is not running. Please start the daemon."
+					m.setWarning("Cannot add records - Daemon is not running. Please start the daemon.")
 					m.activeScreen = mainMenu
 					return m, nil
 				}
-				m.statusMessage = "Loading clients..."
+				m.setInfo("Loading clients...")
 				// Fire the command to fetch the list of clients from the daemon.
 				return m, fetchClientsCmd(m.config)
 
 			case "List All Records":
-				// Check if the daemon is locked or offline
 				if isDaemonLocked(m.daemonStatus) {
-					m.statusMessage = "⚠️ Cannot list records - Gaia is locked. Please unlock first."
+					m.setWarning("Cannot list records - Gaia is locked. Please unlock first.")
 					m.activeScreen = mainMenu
 					return m, nil
 				}
 				if isOffline(m.daemonStatus) {
-					m.statusMessage = "⚠️ Cannot list records - Daemon is not running. Please start the daemon."
+					m.setWarning("Cannot list records - Daemon is not running. Please start the daemon.")
 					m.activeScreen = mainMenu
 					return m, nil
 				}
@@ -194,7 +193,7 @@ func (m *model) updateDataManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case clientsLoadedMsg:
 		if msg.err != nil {
-			m.statusMessage = fmt.Sprintf("Error loading clients: %v", msg.err)
+			m.setError(fmt.Sprintf("Error loading clients: %v", msg.err))
 			return m, nil
 		}
 		m.clients = make([]string, len(msg.clients))
@@ -203,7 +202,7 @@ func (m *model) updateDataManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.addRecordFormModel = newAddRecordFormModel(m.clients)
 		m.activeScreen = addRecord
-		m.statusMessage = "Enter new record details."
+		m.setInfo("Enter new record details.")
 		return m, m.addRecordFormModel.Init()
 	}
 	m.dataMenu, cmd = m.dataMenu.Update(msg)
@@ -214,16 +213,13 @@ func (m *model) updateAddRecord(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case AddRecordMsg:
-		m.statusMessage = "Adding record..."
-		// Fire the command to add the secret via gRPC.
+		m.setInfo("Adding record...")
 		return m, addRecordToDaemonCmd(m.config, msg.ClientName, msg.Namespace, msg.Key, msg.Value)
-	// This new case handles the result of the addRecordCmd.
 	case recordAddedMsg:
 		if msg.err != nil {
-
-			m.statusMessage = fmt.Sprintf("Error adding record: %v", msg.err)
+			m.setError(fmt.Sprintf("Error adding record: %v", msg.err))
 		} else {
-			m.statusMessage = "Record added successfully!"
+			m.setSuccess("Record added successfully!")
 		}
 		// Go back to the data management menu.
 		m.activeScreen = dataManagement
@@ -233,7 +229,7 @@ func (m *model) updateAddRecord(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle the escape key to exit the form (only 'esc', not 'b' since the form needs input)
 		if msg.String() == "esc" {
 			m.activeScreen = dataManagement
-			m.statusMessage = ""
+			m.clearStatus()
 			return m, nil
 		}
 	}
@@ -259,7 +255,7 @@ func (m *model) updateCertManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "Register Client":
 				m.registerClientFormModel = newRegisterClientFormModel()
 				m.activeScreen = registerClient
-				m.statusMessage = ""
+				m.clearStatus()
 				return m, m.registerClientFormModel.Init()
 			case "List Existing Certificates":
 				// TODO: Implement list functionality
@@ -280,7 +276,7 @@ func (m *model) updateCreateCerts(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle escape key to go back (for forms, only use esc, not 'b')
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
 		m.activeScreen = certManagement
-		m.statusMessage = ""
+		m.clearStatus()
 		return m, nil
 	}
 
@@ -306,9 +302,9 @@ func (m *model) updateCreateCerts(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if err != nil {
-			m.statusMessage = fmt.Sprintf("❌ Error generating certificates: %v", err)
+			m.setError(fmt.Sprintf("Error generating certificates: %v", err))
 		} else {
-			m.statusMessage = fmt.Sprintf("✓ Certificates generated successfully in %s/", outPath)
+			m.setSuccess(fmt.Sprintf("Certificates generated successfully in %s/", outPath))
 		}
 
 		m.activeScreen = certManagement
@@ -322,17 +318,17 @@ func (m *model) updateRegisterClient(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case BackMsg:
 		m.activeScreen = certManagement
-		m.statusMessage = ""
+		m.clearStatus()
 		return m, nil
 	case RegisterClientMsg:
-		m.statusMessage = fmt.Sprintf("Registering client '%s'...", msg.ClientName)
+		m.setInfo(fmt.Sprintf("Registering client '%s'...", msg.ClientName))
 		return m, registerClientCmd(m.config, msg.ClientName)
 	case clientRegisteredMsg:
 		if msg.err != nil {
-			m.statusMessage = fmt.Sprintf("❌ Error registering client: %v", msg.err)
+			m.setError(fmt.Sprintf("Error registering client: %v", msg.err))
 		} else {
-			m.statusMessage = fmt.Sprintf("✓ Client '%s' registered successfully!\nCert: %s\nKey: %s",
-				msg.clientName, msg.certPath, msg.keyPath)
+			m.setSuccess(fmt.Sprintf("Client '%s' registered successfully!\nCert: %s\nKey: %s",
+				msg.clientName, msg.certPath, msg.keyPath))
 		}
 		m.activeScreen = certManagement
 		return m, nil
@@ -348,25 +344,23 @@ func (m *model) updateUnlockScreen(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case BackMsg:
 		m.activeScreen = mainMenu
-		m.statusMessage = ""
+		m.clearStatus()
 		return m, nil
 	case UnlockMsg:
-		m.statusMessage = "Unlocking Gaia..."
+		m.setInfo("Unlocking Gaia...")
 		return m, unlockDaemonCmd(m.config, msg.Passphrase)
 	case unlockResultMsg:
 		if msg.err != nil {
-			m.statusMessage = fmt.Sprintf("❌ Error unlocking: %v", msg.err)
-			// Stay on unlock screen to allow retry
+			m.setError(fmt.Sprintf("Error unlocking: %v", msg.err))
 			m.unlockFormModel = newUnlockFormModel()
 			return m, m.unlockFormModel.Init()
 		}
 		if !msg.success {
-			m.statusMessage = "❌ Unlock failed: Invalid passphrase"
-			// Stay on unlock screen to allow retry
+			m.setError("Unlock failed: Invalid passphrase")
 			m.unlockFormModel = newUnlockFormModel()
 			return m, m.unlockFormModel.Init()
 		}
-		m.statusMessage = "✓ Gaia unlocked successfully!"
+		m.setSuccess("Gaia unlocked successfully!")
 		m.activeScreen = mainMenu
 		// Trigger a status check to update the daemon status
 		return m, checkStatusCmd(m.config)

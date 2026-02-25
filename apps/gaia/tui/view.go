@@ -46,28 +46,31 @@ func (m *model) renderStatusBar() string {
 	return statusBarStyle.Width(m.width).Render(statusBar)
 }
 
-// renderMessageBar shows status messages below the status bar
+// renderMessageBar shows status messages below the status bar as a styled banner
 func (m *model) renderMessageBar() string {
 	if m.statusMessage == "" {
 		return ""
 	}
 
-	var msgStyle lipgloss.Style
-	switch {
-	case strings.HasPrefix(m.statusMessage, "✓"):
-		msgStyle = successMessageStyle
-	case strings.HasPrefix(m.statusMessage, "❌"), strings.HasPrefix(m.statusMessage, "⚠️"):
-		msgStyle = warningMessageStyle
+	var banner lipgloss.Style
+	var label string
+	switch m.statusMessageType {
+	case msgError:
+		banner = errorBannerStyle
+		label = "✕ ERROR "
+	case msgSuccess:
+		banner = successBannerStyle
+		label = "✓ "
+	case msgWarning:
+		banner = warningBannerStyle
+		label = "⚠ WARNING "
 	default:
-		msgStyle = messageStyle
+		banner = infoBannerStyle
+		label = ""
 	}
 
-	msg := msgStyle.Render(m.statusMessage)
-	return lipgloss.NewStyle().
-		Width(m.width).
-		Align(lipgloss.Center).
-		Padding(0, 1).
-		Render(msg)
+	content := label + m.statusMessage
+	return banner.Width(m.width).Render(content)
 }
 
 // renderHelpBar creates a help bar with keyboard shortcuts for the current screen
@@ -139,23 +142,30 @@ func (m *model) View() string {
 
 	// Build screen content based on active screen
 	var screenView string
+
+	// Fixed-width left-aligned container for menu screens
+	menuContainer := lipgloss.NewStyle().
+		Width(84).
+		Padding(0, 2).
+		Align(lipgloss.Left)
+
 	switch m.activeScreen {
 	case mainMenu:
-		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.mainMenu.View())
+		screenView = lipgloss.JoinVertical(lipgloss.Left, logo, menuContainer.Render(m.mainMenu.View()))
 	case dataManagement:
-		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.dataMenu.View())
+		screenView = lipgloss.JoinVertical(lipgloss.Left, logo, menuContainer.Render(m.dataMenu.View()))
 	case addRecord:
-		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.addRecordFormModel.View())
+		screenView = lipgloss.JoinVertical(lipgloss.Left, logo, menuContainer.Render(m.addRecordFormModel.View()))
 	case accessManagement:
-		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.accessMenu.View())
+		screenView = lipgloss.JoinVertical(lipgloss.Left, logo, menuContainer.Render(m.accessMenu.View()))
 	case certManagement:
-		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.certMenu.View())
+		screenView = lipgloss.JoinVertical(lipgloss.Left, logo, menuContainer.Render(m.certMenu.View()))
 	case policyManagement:
-		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.policyMenu.View())
+		screenView = lipgloss.JoinVertical(lipgloss.Left, logo, menuContainer.Render(m.policyMenu.View()))
 	case createCerts:
-		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.certForm.View())
+		screenView = lipgloss.JoinVertical(lipgloss.Left, logo, menuContainer.Render(m.certForm.View()))
 	case registerClient:
-		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.registerClientFormModel.View())
+		screenView = lipgloss.JoinVertical(lipgloss.Left, logo, menuContainer.Render(m.registerClientFormModel.View()))
 	case listRecords:
 		screenView = m.inspector.View()
 	case listPolicies:
@@ -192,6 +202,8 @@ func (m *model) View() string {
 	// ├─────────────────────────────────────┤
 	// │ [MESSAGE BAR - if present]          │
 	// ├─────────────────────────────────────┤
+	// │ [BREADCRUMB]                        │
+	// ├─────────────────────────────────────┤
 	// │                                     │
 	// │         [MAIN CONTENT]              │
 	// │         (centered)                  │
@@ -202,17 +214,19 @@ func (m *model) View() string {
 
 	statusBar := m.renderStatusBar()
 	messageBar := m.renderMessageBar()
+	breadcrumb := m.renderBreadcrumb()
 	helpBar := m.renderHelpBar()
 
 	// Calculate content height
-	statusHeight := 1
-	helpHeight := 1
-	messageHeight := 0
+	chromeHeight := 2 // status bar + help bar
 	if messageBar != "" {
-		messageHeight = 1
+		chromeHeight++
+	}
+	if breadcrumb != "" {
+		chromeHeight++
 	}
 
-	contentHeight := m.height - statusHeight - helpHeight - messageHeight - 2
+	contentHeight := m.height - chromeHeight - 2
 
 	// Center the main content
 	centeredContent := lipgloss.Place(
@@ -231,10 +245,71 @@ func (m *model) View() string {
 	if messageBar != "" {
 		sections = append(sections, messageBar)
 	}
+	if breadcrumb != "" {
+		sections = append(sections, breadcrumb)
+	}
 	sections = append(sections, centeredContent)
 	sections = append(sections, helpBar)
 
 	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+}
+
+// renderBreadcrumb builds a navigation path for the current screen.
+func (m *model) renderBreadcrumb() string {
+	var segments []string
+
+	switch m.activeScreen {
+	case mainMenu:
+		// No breadcrumb on the home screen
+		return ""
+	case dataManagement:
+		segments = []string{"Home", "Data"}
+	case addRecord:
+		segments = []string{"Home", "Data", "Add Record"}
+	case listRecords:
+		segments = []string{"Home", "Data", "All Records"}
+	case accessManagement:
+		segments = []string{"Home", "Access"}
+	case certManagement:
+		segments = []string{"Home", "Access", "Certificates"}
+	case createCerts:
+		segments = []string{"Home", "Access", "Certificates", "Create"}
+	case registerClient:
+		segments = []string{"Home", "Access", "Certificates", "Register Client"}
+	case policyManagement:
+		segments = []string{"Home", "Access", "Policies"}
+	case listPolicies:
+		segments = []string{"Home", "Access", "Policies", "List"}
+	case viewPolicy:
+		segments = []string{"Home", "Access", "Policies", "View"}
+	case createPolicy:
+		segments = []string{"Home", "Access", "Policies", "Create"}
+	case editPolicy:
+		segments = []string{"Home", "Access", "Policies", "Edit"}
+	case deletePolicy:
+		segments = []string{"Home", "Access", "Policies", "Delete"}
+	case selectPolicyClient:
+		segments = []string{"Home", "Access", "Policies", "Select Client"}
+	case policyExport:
+		segments = []string{"Home", "Access", "Policies", "Export"}
+	case unlockScreen:
+		segments = []string{"Home", "Unlock"}
+	default:
+		return ""
+	}
+
+	sep := breadcrumbSepStyle.Render(" › ")
+	var parts []string
+	for i, s := range segments {
+		if i == len(segments)-1 {
+			parts = append(parts, breadcrumbActiveStyle.Render(s))
+		} else {
+			parts = append(parts, breadcrumbSegmentStyle.Render(s))
+		}
+	}
+
+	crumb := strings.Join(parts, sep)
+	return breadcrumbBarStyle.Width(m.width).Render(crumb)
 }
 
 func (m *model) renderPolicyListView() string {
