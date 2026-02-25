@@ -225,7 +225,9 @@ Example:
 		fmt.Printf("⚠ Warning: This will remove the policy for '%s' and deny all access.\n", clientName)
 		fmt.Print("Continue? (yes/no): ")
 		var confirm string
-		fmt.Scanln(&confirm)
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			return fmt.Errorf("failed to read input: %w", err)
+		}
 		if confirm != "yes" {
 			fmt.Println("Aborted.")
 			return nil

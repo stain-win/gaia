@@ -116,7 +116,9 @@ func TestDeletePolicy(t *testing.T) {
 		},
 	}
 
-	store.SetPolicy(policy)
+	if err := store.SetPolicy(policy); err != nil {
+		t.Fatalf("Failed to set policy: %v", err)
+	}
 
 	// Delete
 	err := store.DeletePolicy("test-client")
@@ -150,7 +152,9 @@ func TestListPolicies(t *testing.T) {
 	}
 
 	for _, p := range policies {
-		store.SetPolicy(p)
+		if err := store.SetPolicy(p); err != nil {
+			t.Fatalf("Failed to set policy: %v", err)
+		}
 	}
 
 	// List all
@@ -183,7 +187,9 @@ func TestCheckPermission(t *testing.T) {
 			},
 		},
 	}
-	store.SetPolicy(policy)
+	if err := store.SetPolicy(policy); err != nil {
+		t.Fatalf("Failed to set policy: %v", err)
+	}
 
 	tests := []struct {
 		name       string

@@ -18,9 +18,6 @@ const (
 
 	// quickTimeout is for fast operations like status checks
 	quickTimeout = 5 * time.Second
-
-	// longTimeout is for operations that may take longer (e.g., bulk operations)
-	longTimeout = 60 * time.Second
 )
 
 // BackMsg is a custom message to signal returning to the previous menu.
@@ -102,11 +99,6 @@ type policyDeletedMsg struct {
 type policySavedMsg struct {
 	clientName string
 	err        error
-}
-
-type policyExportedMsg struct {
-	filename string
-	err      error
 }
 
 type clientsForPolicyMsg struct {

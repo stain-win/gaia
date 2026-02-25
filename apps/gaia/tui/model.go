@@ -78,7 +78,6 @@ type model struct {
 	// Policy management state
 	policies           []policyListItem
 	selectedPolicy     *policyDetailModel
-	policyFormModel    *policyFormModel
 	policyEditorModel  *policyEditorModel
 	policyDeleteModel  *policyDeleteModel
 	selectedClientName string // For policy operations

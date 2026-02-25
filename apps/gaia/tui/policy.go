@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -104,69 +103,6 @@ func (m *policyDetailModel) updateContent() {
 	}
 
 	m.viewport.SetContent(b.String())
-}
-
-// policyFormModel represents the form for creating/editing policies
-type policyFormModel struct {
-	clientName  string
-	rules       []policyRuleForm
-	currentRule int
-	textarea    textarea.Model
-	editing     bool
-	message     string
-}
-
-type policyRuleForm struct {
-	path         string
-	capabilities []string
-	description  string
-}
-
-func newPolicyFormModel(clientName string) *policyFormModel {
-	ta := textarea.New()
-	ta.Placeholder = "Enter path pattern (e.g., common/*, myapp/production/*)"
-	ta.CharLimit = 200
-	ta.SetHeight(3)
-	ta.SetWidth(60)
-	ta.Focus()
-
-	return &policyFormModel{
-		clientName:  clientName,
-		rules:       []policyRuleForm{},
-		currentRule: 0,
-		textarea:    ta,
-		editing:     false,
-	}
-}
-
-func (m *policyFormModel) addRule(rule policyRuleForm) {
-	m.rules = append(m.rules, rule)
-}
-
-func (m *policyFormModel) removeRule(index int) {
-	if index >= 0 && index < len(m.rules) {
-		m.rules = append(m.rules[:index], m.rules[index+1:]...)
-	}
-}
-
-func (m *policyFormModel) toPolicy() policy.Policy {
-	rules := make([]policy.PolicyRule, len(m.rules))
-	for i, r := range m.rules {
-		caps := make([]policy.Capability, len(r.capabilities))
-		for j, c := range r.capabilities {
-			caps[j] = policy.Capability(c)
-		}
-		rules[i] = policy.PolicyRule{
-			Path:         r.path,
-			Capabilities: caps,
-			Description:  r.description,
-		}
-	}
-
-	return policy.Policy{
-		ClientName: m.clientName,
-		Rules:      rules,
-	}
 }
 
 // renderPolicyList renders the list of policies

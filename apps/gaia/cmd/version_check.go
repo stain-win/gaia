@@ -189,7 +189,9 @@ func parseVersion(v string) [3]int {
 	parts := strings.Split(v, ".")
 	var result [3]int
 	for i := 0; i < 3 && i < len(parts); i++ {
-		fmt.Sscanf(parts[i], "%d", &result[i])
+		if _, err := fmt.Sscanf(parts[i], "%d", &result[i]); err != nil {
+			result[i] = 0
+		}
 	}
 	return result
 }
