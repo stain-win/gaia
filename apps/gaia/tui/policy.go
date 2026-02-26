@@ -58,45 +58,29 @@ func (m *policyDetailModel) setSize(width, height int) {
 func (m *policyDetailModel) updateContent() {
 	var b strings.Builder
 
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FF8C00")).
-		MarginBottom(1)
-
 	ruleStyle := lipgloss.NewStyle().
 		MarginLeft(2).
 		MarginBottom(1)
 
-	pathStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#00CED1")).
-		Bold(true)
-
-	capStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#90EE90"))
-
-	descStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#888888")).
-		Italic(true)
-
-	b.WriteString(titleStyle.Render(fmt.Sprintf("Policy for: %s", m.policy.ClientName)))
+	b.WriteString(policyTitleStyle.Render(fmt.Sprintf("Policy for: %s", m.policy.ClientName)))
 	b.WriteString("\n")
 	b.WriteString(fmt.Sprintf("Total Rules: %d\n\n", len(m.policy.Rules)))
 
 	for i, rule := range m.policy.Rules {
 		b.WriteString(ruleStyle.Render(fmt.Sprintf("Rule %d:", i+1)))
 		b.WriteString("\n")
-		b.WriteString(ruleStyle.Render(fmt.Sprintf("  Path: %s", pathStyle.Render(rule.Path))))
+		b.WriteString(ruleStyle.Render(fmt.Sprintf("  Path: %s", policyPathStyle.Render(rule.Path))))
 		b.WriteString("\n")
 
 		caps := make([]string, len(rule.Capabilities))
 		for j, cap := range rule.Capabilities {
-			caps[j] = capStyle.Render(string(cap))
+			caps[j] = policyCapStyle.Render(string(cap))
 		}
 		b.WriteString(ruleStyle.Render(fmt.Sprintf("  Capabilities: %s", strings.Join(caps, ", "))))
 		b.WriteString("\n")
 
 		if rule.Description != "" {
-			b.WriteString(ruleStyle.Render(fmt.Sprintf("  Description: %s", descStyle.Render(rule.Description))))
+			b.WriteString(ruleStyle.Render(fmt.Sprintf("  Description: %s", policyDescStyle.Render(rule.Description))))
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
@@ -205,6 +189,8 @@ type policyEditorModel struct {
 	rules            []policy.PolicyRule
 	selectedTemplate string
 	message          string
+	ruleForm         *huh.Form // Active rule editing form
+	editingRule      *policy.PolicyRule
 }
 
 func newPolicyEditorModel(clientName string, existingPolicy *policy.Policy) *policyEditorModel {
@@ -248,12 +234,19 @@ func (m *policyEditorModel) Init() *huh.Form {
 
 	// Step 1: Template selection (for new policies)
 	if m.existingPolicy == nil && m.step == 0 {
+		// Build description text from policyTemplateDescriptions
+		var descParts []string
+		for tmpl, desc := range policyTemplateDescriptions {
+			descParts = append(descParts, fmt.Sprintf("[%s] %s", tmpl, strings.Split(desc, "\n")[0]))
+		}
+		templateHelp := strings.Join(descParts, " | ")
+
 		return huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
 					Key("template").
 					Title("Policy Template").
-					Description("Start with a template or create from scratch").
+					Description(templateHelp).
 					Options(
 						huh.NewOption("Default (own namespace + common read)", "default"),
 						huh.NewOption("Read-Only Monitoring", "readonly"),
@@ -263,6 +256,11 @@ func (m *policyEditorModel) Init() *huh.Form {
 					Value(&m.selectedTemplate),
 			),
 		)
+	}
+
+	// Step 2: Rule building - show the rule editor form
+	if m.step == 2 {
+		return m.initRuleForm()
 	}
 
 	return nil
@@ -302,6 +300,22 @@ func (m *policyEditorModel) buildPolicy() policy.Policy {
 	return policy.Policy{
 		ClientName: m.clientName,
 		Rules:      m.rules,
+	}
+}
+
+// initRuleForm initializes a new rule editing form using createRuleForm.
+func (m *policyEditorModel) initRuleForm() *huh.Form {
+	m.editingRule = &policy.PolicyRule{}
+	m.ruleForm = createRuleForm(m.editingRule)
+	return m.ruleForm
+}
+
+// addRule appends the currently editing rule to the rules list.
+func (m *policyEditorModel) addRule() {
+	if m.editingRule != nil && m.editingRule.Path != "" {
+		m.rules = append(m.rules, *m.editingRule)
+		m.editingRule = nil
+		m.ruleForm = nil
 	}
 }
 

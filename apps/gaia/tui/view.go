@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -314,57 +313,51 @@ func (m *model) renderBreadcrumb() string {
 
 func (m *model) renderPolicyListView() string {
 	if len(m.policies) == 0 {
-		emptyStyle := lipgloss.NewStyle().
-			Foreground(colorTextMuted).
-			Padding(2).
-			Align(lipgloss.Center)
+		emptyMsg := policyErrorStyle.Render("No policies found")
+		helpMsg := policyDescStyle.Render("Press 'b' to go back")
 
 		return lipgloss.JoinVertical(
 			lipgloss.Center,
-			emptyStyle.Render("No policies found"),
-			emptyStyle.Render("Press 'b' to go back"),
+			emptyMsg,
+			helpMsg,
 		)
 	}
 
-	items := make([]list.Item, len(m.policies))
-	for i, p := range m.policies {
-		items[i] = p
-	}
+	l := renderPolicyList(m.policies, m.width, m.height)
+	countMsg := policySuccessStyle.Render(fmt.Sprintf("%d policies loaded", len(m.policies)))
 
-	l := list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-10)
-	l.Title = titleStyle.Render("Authorization Policies")
-	l.SetShowStatusBar(true)
-	l.SetFilteringEnabled(true)
-
-	return lipgloss.JoinVertical(lipgloss.Center, l.View())
+	return lipgloss.JoinVertical(lipgloss.Center, l.View(), countMsg)
 }
 
 func (m *model) renderClientSelectorView() string {
 	if len(m.clients) == 0 {
-		emptyStyle := lipgloss.NewStyle().
-			Foreground(colorTextMuted).
-			Padding(2).
-			Align(lipgloss.Center)
+		emptyMsg := policyErrorStyle.Render("No clients found")
+		helpMsg := policyDescStyle.Render("Press 'b' to go back")
 
 		return lipgloss.JoinVertical(
 			lipgloss.Center,
-			emptyStyle.Render("No clients found"),
-			emptyStyle.Render("Press 'b' to go back"),
+			emptyMsg,
+			helpMsg,
 		)
 	}
 
-	// Create a list of clients
-	items := make([]list.Item, len(m.clients))
-	for i, clientName := range m.clients {
-		items[i] = menuItem{title: clientName, desc: "Select to manage policy"}
+	// Use createClientSelector to build a huh-form based selector
+	selectorTitle := "Select Client"
+	switch m.policyOperation {
+	case "view":
+		selectorTitle = "Select client to view policy"
+	case "edit":
+		selectorTitle = "Select client to edit policy"
+	case "create":
+		selectorTitle = "Select client to create policy"
+	case "delete":
+		selectorTitle = "Select client to delete policy"
+	case "export":
+		selectorTitle = "Select client to export policy"
 	}
 
-	l := list.New(items, list.NewDefaultDelegate(), m.width-4, m.height-10)
-	l.Title = titleStyle.Render("Select Client")
-	l.SetShowStatusBar(true)
-	l.SetFilteringEnabled(true)
-
-	return lipgloss.JoinVertical(lipgloss.Center, l.View())
+	selectorForm := createClientSelector(m.clients, selectorTitle)
+	return lipgloss.JoinVertical(lipgloss.Center, selectorForm.View())
 }
 
 func (m *model) renderExportOptionsView() string {

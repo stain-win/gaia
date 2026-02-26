@@ -81,6 +81,7 @@ type model struct {
 	policyEditorModel  *policyEditorModel
 	policyDeleteModel  *policyDeleteModel
 	selectedClientName string // For policy operations
+	policyOperation    string // Tracks pending operation: view, edit, create, delete, export
 }
 
 // menuItems defines the items for the main menu.
