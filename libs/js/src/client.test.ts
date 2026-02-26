@@ -1,18 +1,37 @@
-
 import { GaiaClient } from './client';
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
-import * as path from 'path';
 
 // Mock grpc
 jest.mock('@grpc/grpc-js');
 jest.mock('@grpc/proto-loader');
 
+type GetSecretResponse = { id: string; value: string };
+type ListSecretsResponse = {
+    namespaces: { name: string; secrets: { id: string; value: string }[] }[];
+};
+
+type UnaryCallback<T> = (error: grpc.ServiceError | null, response: T) => void;
+
+type MockGrpcClient = {
+    waitForReady: jest.Mock<void, [number, (error?: Error | null) => void]>;
+    GetSecret: jest.Mock<void, [unknown, UnaryCallback<GetSecretResponse>]>;
+    ListSecrets: jest.Mock<void, [unknown, UnaryCallback<ListSecretsResponse>]>;
+    close: jest.Mock<void, []>;
+};
+
 describe('GaiaClient', () => {
     let client: GaiaClient;
-    let mockGrpcClient: any;
+    let mockGrpcClient: MockGrpcClient;
 
     beforeEach(async () => {
+        mockGrpcClient = {
+            waitForReady: jest.fn((deadline: number, callback: (error?: Error | null) => void) => callback(null)),
+            GetSecret: jest.fn(),
+            ListSecrets: jest.fn(),
+            close: jest.fn(),
+        };
+
         // Mock loadPackageDefinition
         (grpc.loadPackageDefinition as jest.Mock).mockReturnValue({
             gaia: {
@@ -24,13 +43,6 @@ describe('GaiaClient', () => {
 
         // Mock protoLoader.load
         (protoLoader.load as jest.Mock).mockResolvedValue({});
-
-        mockGrpcClient = {
-            waitForReady: jest.fn((deadline, callback) => callback(null)),
-            GetSecret: jest.fn(),
-            ListSecrets: jest.fn(),
-            close: jest.fn(),
-        };
 
         client = new GaiaClient({
             address: 'localhost:50051',
@@ -44,8 +56,8 @@ describe('GaiaClient', () => {
     });
 
     test('getSecret success', async () => {
-        const mockResponse = { id: 'test-id', value: 'test-value' };
-        mockGrpcClient.GetSecret.mockImplementation((req: any, callback: any) => {
+        const mockResponse: GetSecretResponse = { id: 'test-id', value: 'test-value' };
+        mockGrpcClient.GetSecret.mockImplementation((_req: unknown, callback: UnaryCallback<GetSecretResponse>) => {
             callback(null, mockResponse);
         });
 
@@ -58,7 +70,7 @@ describe('GaiaClient', () => {
     });
 
     test('listSecrets success', async () => {
-        const mockResponse = {
+        const mockResponse: ListSecretsResponse = {
             namespaces: [
                 {
                     name: 'ns1',
@@ -66,7 +78,7 @@ describe('GaiaClient', () => {
                 }
             ]
         };
-        mockGrpcClient.ListSecrets.mockImplementation((req: any, callback: any) => {
+        mockGrpcClient.ListSecrets.mockImplementation((_req: unknown, callback: UnaryCallback<ListSecretsResponse>) => {
             callback(null, mockResponse);
         });
 
@@ -75,7 +87,7 @@ describe('GaiaClient', () => {
     });
 
     test('loadEnv default behavior (key only)', async () => {
-        const mockResponse = {
+        const mockResponse: ListSecretsResponse = {
             namespaces: [
                 {
                     name: 'ns-one',
@@ -83,7 +95,7 @@ describe('GaiaClient', () => {
                 }
             ]
         };
-        mockGrpcClient.ListSecrets.mockImplementation((req: any, callback: any) => {
+        mockGrpcClient.ListSecrets.mockImplementation((_req: unknown, callback: UnaryCallback<ListSecretsResponse>) => {
             callback(null, mockResponse);
         });
 
@@ -94,7 +106,7 @@ describe('GaiaClient', () => {
     });
 
     test('loadEnv with prefix and namespace configured', async () => {
-        const mockResponse = {
+        const mockResponse: ListSecretsResponse = {
             namespaces: [
                 {
                     name: 'ns-one',
@@ -102,7 +114,7 @@ describe('GaiaClient', () => {
                 }
             ]
         };
-        mockGrpcClient.ListSecrets.mockImplementation((req: any, callback: any) => {
+        mockGrpcClient.ListSecrets.mockImplementation((_req: unknown, callback: UnaryCallback<ListSecretsResponse>) => {
             callback(null, mockResponse);
         });
 

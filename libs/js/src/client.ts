@@ -3,6 +3,32 @@ import * as protoLoader from "@grpc/proto-loader";
 import * as fs from "fs";
 import * as path from "path";
 
+// Typed shape for the generated gRPC client.
+type GaiaGrpcClient = {
+  waitForReady: (deadline: number, callback: (error?: Error | null) => void) => void;
+  GetSecret: (
+    request: { namespace: string; id: string },
+    callback: (error: grpc.ServiceError | null, response: Secret) => void,
+  ) => void;
+  ListSecrets: (
+    request: { namespace?: string },
+    callback: (error: grpc.ServiceError | null, response: { namespaces: Namespace[] }) => void,
+  ) => void;
+  close: () => void;
+};
+
+type GaiaClientServiceCtor = new (
+  address: string,
+  credentials: grpc.ChannelCredentials,
+  options?: Record<string, number | string>,
+) => GaiaGrpcClient;
+
+type GaiaProtoDescriptor = {
+  gaia: {
+    GaiaClient: GaiaClientServiceCtor;
+  };
+};
+
 /**
  * Configuration for connecting to the Gaia daemon.
  */
@@ -94,7 +120,7 @@ export interface LoadEnvOptions {
  * High-level Gaia client for interacting with the Gaia daemon.
  *
  * @example
- * ```typescript
+ * ```TypeScript
  * const client = new GaiaClient({
  *   address: 'localhost:50051',
  *   caCertFile: './certs/ca.crt',
@@ -111,7 +137,7 @@ export interface LoadEnvOptions {
  * ```
  */
 export class GaiaClient {
-  private client: any;
+  private client: GaiaGrpcClient | null = null;
   private readonly protoPath: string;
 
   /**
@@ -121,7 +147,7 @@ export class GaiaClient {
    * @throws {Error} If secure connection is requested but certificate paths are missing
    */
   constructor(private config: GaiaClientConfig) {
-    // Proto file is relative to this module by default, but can be overridden
+    // Proto file is relative to this module by default but can be overridden
     this.protoPath = config.protoPath || path.join(__dirname, "../proto/gaia-client.proto");
 
     if (!config.insecure) {
@@ -156,7 +182,7 @@ export class GaiaClient {
 
     const protoDescriptor = grpc.loadPackageDefinition(
       packageDefinition,
-    ) as any;
+    ) as unknown as GaiaProtoDescriptor;
     const GaiaClientService = protoDescriptor.gaia.GaiaClient;
 
     let credentials: grpc.ChannelCredentials;
@@ -171,7 +197,7 @@ export class GaiaClient {
       credentials = grpc.credentials.createSsl(caCert, clientKey, clientCert);
     }
 
-    const options: any = {
+    const options: Record<string, number | string> = {
       "grpc.keepalive_time_ms": 10000,
       "grpc.keepalive_timeout_ms": 5000,
     };
@@ -183,9 +209,10 @@ export class GaiaClient {
     this.client = new GaiaClientService(this.config.address, credentials, options);
 
     // Test connection
+    const connectedClient = this.client;
     return new Promise((resolve, reject) => {
       const deadline = Date.now() + this.config.timeout!;
-      this.client.waitForReady(deadline, (error: Error | undefined) => {
+      connectedClient.waitForReady(deadline, (error?: Error | null) => {
         if (error) {
           reject(
             new Error(`Failed to connect to Gaia daemon: ${error.message}`),
@@ -206,13 +233,13 @@ export class GaiaClient {
    * @throws {Error} If the secret is not found or access is denied
    *
    * @example
-   * ```typescript
+   * ```TypeScript
    * const dbUrl = await client.getSecret('production', 'database_url');
    * ```
    */
   async getSecret(namespace: string, id: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      this.client.GetSecret(
+      this.client!.GetSecret(
         { namespace, id },
         (error: grpc.ServiceError | null, response: Secret) => {
           if (error) {
@@ -233,11 +260,11 @@ export class GaiaClient {
    * @returns Map of namespace names to their secrets (key-value pairs)
    *
    * @example
-   * ```typescript
+   * ```TypeScript
    * // Get all common secrets
    * const allSecrets = await client.getCommonSecrets();
    *
-   * // Get secrets from specific namespace
+   * // Get secrets from a specific namespace
    * const prodSecrets = await client.getCommonSecrets('production');
    * ```
    */
@@ -250,7 +277,7 @@ export class GaiaClient {
    * @param options - Configure prefix and namespace inclusion in env var names.
    * 
    * @example
-   * ```typescript
+   * ```TypeScript
    * await client.loadEnv();
    * // Now you can access: process.env.DATABASE_URL
    * 
@@ -291,8 +318,8 @@ export class GaiaClient {
    * @returns Map of namespace names to their secrets (key-value pairs)
    *
    * @example
-   * ```typescript
-   * // Get all secrets (client's own + common)
+   * ```TypeScript
+   * // Get all secrets (client's own and common)
    * const allSecrets = await client.listSecrets();
    *
    * // Get only secrets from a specific namespace
@@ -303,7 +330,7 @@ export class GaiaClient {
     return new Promise((resolve, reject) => {
       const request = namespace ? { namespace } : {};
 
-      this.client.ListSecrets(
+      this.client!.ListSecrets(
         request,
         (
           error: grpc.ServiceError | null,
@@ -333,7 +360,7 @@ export class GaiaClient {
    * Should be called when done using the client.
    *
    * @example
-   * ```typescript
+   * ```TypeScript
    * try {
    *   // ... use client
    * } finally {
@@ -356,7 +383,7 @@ export class GaiaClient {
  * @returns Connected GaiaClient instance
  *
  * @example
- * ```typescript
+ * ```TypeScript
  * const client = await createClient({
  *   address: 'localhost:50051',
  *   caCertFile: './certs/ca.crt',

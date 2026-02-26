@@ -15,12 +15,17 @@ import (
 func (m *model) Init() tea.Cmd {
 	// Rebuild menu immediately with empty status (will be updated when status arrives)
 	m.rebuildMainMenu()
-	return tea.Batch(
-		checkStatusCmd(m.config),
-		tea.Tick(m.config.GaiaTuiTickInterval, func(t time.Time) tea.Msg {
-			return t
-		}),
-	)
+
+	// Start splash animation alongside background status check
+	var cmds []tea.Cmd
+	if m.splash != nil {
+		cmds = append(cmds, m.splash.Init())
+	}
+	cmds = append(cmds, checkStatusCmd(m.config))
+	cmds = append(cmds, tea.Tick(m.config.GaiaTuiTickInterval, func(t time.Time) tea.Msg {
+		return t
+	}))
+	return tea.Batch(cmds...)
 }
 
 // Update is called when a message is received.
@@ -56,6 +61,23 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, keys.Quit):
 			m.quitting = true
 			return m, tea.Quit
+		default:
+			// Any key press during splash skips the animation
+			if m.activeScreen == splashScreen {
+				m.splashComplete = true
+				m.activeScreen = mainMenu
+				return m, nil
+			}
+		}
+	case animationTickMsg:
+		if m.activeScreen == splashScreen && m.splash != nil {
+			done, cmd := m.splash.Update()
+			if done {
+				m.splashComplete = true
+				m.activeScreen = mainMenu
+				return m, nil
+			}
+			return m, cmd
 		}
 	case statusUpdatedMsg:
 		// Set status - when err is present, status is already "offline"
@@ -70,6 +92,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Screen-specific updates
 	switch m.activeScreen {
+	case splashScreen:
+		// Splash handles its own animation via animationTickMsg above
+		return m, nil
 	case mainMenu:
 		return m.updateMainMenu(msg)
 	case dataManagement:

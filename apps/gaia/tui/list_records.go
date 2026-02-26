@@ -496,13 +496,24 @@ func (m *inspectorModel) SetSize(w, h int) {
 	// Always reserve space for 5 clients; scrolling kicks in for larger lists.
 	// The DefaultDelegate renders each item at ~2 lines (title + cursor padding).
 	clientsHeight := 5*2 + 2 // 5 items × 2 lines each + header chrome
-	m.clientsList.SetSize(leftPaneWidth-4, clientsHeight)
 
 	sHeight := mainHeight - clientsHeight - 8
-	if sHeight < 1 {
-		sHeight = 1
+
+	// Ensure Gaia Secret Viewer pane height is never smaller than clients pane height
+	if sHeight < clientsHeight {
+		// Calculate total available height for both panes
+		totalAvailable := mainHeight - 8
+		if totalAvailable > 0 {
+			// Split height evenly, defaulting extra pixel to secrets
+			clientsHeight = totalAvailable / 2
+			sHeight = totalAvailable - clientsHeight
+		} else {
+			clientsHeight = 1
+			sHeight = 1
+		}
 	}
 
+	m.clientsList.SetSize(leftPaneWidth-4, clientsHeight)
 	m.secretsList.SetSize(leftPaneWidth-4, sHeight)
 
 	m.viewport.Width = rightPaneWidth - 4

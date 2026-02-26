@@ -20,7 +20,8 @@ const (
 type screen int
 
 const (
-	mainMenu screen = iota
+	splashScreen screen = iota // Animated splash on startup
+	mainMenu
 	dataManagement
 	addRecord
 	accessManagement // Renamed from certManagement
@@ -52,6 +53,8 @@ func (i menuItem) FilterValue() string { return i.title }
 // model holds the state for the main TUI application.
 type model struct {
 	activeScreen            screen
+	splash                  *splashModel
+	splashComplete          bool
 	mainMenu                list.Model
 	dataMenu                list.Model
 	accessMenu              list.Model // New: Access management menu
@@ -152,7 +155,8 @@ func initialModel(config *config.Config) *model {
 	policyList.SetFilteringEnabled(false)
 
 	m := model{
-		activeScreen:            mainMenu,
+		activeScreen:            splashScreen,
+		splash:                  newSplashModel(),
 		mainMenu:                mainList,
 		dataMenu:                dataList,
 		accessMenu:              accessList,

@@ -122,6 +122,10 @@ func (m *model) renderHelpBar() string {
 			helpKeyStyle.Render("esc") + " " + helpDescStyle.Render("back"),
 			helpKeyStyle.Render("q") + " " + helpDescStyle.Render("quit"),
 		}
+	case splashScreen:
+		keys = []string{
+			helpKeyStyle.Render("any key") + " " + helpDescStyle.Render("skip"),
+		}
 	}
 
 	helpText := strings.Join(keys, "  │  ")
@@ -133,20 +137,25 @@ func (m *model) View() string {
 		return "Loading..."
 	}
 
-	// Logo with styling
-	logo := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6A5ACD")).
-		Align(lipgloss.Center).
-		Render(gaiaLogo)
+	// Splash screen: full-screen animation, no chrome
+	if m.activeScreen == splashScreen && m.splash != nil {
+		m.splash.width = m.width
+		m.splash.height = m.height
+		return m.splash.View()
+	}
+
+	// Fixed-width container for content screens (centered by lipgloss.Place below)
+	containerWidth := 84
+	menuContainer := lipgloss.NewStyle().
+		Width(containerWidth).
+		Padding(0, 2).
+		Align(lipgloss.Left)
+
+	// Compact logo header — same width as menu container so the block centers properly
+	logo := renderCompactHeader(containerWidth)
 
 	// Build screen content based on active screen
 	var screenView string
-
-	// Fixed-width left-aligned container for menu screens
-	menuContainer := lipgloss.NewStyle().
-		Width(84).
-		Padding(0, 2).
-		Align(lipgloss.Left)
 
 	switch m.activeScreen {
 	case mainMenu:
