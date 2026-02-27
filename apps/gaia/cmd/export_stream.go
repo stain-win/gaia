@@ -19,13 +19,11 @@ type StreamEncoder interface {
 
 // JSONStreamEncoder implements StreamEncoder for JSON output.
 type JSONStreamEncoder struct {
-	w                io.Writer
-	enc              *json.Encoder
-	firstClient      bool
-	firstNamespace   bool
-	firstSecret      bool
-	currentClient    string
-	currentNamespace string
+	w              io.Writer
+	enc            *json.Encoder
+	firstClient    bool
+	firstNamespace bool
+	firstSecret    bool
 }
 
 func NewJSONStreamEncoder(w io.Writer) *JSONStreamEncoder {

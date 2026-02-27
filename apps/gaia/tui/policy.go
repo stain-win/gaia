@@ -73,8 +73,8 @@ func (m *policyDetailModel) updateContent() {
 		b.WriteString("\n")
 
 		caps := make([]string, len(rule.Capabilities))
-		for j, cap := range rule.Capabilities {
-			caps[j] = policyCapStyle.Render(string(cap))
+		for j, capability := range rule.Capabilities {
+			caps[j] = policyCapStyle.Render(string(capability))
 		}
 		b.WriteString(ruleStyle.Render(fmt.Sprintf("  Capabilities: %s", strings.Join(caps, ", "))))
 		b.WriteString("\n")
@@ -188,7 +188,6 @@ type policyEditorModel struct {
 	step             int // 0=client selection, 1=template/manual, 2=rule building
 	rules            []policy.PolicyRule
 	selectedTemplate string
-	message          string
 	ruleForm         *huh.Form // Active rule editing form
 	editingRule      *policy.PolicyRule
 }
@@ -327,8 +326,8 @@ func createRuleForm(rule *policy.PolicyRule) *huh.Form {
 
 	// Capability checkboxes
 	var hasRead, hasWrite, hasDelete, hasList bool
-	for _, cap := range rule.Capabilities {
-		switch cap {
+	for _, capability := range rule.Capabilities {
+		switch capability {
 		case policy.CapabilityRead:
 			hasRead = true
 		case policy.CapabilityWrite:
@@ -436,8 +435,8 @@ func formatPolicyAsYAML(pol policy.Policy) string {
 	for _, rule := range pol.Rules {
 		b.WriteString(fmt.Sprintf("  - path: %s\n", rule.Path))
 		b.WriteString("    capabilities:\n")
-		for _, cap := range rule.Capabilities {
-			b.WriteString(fmt.Sprintf("      - %s\n", cap))
+		for _, capability := range rule.Capabilities {
+			b.WriteString(fmt.Sprintf("      - %s\n", capability))
 		}
 		if rule.Description != "" {
 			b.WriteString(fmt.Sprintf("    description: %s\n", rule.Description))

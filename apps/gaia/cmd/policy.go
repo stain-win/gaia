@@ -13,10 +13,6 @@ import (
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
 
-var (
-	policyFile string
-)
-
 // policyCmd represents the base command for policy management.
 var policyCmd = &cobra.Command{
 	Use:   "policy",
@@ -390,8 +386,8 @@ func policyToProto(p *policy.Policy) *pb.Policy {
 
 func capabilitiesToStrings(caps []policy.Capability) []string {
 	strs := make([]string, len(caps))
-	for i, cap := range caps {
-		strs[i] = string(cap)
+	for i, capability := range caps {
+		strs[i] = string(capability)
 	}
 	return strs
 }

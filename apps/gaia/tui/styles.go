@@ -4,7 +4,6 @@ import "github.com/charmbracelet/lipgloss"
 
 // Color palette - consistent theme colors
 var (
-	colorPrimary   = lipgloss.Color("#7C3AED") // Purple
 	colorSecondary = lipgloss.Color("#6366F1") // Indigo
 	colorAccent    = lipgloss.Color("#FF8C00") // Orange
 
@@ -74,22 +73,6 @@ var (
 	infoBannerStyle = messageBannerBase.
 			Foreground(colorText).
 			Background(colorBgDark)
-
-	// Legacy message styles (kept for compatibility)
-	messageStyle = lipgloss.NewStyle().
-			Foreground(colorTextMuted).
-			Italic(true)
-
-	successMessageStyle = lipgloss.NewStyle().
-				Foreground(colorSuccess).
-				Bold(true)
-
-	errorMessageStyle = lipgloss.NewStyle().
-				Foreground(colorError).
-				Bold(true)
-
-	warningMessageStyle = lipgloss.NewStyle().
-				Foreground(colorWarning)
 )
 
 // Help bar styles
@@ -134,9 +117,6 @@ var (
 
 	selectedItemDescStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#D5589E"))
-
-	paneBorderSelectedStyle = lipgloss.NewStyle().
-				Padding(0, 1)
 
 	paneBorderUnselectedStyle = lipgloss.NewStyle().
 					Padding(0, 1)
