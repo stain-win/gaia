@@ -78,7 +78,7 @@ var stopCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon (is it running?): %w", err)
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		client := pb.NewGaiaAdminClient(conn)
 		if _, err = client.Stop(ctx, &pb.StopRequest{}); err != nil {
@@ -109,7 +109,7 @@ by 'gaia start'.`,
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon (is it running?): %w", err)
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		client := pb.NewGaiaAdminClient(conn)
 		if _, err = client.Stop(ctx, &pb.StopRequest{}); err != nil {
@@ -137,7 +137,7 @@ var statusCmd = &cobra.Command{
 			fmt.Printf("Gaia daemon status: %s\n", daemon.StatusStopped)
 			return nil
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		client := pb.NewGaiaAdminClient(conn)
 		res, err := client.GetStatus(ctx, &pb.GetStatusRequest{})

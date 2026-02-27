@@ -18,7 +18,6 @@ import (
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/daemon"
 	"github.com/stain-win/gaia/apps/gaia/encrypt"
-	"github.com/stain-win/gaia/apps/gaia/internal/secutil"
 )
 
 // Setup wizard styles
@@ -226,7 +225,6 @@ func runSetupWizard(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	defer secutil.WipeString(&passphrase)
 
 	if err := initializeDatabaseWithProgress(cfg, passphrase); err != nil {
 		return wrapSetupError("database initialization", err)
@@ -434,9 +432,6 @@ func promptSetupPassphrase() (string, error) {
 	if err := form.Run(); err != nil {
 		return "", err
 	}
-
-	// Wipe confirmation from memory
-	secutil.WipeString(&confirm)
 
 	// Show passphrase strength feedback
 	strength := getPassphraseStrength(passphrase)

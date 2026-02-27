@@ -53,7 +53,7 @@ Example:
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon: %w", err)
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		client := pb.NewGaiaAdminClient(conn)
 		resp, err := client.ListPolicies(ctx, &pb.ListPoliciesRequest{})
@@ -68,16 +68,14 @@ Example:
 
 		// Print in table format
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "CLIENT\tRULES\tACCESS SUMMARY")
-		fmt.Fprintln(w, "------\t-----\t--------------")
+		_, _ = fmt.Fprintln(w, "CLIENT\tRULES\tACCESS SUMMARY")
+		_, _ = fmt.Fprintln(w, "------\t-----\t--------------")
 
 		for _, p := range resp.Policies {
 			summary := buildAccessSummary(p)
-			fmt.Fprintf(w, "%s\t%d\t%s\n", p.ClientName, len(p.Rules), summary)
+			_, _ = fmt.Fprintf(w, "%s\t%d\t%s\n", p.ClientName, len(p.Rules), summary)
 		}
-		w.Flush()
-
-		return nil
+		return w.Flush()
 	},
 }
 
@@ -103,7 +101,7 @@ Example:
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon: %w", err)
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		client := pb.NewGaiaAdminClient(conn)
 		resp, err := client.GetPolicy(ctx, &pb.GetPolicyRequest{ClientName: clientName})
@@ -179,7 +177,7 @@ Example:
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon: %w", err)
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		client := pb.NewGaiaAdminClient(conn)
 
@@ -237,7 +235,7 @@ Example:
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon: %w", err)
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		client := pb.NewGaiaAdminClient(conn)
 		resp, err := client.DeletePolicy(ctx, &pb.DeletePolicyRequest{ClientName: clientName})

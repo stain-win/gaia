@@ -13,7 +13,6 @@ import (
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/daemon"
 	"github.com/stain-win/gaia/apps/gaia/encrypt"
-	"github.com/stain-win/gaia/apps/gaia/internal/secutil"
 )
 
 var (
@@ -96,8 +95,6 @@ func runInit(_ *cobra.Command, _ []string) error {
 		fmt.Println(warningStyle.Render("Initialization cancelled."))
 		return err
 	}
-	// Ensure passphrase is wiped from memory when function exits
-	defer secutil.WipeString(&passphrase)
 
 	// Step 2: Certificate setup
 	fmt.Println()
@@ -201,9 +198,6 @@ func promptForPassphrase() (string, error) {
 		return "", err
 	}
 
-	// Wipe the confirmation passphrase from memory
-	defer secutil.WipeString(&passphraseConfirm)
-
 	fmt.Println(successStyle.Render("✓ Passphrase validated"))
 	return passphrase, nil
 }
@@ -289,7 +283,7 @@ func handleCertificateSetup(cfg *config.Config) (bool, error) {
 	fmt.Println()
 	fmt.Println(infoStyle.Render("Generating mTLS certificates..."))
 
-	// Create certs directory
+	// Create a certs directory
 	if err := os.MkdirAll(cfg.TLS.CertsDirectory, 0755); err != nil {
 		return false, fmt.Errorf("failed to create certs directory: %w", err)
 	}

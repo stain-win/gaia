@@ -117,14 +117,14 @@ func (m *model) renderHelpBar() string {
 			helpKeyStyle.Render("y") + " " + helpDescStyle.Render("export YAML"),
 			helpKeyStyle.Render("esc") + " " + helpDescStyle.Render("cancel"),
 		}
+	case splashScreen:
+		keys = []string{
+			helpKeyStyle.Render("any key") + " " + helpDescStyle.Render("skip"),
+		}
 	default:
 		keys = []string{
 			helpKeyStyle.Render("esc") + " " + helpDescStyle.Render("back"),
 			helpKeyStyle.Render("q") + " " + helpDescStyle.Render("quit"),
-		}
-	case splashScreen:
-		keys = []string{
-			helpKeyStyle.Render("any key") + " " + helpDescStyle.Render("skip"),
 		}
 	}
 
@@ -151,10 +151,10 @@ func (m *model) View() string {
 		Padding(0, 2).
 		Align(lipgloss.Left)
 
-	// Compact logo header — same width as menu container so the block centers properly
+	// Compact logo header — same width as the menu container so the block centers properly
 	logo := renderCompactHeader(containerWidth)
 
-	// Build screen content based on active screen
+	// Build screen content based on the active screen
 	var screenView string
 
 	switch m.activeScreen {
@@ -202,6 +202,8 @@ func (m *model) View() string {
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.renderExportOptionsView())
 	case unlockScreen:
 		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, m.unlockFormModel.View())
+	default:
+		screenView = lipgloss.JoinVertical(lipgloss.Center, logo, fmt.Sprintf("unknown screen: %v", m.activeScreen))
 	}
 
 	// Layout:

@@ -75,7 +75,7 @@ secrets with the values from the file.`,
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon: %w", err)
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		client := pb.NewGaiaAdminClient(conn)
 
@@ -187,7 +187,7 @@ This format is compatible with the 'gaia secrets import' command.`,
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon: %w", err)
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		adminClient := pb.NewGaiaAdminClient(conn)
 

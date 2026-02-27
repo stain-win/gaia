@@ -65,7 +65,7 @@ func (d customDelegate) Render(w io.Writer, m list.Model, index int, listItem li
 			)
 		} else {
 			str = lipgloss.JoinVertical(lipgloss.Left,
-				itemTitleStyle.Copy().Foreground(colorTextMuted).Render(title),
+				itemTitleStyle.Foreground(colorTextMuted).Render(title),
 				itemDescStyle.Render(desc),
 			)
 		}
@@ -75,7 +75,7 @@ func (d customDelegate) Render(w io.Writer, m list.Model, index int, listItem li
 			itemDescStyle.Render(desc),
 		)
 	}
-	fmt.Fprintf(w, "%s", str)
+	_, _ = fmt.Fprintf(w, "%s", str)
 }
 
 // clientListItem renders the client selector list

@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"bytes"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,22 +35,6 @@ func setOutputDir(t *testing.T, dir string) {
 	t.Cleanup(func() {
 		outputDir = ""
 	})
-}
-
-// captureOutput captures stdout during command execution
-func captureOutput(f func()) string {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	f()
-
-	_ = w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	return buf.String()
 }
 
 func TestCertsCmd(t *testing.T) {

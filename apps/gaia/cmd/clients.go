@@ -48,7 +48,7 @@ with the Gaia daemon.`,
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon: %w", err)
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		c := pb.NewGaiaAdminClient(conn)
 

@@ -41,27 +41,37 @@ func (e *JSONStreamEncoder) Start() error {
 
 func (e *JSONStreamEncoder) StartClient(name string) error {
 	if !e.firstClient {
-		fmt.Fprint(e.w, ",\n")
+		if _, err := fmt.Fprint(e.w, ",\n"); err != nil {
+			return err
+		}
 	}
 	e.firstClient = false
-	fmt.Fprintf(e.w, "  %q: {\n", name)
+	if _, err := fmt.Fprintf(e.w, "  %q: {\n", name); err != nil {
+		return err
+	}
 	e.firstNamespace = true
 	return nil
 }
 
 func (e *JSONStreamEncoder) StartNamespace(name string) error {
 	if !e.firstNamespace {
-		fmt.Fprint(e.w, ",\n")
+		if _, err := fmt.Fprint(e.w, ",\n"); err != nil {
+			return err
+		}
 	}
 	e.firstNamespace = false
-	fmt.Fprintf(e.w, "    %q: {\n", name)
+	if _, err := fmt.Fprintf(e.w, "    %q: {\n", name); err != nil {
+		return err
+	}
 	e.firstSecret = true
 	return nil
 }
 
 func (e *JSONStreamEncoder) WriteSecret(key, value string) error {
 	if !e.firstSecret {
-		fmt.Fprint(e.w, ",\n")
+		if _, err := fmt.Fprint(e.w, ",\n"); err != nil {
+			return err
+		}
 	}
 	e.firstSecret = false
 	// We construct a temporary map to marshal the key-value pair correctly with escaping
@@ -74,18 +84,18 @@ func (e *JSONStreamEncoder) WriteSecret(key, value string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(e.w, "      %s: %s", string(keyBytes), string(valBytes))
-	return nil
+	_, err = fmt.Fprintf(e.w, "      %s: %s", string(keyBytes), string(valBytes))
+	return err
 }
 
 func (e *JSONStreamEncoder) EndNamespace() error {
-	fmt.Fprint(e.w, "\n    }")
-	return nil
+	_, err := fmt.Fprint(e.w, "\n    }")
+	return err
 }
 
 func (e *JSONStreamEncoder) EndClient() error {
-	fmt.Fprint(e.w, "\n  }")
-	return nil
+	_, err := fmt.Fprint(e.w, "\n  }")
+	return err
 }
 
 func (e *JSONStreamEncoder) End() error {

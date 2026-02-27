@@ -31,7 +31,7 @@ to take before performing maintenance or if a potential threat is detected.`,
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon: %w", err)
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		client := pb.NewGaiaAdminClient(conn)
 		_, err = client.Lock(ctx, &pb.LockRequest{})
@@ -83,7 +83,7 @@ prompted to enter the master passphrase securely.`,
 		if err != nil {
 			return fmt.Errorf("could not connect to daemon: %w", err)
 		}
-		defer conn.Close()
+		defer closeConn(conn)
 
 		client := pb.NewGaiaAdminClient(conn)
 		_, err = client.Unlock(ctx, &pb.UnlockRequest{Passphrase: string(passphrase)})
