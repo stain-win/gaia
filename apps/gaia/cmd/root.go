@@ -82,6 +82,7 @@ func init() {
 	rootCmd.AddCommand(unlockCmd)
 	rootCmd.AddCommand(execCmd)
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(rotatePasswordCmd)
 
 	// Add persistent flags that apply to all subcommands
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file path (default: searches standard locations)")

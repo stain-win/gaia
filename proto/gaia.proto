@@ -24,6 +24,9 @@ service GaiaAdmin {
   rpc GetPolicy(GetPolicyRequest) returns (GetPolicyResponse);
   rpc SetPolicy(SetPolicyRequest) returns (SetPolicyResponse);
   rpc DeletePolicy(DeletePolicyRequest) returns (DeletePolicyResponse);
+
+  // Password rotation
+  rpc RotatePassword(RotatePasswordRequest) returns (RotatePasswordResponse);
 }
 
 service GaiaClient {
@@ -217,4 +220,17 @@ message DeletePolicyRequest {
 message DeletePolicyResponse {
   bool success = 1;
   string message = 2;
+}
+
+// Password rotation messages
+message RotatePasswordRequest {
+  string current_passphrase = 1;
+  string new_passphrase = 2;
+}
+
+message RotatePasswordResponse {
+  bool success = 1;
+  string message = 2;
+  int32 secrets_rotated = 3;
+  string backup_path = 4;
 }

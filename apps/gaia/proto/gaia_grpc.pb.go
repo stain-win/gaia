@@ -36,6 +36,7 @@ const (
 	GaiaAdmin_GetPolicy_FullMethodName         = "/gaia.GaiaAdmin/GetPolicy"
 	GaiaAdmin_SetPolicy_FullMethodName         = "/gaia.GaiaAdmin/SetPolicy"
 	GaiaAdmin_DeletePolicy_FullMethodName      = "/gaia.GaiaAdmin/DeletePolicy"
+	GaiaAdmin_RotatePassword_FullMethodName    = "/gaia.GaiaAdmin/RotatePassword"
 )
 
 // GaiaAdminClient is the client API for GaiaAdmin service.
@@ -60,6 +61,8 @@ type GaiaAdminClient interface {
 	GetPolicy(ctx context.Context, in *GetPolicyRequest, opts ...grpc.CallOption) (*GetPolicyResponse, error)
 	SetPolicy(ctx context.Context, in *SetPolicyRequest, opts ...grpc.CallOption) (*SetPolicyResponse, error)
 	DeletePolicy(ctx context.Context, in *DeletePolicyRequest, opts ...grpc.CallOption) (*DeletePolicyResponse, error)
+	// Password rotation
+	RotatePassword(ctx context.Context, in *RotatePasswordRequest, opts ...grpc.CallOption) (*RotatePasswordResponse, error)
 }
 
 type gaiaAdminClient struct {
@@ -252,6 +255,16 @@ func (c *gaiaAdminClient) DeletePolicy(ctx context.Context, in *DeletePolicyRequ
 	return out, nil
 }
 
+func (c *gaiaAdminClient) RotatePassword(ctx context.Context, in *RotatePasswordRequest, opts ...grpc.CallOption) (*RotatePasswordResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RotatePasswordResponse)
+	err := c.cc.Invoke(ctx, GaiaAdmin_RotatePassword_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GaiaAdminServer is the server API for GaiaAdmin service.
 // All implementations must embed UnimplementedGaiaAdminServer
 // for forward compatibility.
@@ -274,6 +287,8 @@ type GaiaAdminServer interface {
 	GetPolicy(context.Context, *GetPolicyRequest) (*GetPolicyResponse, error)
 	SetPolicy(context.Context, *SetPolicyRequest) (*SetPolicyResponse, error)
 	DeletePolicy(context.Context, *DeletePolicyRequest) (*DeletePolicyResponse, error)
+	// Password rotation
+	RotatePassword(context.Context, *RotatePasswordRequest) (*RotatePasswordResponse, error)
 	mustEmbedUnimplementedGaiaAdminServer()
 }
 
@@ -334,6 +349,9 @@ func (UnimplementedGaiaAdminServer) SetPolicy(context.Context, *SetPolicyRequest
 }
 func (UnimplementedGaiaAdminServer) DeletePolicy(context.Context, *DeletePolicyRequest) (*DeletePolicyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeletePolicy not implemented")
+}
+func (UnimplementedGaiaAdminServer) RotatePassword(context.Context, *RotatePasswordRequest) (*RotatePasswordResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RotatePassword not implemented")
 }
 func (UnimplementedGaiaAdminServer) mustEmbedUnimplementedGaiaAdminServer() {}
 func (UnimplementedGaiaAdminServer) testEmbeddedByValue()                   {}
@@ -644,6 +662,24 @@ func _GaiaAdmin_DeletePolicy_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GaiaAdmin_RotatePassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RotatePasswordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GaiaAdminServer).RotatePassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GaiaAdmin_RotatePassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GaiaAdminServer).RotatePassword(ctx, req.(*RotatePasswordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GaiaAdmin_ServiceDesc is the grpc.ServiceDesc for GaiaAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -710,6 +746,10 @@ var GaiaAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeletePolicy",
 			Handler:    _GaiaAdmin_DeletePolicy_Handler,
+		},
+		{
+			MethodName: "RotatePassword",
+			Handler:    _GaiaAdmin_RotatePassword_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

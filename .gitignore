@@ -47,3 +47,5 @@ go.work.sum
 /.github/instructions
 /certs/
 dist/
+
+.nx/polygraph

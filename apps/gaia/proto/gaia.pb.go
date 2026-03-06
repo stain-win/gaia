@@ -2053,6 +2053,127 @@ func (x *DeletePolicyResponse) GetMessage() string {
 	return ""
 }
 
+// Password rotation messages
+type RotatePasswordRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	CurrentPassphrase string                 `protobuf:"bytes,1,opt,name=current_passphrase,json=currentPassphrase,proto3" json:"current_passphrase,omitempty"`
+	NewPassphrase     string                 `protobuf:"bytes,2,opt,name=new_passphrase,json=newPassphrase,proto3" json:"new_passphrase,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *RotatePasswordRequest) Reset() {
+	*x = RotatePasswordRequest{}
+	mi := &file_gaia_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RotatePasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RotatePasswordRequest) ProtoMessage() {}
+
+func (x *RotatePasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RotatePasswordRequest.ProtoReflect.Descriptor instead.
+func (*RotatePasswordRequest) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *RotatePasswordRequest) GetCurrentPassphrase() string {
+	if x != nil {
+		return x.CurrentPassphrase
+	}
+	return ""
+}
+
+func (x *RotatePasswordRequest) GetNewPassphrase() string {
+	if x != nil {
+		return x.NewPassphrase
+	}
+	return ""
+}
+
+type RotatePasswordResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Success        bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message        string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	SecretsRotated int32                  `protobuf:"varint,3,opt,name=secrets_rotated,json=secretsRotated,proto3" json:"secrets_rotated,omitempty"`
+	BackupPath     string                 `protobuf:"bytes,4,opt,name=backup_path,json=backupPath,proto3" json:"backup_path,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *RotatePasswordResponse) Reset() {
+	*x = RotatePasswordResponse{}
+	mi := &file_gaia_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RotatePasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RotatePasswordResponse) ProtoMessage() {}
+
+func (x *RotatePasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gaia_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RotatePasswordResponse.ProtoReflect.Descriptor instead.
+func (*RotatePasswordResponse) Descriptor() ([]byte, []int) {
+	return file_gaia_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *RotatePasswordResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *RotatePasswordResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *RotatePasswordResponse) GetSecretsRotated() int32 {
+	if x != nil {
+		return x.SecretsRotated
+	}
+	return 0
+}
+
+func (x *RotatePasswordResponse) GetBackupPath() string {
+	if x != nil {
+		return x.BackupPath
+	}
+	return ""
+}
+
 var File_gaia_proto protoreflect.FileDescriptor
 
 const file_gaia_proto_rawDesc = "" +
@@ -2180,7 +2301,16 @@ const file_gaia_proto_rawDesc = "" +
 	"clientName\"J\n" +
 	"\x14DeletePolicyResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2\xf2\b\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"m\n" +
+	"\x15RotatePasswordRequest\x12-\n" +
+	"\x12current_passphrase\x18\x01 \x01(\tR\x11currentPassphrase\x12%\n" +
+	"\x0enew_passphrase\x18\x02 \x01(\tR\rnewPassphrase\"\x96\x01\n" +
+	"\x16RotatePasswordResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12'\n" +
+	"\x0fsecrets_rotated\x18\x03 \x01(\x05R\x0esecretsRotated\x12\x1f\n" +
+	"\vbackup_path\x18\x04 \x01(\tR\n" +
+	"backupPath2\xbf\t\n" +
 	"\tGaiaAdmin\x12<\n" +
 	"\tAddSecret\x12\x16.gaia.AddSecretRequest\x1a\x17.gaia.AddSecretResponse\x12E\n" +
 	"\fDeleteSecret\x12\x19.gaia.DeleteSecretRequest\x1a\x1a.gaia.DeleteSecretResponse\x12B\n" +
@@ -2198,7 +2328,8 @@ const file_gaia_proto_rawDesc = "" +
 	"\fListPolicies\x12\x19.gaia.ListPoliciesRequest\x1a\x1a.gaia.ListPoliciesResponse\x12<\n" +
 	"\tGetPolicy\x12\x16.gaia.GetPolicyRequest\x1a\x17.gaia.GetPolicyResponse\x12<\n" +
 	"\tSetPolicy\x12\x16.gaia.SetPolicyRequest\x1a\x17.gaia.SetPolicyResponse\x12E\n" +
-	"\fDeletePolicy\x12\x19.gaia.DeletePolicyRequest\x1a\x1a.gaia.DeletePolicyResponse2\x89\x01\n" +
+	"\fDeletePolicy\x12\x19.gaia.DeletePolicyRequest\x1a\x1a.gaia.DeletePolicyResponse\x12K\n" +
+	"\x0eRotatePassword\x12\x1b.gaia.RotatePasswordRequest\x1a\x1c.gaia.RotatePasswordResponse2\x89\x01\n" +
 	"\n" +
 	"GaiaClient\x121\n" +
 	"\tGetSecret\x12\x16.gaia.GetSecretRequest\x1a\f.gaia.Secret\x12H\n" +
@@ -2216,7 +2347,7 @@ func file_gaia_proto_rawDescGZIP() []byte {
 	return file_gaia_proto_rawDescData
 }
 
-var file_gaia_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
+var file_gaia_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_gaia_proto_goTypes = []any{
 	(*Secret)(nil),                    // 0: gaia.Secret
 	(*Namespace)(nil),                 // 1: gaia.Namespace
@@ -2260,6 +2391,8 @@ var file_gaia_proto_goTypes = []any{
 	(*SetPolicyResponse)(nil),         // 39: gaia.SetPolicyResponse
 	(*DeletePolicyRequest)(nil),       // 40: gaia.DeletePolicyRequest
 	(*DeletePolicyResponse)(nil),      // 41: gaia.DeletePolicyResponse
+	(*RotatePasswordRequest)(nil),     // 42: gaia.RotatePasswordRequest
+	(*RotatePasswordResponse)(nil),    // 43: gaia.RotatePasswordResponse
 }
 var file_gaia_proto_depIdxs = []int32{
 	0,  // 0: gaia.Namespace.secrets:type_name -> gaia.Secret
@@ -2289,29 +2422,31 @@ var file_gaia_proto_depIdxs = []int32{
 	36, // 24: gaia.GaiaAdmin.GetPolicy:input_type -> gaia.GetPolicyRequest
 	38, // 25: gaia.GaiaAdmin.SetPolicy:input_type -> gaia.SetPolicyRequest
 	40, // 26: gaia.GaiaAdmin.DeletePolicy:input_type -> gaia.DeletePolicyRequest
-	4,  // 27: gaia.GaiaClient.GetSecret:input_type -> gaia.GetSecretRequest
-	5,  // 28: gaia.GaiaClient.ListSecrets:input_type -> gaia.ClientListSecretsRequest
-	3,  // 29: gaia.GaiaAdmin.AddSecret:output_type -> gaia.AddSecretResponse
-	24, // 30: gaia.GaiaAdmin.DeleteSecret:output_type -> gaia.DeleteSecretResponse
-	29, // 31: gaia.GaiaAdmin.ListSecrets:output_type -> gaia.ListSecretsResponse
-	7,  // 32: gaia.GaiaAdmin.GetStatus:output_type -> gaia.GetStatusResponse
-	9,  // 33: gaia.GaiaAdmin.Stop:output_type -> gaia.StopResponse
-	11, // 34: gaia.GaiaAdmin.Unlock:output_type -> gaia.UnlockResponse
-	13, // 35: gaia.GaiaAdmin.Lock:output_type -> gaia.LockResponse
-	15, // 36: gaia.GaiaAdmin.RegisterClient:output_type -> gaia.RegisterClientResponse
-	18, // 37: gaia.GaiaAdmin.ListClients:output_type -> gaia.ListClientsResponse
-	20, // 38: gaia.GaiaAdmin.ListNamespaces:output_type -> gaia.ListNamespacesResponse
-	22, // 39: gaia.GaiaAdmin.RevokeClient:output_type -> gaia.RevokeClientResponse
-	28, // 40: gaia.GaiaAdmin.ImportSecrets:output_type -> gaia.ImportSecretsResponse
-	31, // 41: gaia.GaiaAdmin.ListSecretsStream:output_type -> gaia.ListSecretsStreamResponse
-	35, // 42: gaia.GaiaAdmin.ListPolicies:output_type -> gaia.ListPoliciesResponse
-	37, // 43: gaia.GaiaAdmin.GetPolicy:output_type -> gaia.GetPolicyResponse
-	39, // 44: gaia.GaiaAdmin.SetPolicy:output_type -> gaia.SetPolicyResponse
-	41, // 45: gaia.GaiaAdmin.DeletePolicy:output_type -> gaia.DeletePolicyResponse
-	0,  // 46: gaia.GaiaClient.GetSecret:output_type -> gaia.Secret
-	29, // 47: gaia.GaiaClient.ListSecrets:output_type -> gaia.ListSecretsResponse
-	29, // [29:48] is the sub-list for method output_type
-	10, // [10:29] is the sub-list for method input_type
+	42, // 27: gaia.GaiaAdmin.RotatePassword:input_type -> gaia.RotatePasswordRequest
+	4,  // 28: gaia.GaiaClient.GetSecret:input_type -> gaia.GetSecretRequest
+	5,  // 29: gaia.GaiaClient.ListSecrets:input_type -> gaia.ClientListSecretsRequest
+	3,  // 30: gaia.GaiaAdmin.AddSecret:output_type -> gaia.AddSecretResponse
+	24, // 31: gaia.GaiaAdmin.DeleteSecret:output_type -> gaia.DeleteSecretResponse
+	29, // 32: gaia.GaiaAdmin.ListSecrets:output_type -> gaia.ListSecretsResponse
+	7,  // 33: gaia.GaiaAdmin.GetStatus:output_type -> gaia.GetStatusResponse
+	9,  // 34: gaia.GaiaAdmin.Stop:output_type -> gaia.StopResponse
+	11, // 35: gaia.GaiaAdmin.Unlock:output_type -> gaia.UnlockResponse
+	13, // 36: gaia.GaiaAdmin.Lock:output_type -> gaia.LockResponse
+	15, // 37: gaia.GaiaAdmin.RegisterClient:output_type -> gaia.RegisterClientResponse
+	18, // 38: gaia.GaiaAdmin.ListClients:output_type -> gaia.ListClientsResponse
+	20, // 39: gaia.GaiaAdmin.ListNamespaces:output_type -> gaia.ListNamespacesResponse
+	22, // 40: gaia.GaiaAdmin.RevokeClient:output_type -> gaia.RevokeClientResponse
+	28, // 41: gaia.GaiaAdmin.ImportSecrets:output_type -> gaia.ImportSecretsResponse
+	31, // 42: gaia.GaiaAdmin.ListSecretsStream:output_type -> gaia.ListSecretsStreamResponse
+	35, // 43: gaia.GaiaAdmin.ListPolicies:output_type -> gaia.ListPoliciesResponse
+	37, // 44: gaia.GaiaAdmin.GetPolicy:output_type -> gaia.GetPolicyResponse
+	39, // 45: gaia.GaiaAdmin.SetPolicy:output_type -> gaia.SetPolicyResponse
+	41, // 46: gaia.GaiaAdmin.DeletePolicy:output_type -> gaia.DeletePolicyResponse
+	43, // 47: gaia.GaiaAdmin.RotatePassword:output_type -> gaia.RotatePasswordResponse
+	0,  // 48: gaia.GaiaClient.GetSecret:output_type -> gaia.Secret
+	29, // 49: gaia.GaiaClient.ListSecrets:output_type -> gaia.ListSecretsResponse
+	30, // [30:50] is the sub-list for method output_type
+	10, // [10:30] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
 	10, // [10:10] is the sub-list for extension extendee
 	0,  // [0:10] is the sub-list for field type_name
@@ -2332,7 +2467,7 @@ func file_gaia_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gaia_proto_rawDesc), len(file_gaia_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   42,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

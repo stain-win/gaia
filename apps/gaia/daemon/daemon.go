@@ -513,6 +513,159 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 	return nil
 }
 
+// RotatePassword re-encrypts all secrets with a new key derived from a new passphrase.
+// It creates a backup of the database before performing the rotation.
+// The entire operation is atomic: if any step fails, the database is unchanged.
+func (d *Daemon) RotatePassword(currentPassphrase, newPassphrase string) (int, string, error) {
+	d.dbLock.Lock()
+	defer d.dbLock.Unlock()
+
+	if d.isLocked || d.db == nil {
+		return 0, "", gaiaerrors.ErrDaemonLocked
+	}
+
+	// Step 1: Validate current passphrase (defense-in-depth)
+	var salt, storedHash []byte
+	err := d.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(secretsBucket))
+		if b == nil {
+			return gaiaerrors.ErrBucketNotFound
+		}
+		salt = b.Get([]byte(saltKey))
+		if salt == nil {
+			return gaiaerrors.ErrSaltNotFound
+		}
+		storedHash = b.Get([]byte(keyHashKey))
+		if storedHash == nil {
+			return gaiaerrors.ErrKeyHashNotFound
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to read database metadata: %w", err)
+	}
+
+	derivedKey, err := encrypt.DeriveKey([]byte(currentPassphrase), salt)
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to derive key: %w", err)
+	}
+	derivedKeyHash := sha256.Sum256(derivedKey)
+	if subtle.ConstantTimeCompare(derivedKeyHash[:], storedHash) != 1 {
+		return 0, "", gaiaerrors.ErrInvalidPassphrase
+	}
+
+	// Step 2: Validate new passphrase
+	if currentPassphrase == newPassphrase {
+		return 0, "", gaiaerrors.ErrPassphraseSameAsCurrent
+	}
+	if _, err := encrypt.ValidatePassword(newPassphrase); err != nil {
+		return 0, "", fmt.Errorf("new passphrase too weak: %w", err)
+	}
+
+	// Step 3: Create backup before any mutation
+	backupPath, err := d.createBackup()
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to create backup: %w", err)
+	}
+	gaialog.Get().Info("database backup created", slog.String("path", backupPath))
+
+	// Step 4: Derive new key from new passphrase + new salt
+	newSalt := make([]byte, 16)
+	if _, err := rand.Read(newSalt); err != nil {
+		return 0, backupPath, fmt.Errorf("failed to generate new salt: %w", err)
+	}
+
+	newKey, err := encrypt.DeriveKey([]byte(newPassphrase), newSalt)
+	if err != nil {
+		return 0, backupPath, fmt.Errorf("failed to derive new key: %w", err)
+	}
+	newKeyHash := sha256.Sum256(newKey)
+
+	// Step 5: Atomic re-encryption in a single transaction
+	var secretCount int
+	err = d.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(secretsBucket))
+		if b == nil {
+			return gaiaerrors.ErrBucketNotFound
+		}
+
+		c := b.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			keyStr := string(k)
+
+			// Skip metadata keys
+			if strings.HasPrefix(keyStr, metaPrefix) {
+				continue
+			}
+
+			// Decrypt with old key
+			plaintext, err := encrypt.Decrypt(d.key, string(v))
+			if err != nil {
+				return fmt.Errorf("failed to decrypt secret during rotation (key=%s): %w", keyStr, err)
+			}
+
+			// Re-encrypt with new key
+			newEncValue, err := encrypt.Encrypt(newKey, plaintext)
+			if err != nil {
+				return fmt.Errorf("failed to re-encrypt secret during rotation (key=%s): %w", keyStr, err)
+			}
+
+			if err := b.Put(k, []byte(newEncValue)); err != nil {
+				return fmt.Errorf("failed to write re-encrypted secret: %w", err)
+			}
+			secretCount++
+		}
+
+		// Update salt and key hash
+		if err := b.Put([]byte(saltKey), newSalt); err != nil {
+			return fmt.Errorf("failed to update salt: %w", err)
+		}
+		if err := b.Put([]byte(keyHashKey), newKeyHash[:]); err != nil {
+			return fmt.Errorf("failed to update key hash: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return 0, backupPath, fmt.Errorf("rotation failed (database unchanged, backup at %s): %w", backupPath, err)
+	}
+
+	// Step 6: Swap in-memory key
+	for i := range d.key {
+		d.key[i] = 0
+	}
+	d.key = newKey
+
+	gaialog.Get().Info("password rotation completed",
+		slog.Int("secrets_rotated", secretCount),
+		slog.String("backup_path", backupPath))
+
+	return secretCount, backupPath, nil
+}
+
+// createBackup creates a consistent snapshot of the database file.
+func (d *Daemon) createBackup() (string, error) {
+	timestamp := time.Now().UTC().Format("20060102T150405Z")
+	backupPath := d.config.Daemon.DBFile + ".bak." + timestamp
+
+	backupFile, err := os.OpenFile(backupPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		return "", fmt.Errorf("failed to create backup file: %w", err)
+	}
+	defer backupFile.Close()
+
+	err = d.db.View(func(tx *bbolt.Tx) error {
+		_, err := tx.WriteTo(backupFile)
+		return err
+	})
+	if err != nil {
+		os.Remove(backupPath)
+		return "", fmt.Errorf("failed to write backup: %w", err)
+	}
+
+	return backupPath, nil
+}
+
 // RegisterClient creates a new client, assigns it a UUID, and stores it in the database.
 func (d *Daemon) RegisterClient(clientName string) error {
 	d.dbLock.Lock()

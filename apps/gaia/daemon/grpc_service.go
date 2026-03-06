@@ -41,6 +41,8 @@ func mapErrorToGRPCStatus(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, gaiaerrors.ErrReservedName):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, gaiaerrors.ErrPassphraseSameAsCurrent):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, gaiaerrors.ErrNoPeerContext),
 		errors.Is(err, gaiaerrors.ErrNotTLS),
 		errors.Is(err, gaiaerrors.ErrNoPeerCertificates):
@@ -240,6 +242,30 @@ func (s *gaiaAdminServer) Unlock(_ context.Context, req *pb.UnlockRequest) (*pb.
 	// Reset failed attempts on success
 	s.d.resetUnlockAttempts()
 	return &pb.UnlockResponse{Success: true}, nil
+}
+
+// RotatePassword handles the RotatePassword RPC call.
+// Re-encrypts all secrets with a new key derived from the new passphrase.
+func (s *gaiaAdminServer) RotatePassword(_ context.Context, req *pb.RotatePasswordRequest) (*pb.RotatePasswordResponse, error) {
+	if s.d.isLocked {
+		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
+	}
+
+	rotated, backupPath, err := s.d.RotatePassword(req.CurrentPassphrase, req.NewPassphrase)
+	if err != nil {
+		return &pb.RotatePasswordResponse{
+			Success:    false,
+			Message:    err.Error(),
+			BackupPath: backupPath,
+		}, mapErrorToGRPCStatus(err)
+	}
+
+	return &pb.RotatePasswordResponse{
+		Success:        true,
+		Message:        fmt.Sprintf("Password rotated successfully. %d secrets re-encrypted.", rotated),
+		SecretsRotated: int32(rotated),
+		BackupPath:     backupPath,
+	}, nil
 }
 
 func (s *gaiaAdminServer) RegisterClient(_ context.Context, req *pb.RegisterClientRequest) (*pb.RegisterClientResponse, error) {
