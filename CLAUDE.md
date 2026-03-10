@@ -417,6 +417,269 @@ This triggers:
 
 ---
 
+## Unsafe Local Dev Mode — Implementation Plan
+
+> **Status:** Planned — not yet implemented.
+
+### Overview
+
+The unsafe local dev mode is a convenience feature for local development and
+testing **only**. It co-locates all Gaia artefacts (database, config, certs,
+binary) in a single directory, and relaxes the passphrase-strength requirement.
+A permanent flag is written into the database at initialisation so the daemon
+always knows it was created in unsafe mode — and can never be silently promoted
+to a production-grade database.
+
+**What it must NOT do:**
+- Change the underlying cryptographic primitives (AES-256-GCM and scrypt remain).
+- Affect any codepath that does not have `--unsafe` explicitly set.
+- Be reachable in any non-interactive / CI build without a visible opt-in.
+
+---
+
+### User-Facing Interface
+
+#### Starting in unsafe mode
+
+```bash
+gaia start --unsafe [--dir ./my-dev-dir]
+```
+
+- `--unsafe` is **required** to enter this mode. No config file or environment
+  variable can enable it silently.
+- `--dir` (optional) overrides the working directory; defaults to `./gaia-dev`
+  in the current working directory.
+- When `--unsafe` is set and the directory does not yet contain a database,
+  `gaia start` automatically calls `InitializeDB` with the provided (or
+  prompted) passphrase **without** strength-checking it.
+- A bold terminal warning is printed to **stderr** before anything else starts:
+
+```
+⚠  WARNING: Gaia is running in UNSAFE LOCAL DEV MODE.
+   All files are stored in: ./gaia-dev
+   Passphrase strength is NOT enforced.
+   This database CANNOT be used in production.
+   Do not store real secrets here.
+```
+
+#### First-run inside unsafe mode
+
+If `--unsafe` is set and no database exists yet, the daemon calls its own
+`InitializeDB` path, but:
+1. Skips `encrypt.ValidatePassword` (passphrase strength check is bypassed).
+2. Writes the `unsafeModeKey` metadata entry (see below) before closing the
+   bootstrap transaction.
+
+If the database already exists and **does not** contain `unsafeModeKey`, the
+daemon refuses to start and exits with a clear error:
+
+```
+error: database was created without --unsafe and cannot be started in unsafe mode
+```
+
+If the database already contains `unsafeModeKey` but `--unsafe` was **not**
+passed, the daemon refuses to start:
+
+```
+error: database was created in unsafe mode; you must pass --unsafe to start it
+```
+
+This makes the unsafe flag **sticky** to the database, in both directions.
+
+---
+
+### Database-Level Unsafe Flag
+
+A single metadata key is stored in the `secrets` BoltDB bucket alongside
+`saltKey` and `keyHashKey` (all share the `metaPrefix` namespace so they are
+skipped by secret enumeration):
+
+```go
+const unsafeModeKey = metaPrefix + "__unsafe_mode__"
+```
+
+Value stored: the RFC 3339 UTC timestamp at which the database was initialised
+in unsafe mode, encoded as a UTF-8 string. Non-empty presence is the signal;
+the timestamp helps with debugging.
+
+Rules enforced at startup in `daemon.go → Start()`:
+
+| DB has `unsafeModeKey` | `--unsafe` flag passed | Action |
+|------------------------|------------------------|--------|
+| No                     | No                     | Normal safe start — proceed |
+| No                     | Yes                    | Error: db is safe, cannot start unsafe |
+| Yes                    | No                     | Error: db is unsafe, must pass `--unsafe` |
+| Yes                    | Yes                    | Unsafe start — proceed with warning |
+
+**There is no migration path from unsafe to safe.** If a developer needs a
+production database they must run `gaia init` fresh (without `--unsafe`).
+
+---
+
+### Directory Layout (unsafe mode)
+
+When `--unsafe --dir ./gaia-dev` is used, all paths are rewritten:
+
+| Artefact | Default (safe) | Unsafe mode |
+|----------|---------------|-------------|
+| Database | platform default (`/var/lib/gaia/gaia.db`) | `<dir>/gaia.db` |
+| Config | platform default (`/etc/gaia/gaia-config.yaml`) | `<dir>/gaia-config.yaml` (auto-generated if absent) |
+| Certs dir | `/etc/gaia/certs` | `<dir>/certs/` |
+| Log file | `/var/log/gaia/gaia.log` | `<dir>/gaia.log` |
+| Audit log | `/var/log/gaia/audit.log` | `<dir>/audit.log` |
+
+The daemon creates `<dir>` and `<dir>/certs/` if they do not exist (mode 0700).
+
+---
+
+### Scrypt Parameters in Unsafe Mode
+
+The current production parameters are `N=2^17, r=8, p=1`. These are
+intentionally slow.
+
+For unsafe mode, use the **existing** `encrypt.DeriveKeyLegacy` function
+(already in `encrypt/utils.go`, `N=2^15`). This is faster for local iteration
+while still using scrypt. **Do not invent new crypto parameters** — reuse what
+is already audited.
+
+The choice of derivation function is recorded in the database alongside the
+unsafe flag so the `UnlockDB` path can select the correct one at runtime.
+
+```go
+const derivationVersionKey = metaPrefix + "__derive_version__"
+// Values: "v1" (N=2^17, production), "v1-legacy" (N=2^15, unsafe/dev)
+```
+
+The unlock path already has a `DeriveKeyLegacy` fallback (line ~534 in
+daemon.go). Extend it to read `derivationVersionKey` instead of trying both.
+
+---
+
+### Code Changes Required
+
+#### 1. `apps/gaia/cmd/daemon.go`
+
+- Add `--unsafe` (`bool`) and `--dir` (`string`) flags to `startCmd`.
+- When `--unsafe` is set:
+  - Compute absolute path of `--dir` (default `./gaia-dev`).
+  - Override `cfg.Daemon.DBFile`, `cfg.TLS.CertsDirectory`, `cfg.Log.FilePath`,
+    and audit file path to point inside `<dir>`.
+  - Set `cfg.UnsafeMode = true` (new field on `Config`).
+  - Print the warning banner to `os.Stderr` before calling `gaiaDaemon.Start`.
+
+#### 2. `apps/gaia/config/config.go`
+
+- Add field to `Config`:
+  ```go
+  UnsafeMode    bool   `yaml:"-"` // Never persisted; runtime-only flag
+  UnsafeDir     string `yaml:"-"` // Resolved absolute path of --dir
+  ```
+  Both are tagged `yaml:"-"` so they cannot appear in a config file.
+
+#### 3. `apps/gaia/daemon/daemon.go`
+
+- Add constants:
+  ```go
+  const (
+      unsafeModeKey       = metaPrefix + "__unsafe_mode__"
+      derivationVersionKey = metaPrefix + "__derive_version__"
+  )
+  ```
+- Add field to `Daemon`:
+  ```go
+  unsafeMode bool
+  ```
+- `NewDaemon`: populate `d.unsafeMode` from `cfg.UnsafeMode`.
+- `InitializeDB`: accept a new `unsafeMode bool` parameter (or read from
+  `d.config.UnsafeMode`):
+  - If unsafe: skip `encrypt.ValidatePassword`; use `DeriveKeyLegacy`; store
+    `unsafeModeKey` and `derivationVersionKey = "v1-legacy"` in the transaction.
+  - If safe: existing behaviour unchanged; store `derivationVersionKey = "v1"`.
+- `Start` (the function that calls `bbolt.Open` and then `UnlockDB`): after
+  opening the DB but before unlocking, read `unsafeModeKey` and
+  `derivationVersionKey`, then apply the four-row matrix above and error-out
+  where needed.
+- `UnlockDB` / passphrase verification: read `derivationVersionKey` to choose
+  `DeriveKey` vs `DeriveKeyLegacy` instead of silently trying both.
+
+#### 4. `apps/gaia/encrypt/utils.go`
+
+- No new functions needed — `DeriveKeyLegacy` already exists.
+- Add a `ValidatePasswordUnsafe` no-op helper that always returns `(true, nil)`
+  to make call sites explicit:
+  ```go
+  // ValidatePasswordUnsafe skips entropy checking. Only call from unsafe dev mode paths.
+  func ValidatePasswordUnsafe(_ string) (bool, error) { return true, nil }
+  ```
+
+#### 5. `apps/gaia/cmd/init.go` and `apps/gaia/cmd/setup.go`
+
+- Both call `encrypt.ValidatePassword`. Add an `--unsafe` flag to `gaia init`
+  as well so that first-run initialisation can also be done without a strong
+  passphrase. The same flag must be forwarded to `daemon.InitializeDB`.
+
+---
+
+### Security Boundaries — What Must NOT Change
+
+| Concern | Safe mode | Unsafe mode |
+|---------|-----------|-------------|
+| AES-256-GCM encryption at rest | Yes | Yes (unchanged) |
+| mTLS transport | Yes | Yes (unchanged) |
+| Memory wiping (`secutil.Wipe`) | Yes | Yes (unchanged) |
+| Audit logging | Yes | Yes (unchanged) |
+| scrypt (key derivation) | `N=2^17` (strong) | `N=2^15` (faster, via `DeriveKeyLegacy`) |
+| Passphrase entropy check | Enforced | Bypassed |
+| Rate-limiting on unlock | Yes | Yes (unchanged) |
+| DB flag sticky | N/A | Written at init; checked at every start |
+
+The unsafe flag must **never** disable mTLS, skip certificate generation, or
+remove memory wiping. Those features must remain fully active.
+
+---
+
+### Warning Message Implementation
+
+The warning must be hard to miss. Print it to `os.Stderr` (not the log file)
+with a visible border, immediately before the daemon blocks on the gRPC
+listener. Suggested format (use `fmt.Fprintf(os.Stderr, ...)` — no lipgloss
+dependency in `cmd/`):
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║  ⚠  UNSAFE LOCAL DEV MODE — NOT FOR PRODUCTION USE  ⚠      ║
+║                                                              ║
+║  All data is stored in: /absolute/path/to/gaia-dev          ║
+║  Passphrase strength is NOT enforced.                        ║
+║  This database CANNOT be migrated to safe mode.             ║
+║  Do NOT store real secrets here.                             ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+This is printed once at startup and once more on every subsequent start of the
+same unsafe database.
+
+---
+
+### Tests to Add
+
+| Test location | What to cover |
+|---------------|---------------|
+| `daemon/daemon_test.go` | `InitializeDB` with unsafe flag writes `unsafeModeKey`; safe DB refuses unsafe start; unsafe DB refuses safe start; `UnlockDB` selects correct derivation function |
+| `encrypt/utils_test.go` | `ValidatePasswordUnsafe` always succeeds |
+| `cmd/daemon_test.go` (new) | `--unsafe` flag wires correct `Config` fields; `--dir` resolves to absolute path |
+
+---
+
+### Out of Scope for This Feature
+
+- Auto-unlock via environment variable passphrase (separate feature).
+- A TUI toggle for unsafe mode (TUI is admin-only, not a first-run tool here).
+- Upgrading an unsafe DB to safe (intentionally unsupported).
+- Docker or systemd support for unsafe mode (dev-only, local binary usage).
+
+---
+
 ## Quick Reference
 
 ```bash
