@@ -105,11 +105,11 @@ func (s *gaiaAdminServer) AddSecret(_ context.Context, req *pb.AddSecretRequest)
 		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
 	}
 
-	if err := validation.ValidateClient(req.ClientName); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	if err := validation.ValidateName(req.ClientName); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client name: %v", err)
 	}
-	if err := validation.ValidateNamespace(req.Namespace); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	if err := validation.ValidateName(req.Namespace); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid namespace: %v", err)
 	}
 	if err := validation.ValidateKey(req.Id); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -394,8 +394,8 @@ func (s *gaiaAdminServer) ListSecrets(_ context.Context, req *pb.ListSecretsRequ
 		return nil, status.Error(codes.FailedPrecondition, gaiaerrors.ErrDaemonLocked.Error())
 	}
 
-	if err := validation.ValidateClient(req.ClientName); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	if err := validation.ValidateName(req.ClientName); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid client name: %v", err)
 	}
 
 	allData, err := s.d.ListSecrets(req.ClientName)
