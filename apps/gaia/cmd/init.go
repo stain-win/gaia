@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	autoGenCerts bool
-	skipCerts    bool
+	autoGenCerts   bool
+	skipCerts      bool
+	initUnsafeMode bool
 )
 
 var (
@@ -67,6 +68,9 @@ func runInit(_ *cobra.Command, _ []string) error {
 	if dbFile != "" {
 		cfg.Daemon.DBFile = dbFile
 	}
+	if initUnsafeMode {
+		cfg.UnsafeMode = true
+	}
 
 	// Print welcome banner
 	fmt.Println()
@@ -89,7 +93,7 @@ func runInit(_ *cobra.Command, _ []string) error {
 	fmt.Println(stepStyle.Render("Step 1/3: Master Passphrase Setup"))
 	fmt.Println()
 
-	passphrase, err := promptForPassphrase()
+	passphrase, err := promptForPassphrase(cfg.UnsafeMode)
 	if err != nil {
 		fmt.Println()
 		fmt.Println(warningStyle.Render("Initialization cancelled."))
@@ -131,19 +135,21 @@ func runInit(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-func promptForPassphrase() (string, error) {
+func promptForPassphrase(unsafeMode bool) (string, error) {
 	if envPass := os.Getenv("GAIA_PASSPHRASE"); envPass != "" {
 		// IMPORTANT: Clear the environment variable immediately so it doesn't linger
 		// in the process environment block or leak to child processes.
 		os.Unsetenv("GAIA_PASSPHRASE")
 
 		fmt.Println("Using master passphrase from GAIA_PASSPHRASE environment variable.")
-		// We still validate the passphrase strength
-		if len(envPass) < 8 {
-			return "", errors.New("passphrase from env var must be at least 8 characters")
-		}
-		if _, err := encrypt.ValidatePassword(envPass); err != nil {
-			return "", fmt.Errorf("weak passphrase in env var: %v", err)
+		// Validate passphrase strength (skip in unsafe mode)
+		if !unsafeMode {
+			if len(envPass) < 8 {
+				return "", errors.New("passphrase from env var must be at least 8 characters")
+			}
+			if _, err := encrypt.ValidatePassword(envPass); err != nil {
+				return "", fmt.Errorf("weak passphrase in env var: %v", err)
+			}
 		}
 		return envPass, nil
 	}
@@ -151,16 +157,40 @@ func promptForPassphrase() (string, error) {
 	var passphrase string
 	var passphraseConfirm string
 
+	validatePassphrase := func(s string) error {
+		if unsafeMode {
+			if len(s) == 0 {
+				return errors.New("passphrase cannot be empty")
+			}
+			return nil
+		}
+		if len(s) < 8 {
+			return errors.New("passphrase must be at least 8 characters")
+		}
+		_, err := encrypt.ValidatePassword(s)
+		if err != nil {
+			return fmt.Errorf("weak passphrase: %v", err)
+		}
+		return nil
+	}
+
+	noteDesc := "Your master passphrase encrypts all secrets in the database.\n" +
+		"Requirements:\n" +
+		"  • At least 8 characters\n" +
+		"  • Mix of uppercase and lowercase recommended\n" +
+		"  • Include numbers and special characters\n" +
+		"\n⚠️  This passphrase cannot be recovered if lost!"
+	if unsafeMode {
+		noteDesc = "Your master passphrase encrypts all secrets in the database.\n" +
+			"⚠️  UNSAFE MODE: Passphrase strength is NOT enforced.\n" +
+			"\n⚠️  This passphrase cannot be recovered if lost!"
+	}
+
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().
 				Title("Secure Your Data").
-				Description("Your master passphrase encrypts all secrets in the database.\n"+
-					"Requirements:\n"+
-					"  • At least 8 characters\n"+
-					"  • Mix of uppercase and lowercase recommended\n"+
-					"  • Include numbers and special characters\n"+
-					"\n⚠️  This passphrase cannot be recovered if lost!"),
+				Description(noteDesc),
 		),
 		huh.NewGroup(
 			huh.NewInput().
@@ -168,16 +198,7 @@ func promptForPassphrase() (string, error) {
 				Description("Choose a strong passphrase").
 				Value(&passphrase).
 				EchoMode(huh.EchoModePassword).
-				Validate(func(s string) error {
-					if len(s) < 8 {
-						return errors.New("passphrase must be at least 8 characters")
-					}
-					_, err := encrypt.ValidatePassword(s)
-					if err != nil {
-						return fmt.Errorf("weak passphrase: %v", err)
-					}
-					return nil
-				}),
+				Validate(validatePassphrase),
 		),
 		huh.NewGroup(
 			huh.NewInput().
@@ -399,4 +420,5 @@ func init() {
 	initCmd.Flags().StringVarP(&dbFile, "db-file", "d", "", "Path to the database file")
 	initCmd.Flags().BoolVar(&autoGenCerts, "auto-certs", false, "Automatically generate certificates without prompting")
 	initCmd.Flags().BoolVar(&skipCerts, "skip-certs", false, "Skip certificate generation entirely")
+	initCmd.Flags().BoolVar(&initUnsafeMode, "unsafe", false, "Initialize in unsafe local dev mode (relaxed passphrase)")
 }

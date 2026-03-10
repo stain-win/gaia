@@ -83,8 +83,11 @@ Perfect for first-time users or when setting up Gaia on a new system.
 	RunE: runSetup,
 }
 
+var setupUnsafeMode bool
+
 func init() {
 	rootCmd.AddCommand(setupCmd)
+	setupCmd.Flags().BoolVar(&setupUnsafeMode, "unsafe", false, "Setup in unsafe local dev mode (relaxed passphrase)")
 }
 
 func runSetup(cmd *cobra.Command, args []string) error {
@@ -92,6 +95,9 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load(cfgFile)
 	if err != nil {
 		cfg = config.NewDefaultConfig()
+	}
+	if setupUnsafeMode {
+		cfg.UnsafeMode = true
 	}
 
 	// Print welcome banner
@@ -221,7 +227,7 @@ func runSetupWizard(cfg *config.Config) error {
 	fmt.Println(wizardStepStyle.Render("━━━ Step 4/4: Database Initialization ━━━"))
 	fmt.Println()
 
-	passphrase, err := promptSetupPassphrase()
+	passphrase, err := promptSetupPassphrase(cfg.UnsafeMode)
 	if err != nil {
 		return err
 	}
@@ -391,29 +397,45 @@ func generateCertificatesWithProgress(cfg *config.Config) error {
 	return nil
 }
 
-func promptSetupPassphrase() (string, error) {
+func promptSetupPassphrase(unsafeMode bool) (string, error) {
 	fmt.Println(wizardInfoStyle.Render("Your master passphrase encrypts all secrets in the database."))
+	if unsafeMode {
+		fmt.Println(wizardWarningStyle.Render("⚠  UNSAFE MODE: Passphrase strength is NOT enforced."))
+	}
 	fmt.Println(wizardWarningStyle.Render("⚠  This passphrase cannot be recovered if lost!"))
 	fmt.Println()
 
 	var passphrase, confirm string
 
+	validatePassphrase := func(s string) error {
+		if unsafeMode {
+			if len(s) == 0 {
+				return errors.New("passphrase cannot be empty")
+			}
+			return nil
+		}
+		if len(s) < 8 {
+			return errors.New("passphrase must be at least 8 characters")
+		}
+		if _, err := encrypt.ValidatePassword(s); err != nil {
+			return fmt.Errorf("weak passphrase: %v", err)
+		}
+		return nil
+	}
+
+	desc := "Minimum 8 characters, mix of cases recommended"
+	if unsafeMode {
+		desc = "Any passphrase accepted (unsafe mode)"
+	}
+
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Enter master passphrase").
-				Description("Minimum 8 characters, mix of cases recommended").
+				Description(desc).
 				Value(&passphrase).
 				EchoMode(huh.EchoModePassword).
-				Validate(func(s string) error {
-					if len(s) < 8 {
-						return errors.New("passphrase must be at least 8 characters")
-					}
-					if _, err := encrypt.ValidatePassword(s); err != nil {
-						return fmt.Errorf("weak passphrase: %v", err)
-					}
-					return nil
-				}),
+				Validate(validatePassphrase),
 		),
 		huh.NewGroup(
 			huh.NewInput().

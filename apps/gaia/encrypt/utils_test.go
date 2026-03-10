@@ -19,3 +19,14 @@ func TestValidatePassword(t *testing.T) {
 		}
 	})
 }
+
+func TestValidatePasswordUnsafe(t *testing.T) {
+	// ValidatePasswordUnsafe should always return (true, nil) regardless of input
+	tests := []string{"", "a", "weak", "CorrectHorseBatteryStaple123!"}
+	for _, pw := range tests {
+		ok, err := ValidatePasswordUnsafe(pw)
+		if !ok || err != nil {
+			t.Errorf("ValidatePasswordUnsafe(%q) = (%v, %v), want (true, nil)", pw, ok, err)
+		}
+	}
+}

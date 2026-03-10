@@ -85,6 +85,10 @@ type Config struct {
 	// Client certificate files for the Gaia CLI/TUI (relative to TLS.CertsDirectory)
 	GaiaClientCertFile string `yaml:"gaia_client_cert_file"` // Gaia client certificate file
 	GaiaClientKeyFile  string `yaml:"gaia_client_key_file"`  // Gaia client private key file
+
+	// Unsafe local dev mode (runtime-only, never persisted to config file)
+	UnsafeMode bool   `yaml:"-"` // When true, relaxes passphrase strength and uses faster key derivation
+	UnsafeDir  string `yaml:"-"` // Resolved absolute path of --dir for unsafe mode
 }
 
 // NewDefaultConfig returns a Config with default values.

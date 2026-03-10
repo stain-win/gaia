@@ -43,15 +43,21 @@ import (
 var nullByte = []byte{0x00}
 
 const (
-	metaPrefix      = "gaia:internal:cmfk1rbd000000m74bic9evy3"
-	saltKey         = metaPrefix + "__salt__"
-	keyHashKey      = metaPrefix + "__key_hash__"
-	secretsBucket   = "secrets"
-	clientsBucket   = "clients"
-	StatusRunning   = "running"
-	StatusStopped   = "stopped"
-	StatusStarting  = "starting"
-	commonNamespace = "common"
+	metaPrefix           = "gaia:internal:cmfk1rbd000000m74bic9evy3"
+	saltKey              = metaPrefix + "__salt__"
+	keyHashKey           = metaPrefix + "__key_hash__"
+	unsafeModeKey        = metaPrefix + "__unsafe_mode__"
+	derivationVersionKey = metaPrefix + "__derive_version__"
+
+	// Derivation version values
+	derivationV1       = "v1"        // Production: scrypt N=2^17
+	derivationV1Legacy = "v1-legacy" // Unsafe/dev: scrypt N=2^15
+	secretsBucket      = "secrets"
+	clientsBucket      = "clients"
+	StatusRunning      = "running"
+	StatusStopped      = "stopped"
+	StatusStarting     = "starting"
+	commonNamespace    = "common"
 
 	// ClientStatusActive Client statuses
 	ClientStatusActive  = "active"
@@ -86,6 +92,7 @@ type Daemon struct {
 	dbLock      sync.RWMutex
 	status      string
 	isLocked    bool
+	unsafeMode  bool
 	stopChannel chan struct{}
 	stopOnce    sync.Once // Ensures shutdown runs only once
 	createdAt   time.Time
@@ -103,6 +110,7 @@ func NewDaemon(cfg *config.Config) *Daemon {
 		config:      cfg,
 		status:      StatusStopped,
 		isLocked:    true,
+		unsafeMode:  cfg.UnsafeMode,
 		stopChannel: make(chan struct{}),
 		createdAt:   time.Now().UTC(),
 	}
@@ -145,6 +153,15 @@ func (d *Daemon) Start(cfg *config.Config) error {
 		d.dbLock.Unlock()
 		d.status = StatusStopped
 		return fmt.Errorf("failed to open database: %w", err)
+	}
+
+	// Check unsafe mode flag consistency between DB and runtime flag
+	if err := d.checkUnsafeModeConsistency(); err != nil {
+		d.db.Close()
+		d.db = nil
+		d.dbLock.Unlock()
+		d.status = StatusStopped
+		return err
 	}
 	d.dbLock.Unlock()
 
@@ -314,8 +331,15 @@ func (d *Daemon) InitializeDB(passphrase string) error {
 		return fmt.Errorf("failed to generate salt: %w", err)
 	}
 
-	// Derive the key from the passphrase.
-	key, err := encrypt.DeriveKey([]byte(passphrase), salt)
+	// Choose derivation function based on unsafe mode.
+	deriveFunc := encrypt.DeriveKey
+	deriveVersion := derivationV1
+	if d.unsafeMode {
+		deriveFunc = encrypt.DeriveKeyLegacy
+		deriveVersion = derivationV1Legacy
+	}
+
+	key, err := deriveFunc([]byte(passphrase), salt)
 	if err != nil {
 		return err
 	}
@@ -338,6 +362,20 @@ func (d *Daemon) InitializeDB(passphrase string) error {
 		if err := secretsB.Put([]byte(keyHashKey), keyHash[:]); err != nil {
 			return fmt.Errorf("failed to store key hash: %w", err)
 		}
+
+		// Store derivation version for unlock-time selection
+		if err := secretsB.Put([]byte(derivationVersionKey), []byte(deriveVersion)); err != nil {
+			return fmt.Errorf("failed to store derivation version: %w", err)
+		}
+
+		// Store unsafe mode flag if applicable
+		if d.unsafeMode {
+			timestamp := time.Now().UTC().Format(time.RFC3339)
+			if err := secretsB.Put([]byte(unsafeModeKey), []byte(timestamp)); err != nil {
+				return fmt.Errorf("failed to store unsafe mode flag: %w", err)
+			}
+		}
+
 		clientsB, err := tx.CreateBucketIfNotExists([]byte(clientsBucket))
 		if err != nil {
 			return fmt.Errorf("failed to create clients bucket: %w", err)
@@ -482,8 +520,31 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 		return fmt.Errorf("failed to read database metadata: %w", err)
 	}
 
-	// Derive a key from the provided passphrase.
-	derivedKey, err := encrypt.DeriveKey([]byte(passphrase), salt)
+	// Read derivation version to select the correct key derivation function
+	var deriveVersion []byte
+	err = d.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(secretsBucket))
+		if b == nil {
+			return nil
+		}
+		v := b.Get([]byte(derivationVersionKey))
+		if v != nil {
+			deriveVersion = make([]byte, len(v))
+			copy(deriveVersion, v)
+		}
+		return nil
+	})
+	if err != nil {
+		d.db.Close()
+		return fmt.Errorf("failed to read derivation version: %w", err)
+	}
+
+	deriveFunc := encrypt.DeriveKey // default: production params
+	if string(deriveVersion) == derivationV1Legacy {
+		deriveFunc = encrypt.DeriveKeyLegacy
+	}
+
+	derivedKey, err := deriveFunc([]byte(passphrase), salt)
 	if err != nil {
 		d.db.Close()
 		return fmt.Errorf("failed to derive key: %w", err)
@@ -545,7 +606,30 @@ func (d *Daemon) RotatePassword(currentPassphrase, newPassphrase string) (int, s
 		return 0, "", fmt.Errorf("failed to read database metadata: %w", err)
 	}
 
-	derivedKey, err := encrypt.DeriveKey([]byte(currentPassphrase), salt)
+	// Read derivation version to select the correct key derivation function
+	var deriveVersion []byte
+	err = d.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(secretsBucket))
+		if b == nil {
+			return nil
+		}
+		v := b.Get([]byte(derivationVersionKey))
+		if v != nil {
+			deriveVersion = make([]byte, len(v))
+			copy(deriveVersion, v)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to read derivation version: %w", err)
+	}
+
+	deriveFunc := encrypt.DeriveKey
+	if string(deriveVersion) == derivationV1Legacy {
+		deriveFunc = encrypt.DeriveKeyLegacy
+	}
+
+	derivedKey, err := deriveFunc([]byte(currentPassphrase), salt)
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to derive key: %w", err)
 	}
@@ -558,8 +642,10 @@ func (d *Daemon) RotatePassword(currentPassphrase, newPassphrase string) (int, s
 	if currentPassphrase == newPassphrase {
 		return 0, "", gaiaerrors.ErrPassphraseSameAsCurrent
 	}
-	if _, err := encrypt.ValidatePassword(newPassphrase); err != nil {
-		return 0, "", fmt.Errorf("new passphrase too weak: %w", err)
+	if !d.unsafeMode {
+		if _, err := encrypt.ValidatePassword(newPassphrase); err != nil {
+			return 0, "", fmt.Errorf("new passphrase too weak: %w", err)
+		}
 	}
 
 	// Step 3: Create backup before any mutation
@@ -575,7 +661,7 @@ func (d *Daemon) RotatePassword(currentPassphrase, newPassphrase string) (int, s
 		return 0, backupPath, fmt.Errorf("failed to generate new salt: %w", err)
 	}
 
-	newKey, err := encrypt.DeriveKey([]byte(newPassphrase), newSalt)
+	newKey, err := deriveFunc([]byte(newPassphrase), newSalt)
 	if err != nil {
 		return 0, backupPath, fmt.Errorf("failed to derive new key: %w", err)
 	}
@@ -1188,6 +1274,33 @@ func (d *Daemon) openDB() error {
 		return fmt.Errorf("failed to initialize policy store: %w", err)
 	}
 
+	return nil
+}
+
+// checkUnsafeModeConsistency verifies that the --unsafe runtime flag matches the database's
+// stored unsafe mode state. Must be called with d.db open and d.dbLock held.
+func (d *Daemon) checkUnsafeModeConsistency() error {
+	var dbIsUnsafe bool
+	err := d.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(secretsBucket))
+		if b == nil {
+			return nil
+		}
+		if v := b.Get([]byte(unsafeModeKey)); v != nil {
+			dbIsUnsafe = true
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to read unsafe mode flag: %w", err)
+	}
+
+	switch {
+	case !dbIsUnsafe && d.unsafeMode:
+		return fmt.Errorf("database was created without --unsafe and cannot be started in unsafe mode")
+	case dbIsUnsafe && !d.unsafeMode:
+		return fmt.Errorf("database was created in unsafe mode; you must pass --unsafe to start it")
+	}
 	return nil
 }
 

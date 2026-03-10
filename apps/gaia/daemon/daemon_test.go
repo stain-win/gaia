@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stain-win/gaia/apps/gaia/config"
+	"go.etcd.io/bbolt"
 )
 
 // TestUnlockDB_InvalidPassphrase verifies that unlocking with wrong passphrase fails.
@@ -268,6 +269,249 @@ func TestRotatePassword_BackupCreated(t *testing.T) {
 	// Verify backup file permissions are restrictive
 	if info.Mode().Perm() != 0600 {
 		t.Errorf("Expected backup file permissions 0600, got %o", info.Mode().Perm())
+	}
+}
+
+// setupTestDaemonUnsafe creates and initializes a test daemon in unsafe mode.
+func setupTestDaemonUnsafe(t *testing.T, passphrase string) *Daemon {
+	t.Helper()
+
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_gaia.db")
+
+	cfg := config.NewDefaultConfig()
+	cfg.Daemon.DBFile = dbPath
+	cfg.TLS.CertsDirectory = tmpDir
+	cfg.UnsafeMode = true
+
+	d := NewDaemon(cfg)
+
+	if err := d.InitializeDB(passphrase); err != nil {
+		t.Fatalf("Failed to initialize database: %v", err)
+	}
+
+	createDummyCerts(t, tmpDir)
+
+	if err := d.UnlockDB(passphrase); err != nil {
+		t.Fatalf("Failed to unlock database: %v", err)
+	}
+
+	return d
+}
+
+// TestInitializeDB_UnsafeMode verifies that unsafe mode stores the correct metadata keys.
+func TestInitializeDB_UnsafeMode(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_gaia.db")
+
+	cfg := config.NewDefaultConfig()
+	cfg.Daemon.DBFile = dbPath
+	cfg.TLS.CertsDirectory = tmpDir
+	cfg.UnsafeMode = true
+
+	d := NewDaemon(cfg)
+
+	// Use a weak passphrase — should work in unsafe mode
+	if err := d.InitializeDB("dev"); err != nil {
+		t.Fatalf("InitializeDB failed in unsafe mode: %v", err)
+	}
+
+	// Verify metadata was stored
+	db, err := bbolt.Open(dbPath, 0600, nil)
+	if err != nil {
+		t.Fatalf("Failed to open DB: %v", err)
+	}
+	defer db.Close()
+
+	err = db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(secretsBucket))
+		if b == nil {
+			t.Fatal("secrets bucket not found")
+		}
+
+		// Check unsafe mode key
+		unsafeVal := b.Get([]byte(unsafeModeKey))
+		if unsafeVal == nil {
+			t.Error("Expected unsafeModeKey to be set")
+		}
+
+		// Check derivation version
+		deriveVal := b.Get([]byte(derivationVersionKey))
+		if deriveVal == nil {
+			t.Fatal("Expected derivationVersionKey to be set")
+		}
+		if string(deriveVal) != derivationV1Legacy {
+			t.Errorf("Expected derivation version %q, got %q", derivationV1Legacy, string(deriveVal))
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestInitializeDB_SafeMode_StoresDerivationVersion verifies safe mode stores derivation version.
+func TestInitializeDB_SafeMode_StoresDerivationVersion(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_gaia.db")
+
+	cfg := config.NewDefaultConfig()
+	cfg.Daemon.DBFile = dbPath
+	cfg.TLS.CertsDirectory = tmpDir
+
+	d := NewDaemon(cfg)
+
+	if err := d.InitializeDB("StrongPassphrase123!"); err != nil {
+		t.Fatalf("InitializeDB failed: %v", err)
+	}
+
+	db, err := bbolt.Open(dbPath, 0600, nil)
+	if err != nil {
+		t.Fatalf("Failed to open DB: %v", err)
+	}
+	defer db.Close()
+
+	err = db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(secretsBucket))
+		if b == nil {
+			t.Fatal("secrets bucket not found")
+		}
+
+		// Should NOT have unsafe mode key
+		if v := b.Get([]byte(unsafeModeKey)); v != nil {
+			t.Error("Safe mode DB should not have unsafeModeKey")
+		}
+
+		// Should have derivation version v1
+		deriveVal := b.Get([]byte(derivationVersionKey))
+		if deriveVal == nil {
+			t.Fatal("Expected derivationVersionKey to be set")
+		}
+		if string(deriveVal) != derivationV1 {
+			t.Errorf("Expected derivation version %q, got %q", derivationV1, string(deriveVal))
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestStart_SafeDB_RefusesUnsafeFlag verifies a safe DB rejects --unsafe.
+func TestStart_SafeDB_RefusesUnsafeFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_gaia.db")
+
+	// Initialize as safe
+	cfg := config.NewDefaultConfig()
+	cfg.Daemon.DBFile = dbPath
+	cfg.TLS.CertsDirectory = tmpDir
+
+	d := NewDaemon(cfg)
+	if err := d.InitializeDB("StrongPassphrase123!"); err != nil {
+		t.Fatalf("InitializeDB failed: %v", err)
+	}
+
+	// Now try to check consistency with unsafe flag set
+	cfg.UnsafeMode = true
+	d2 := NewDaemon(cfg)
+	if err := d2.openDB(); err != nil {
+		t.Fatalf("Failed to open DB: %v", err)
+	}
+	defer d2.db.Close()
+
+	err := d2.checkUnsafeModeConsistency()
+	if err == nil {
+		t.Fatal("Expected error when starting safe DB with --unsafe, got nil")
+	}
+	if err.Error() != "database was created without --unsafe and cannot be started in unsafe mode" {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+// TestStart_UnsafeDB_RefusesSafeStart verifies an unsafe DB rejects start without --unsafe.
+func TestStart_UnsafeDB_RefusesSafeStart(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_gaia.db")
+
+	// Initialize as unsafe
+	cfg := config.NewDefaultConfig()
+	cfg.Daemon.DBFile = dbPath
+	cfg.TLS.CertsDirectory = tmpDir
+	cfg.UnsafeMode = true
+
+	d := NewDaemon(cfg)
+	if err := d.InitializeDB("dev"); err != nil {
+		t.Fatalf("InitializeDB failed: %v", err)
+	}
+
+	// Now try to check consistency without unsafe flag
+	cfg2 := config.NewDefaultConfig()
+	cfg2.Daemon.DBFile = dbPath
+	cfg2.TLS.CertsDirectory = tmpDir
+
+	d2 := NewDaemon(cfg2)
+	if err := d2.openDB(); err != nil {
+		t.Fatalf("Failed to open DB: %v", err)
+	}
+	defer d2.db.Close()
+
+	err := d2.checkUnsafeModeConsistency()
+	if err == nil {
+		t.Fatal("Expected error when starting unsafe DB without --unsafe, got nil")
+	}
+	if err.Error() != "database was created in unsafe mode; you must pass --unsafe to start it" {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+// TestUnlockDB_UsesLegacyDerivation verifies an unsafe DB uses DeriveKeyLegacy for unlock.
+func TestUnlockDB_UsesLegacyDerivation(t *testing.T) {
+	passphrase := "dev"
+
+	d := setupTestDaemonUnsafe(t, passphrase)
+	d.LockDB()
+
+	// Re-create certs and unlock again
+	createDummyCerts(t, d.config.TLS.CertsDirectory)
+	if err := d.UnlockDB(passphrase); err != nil {
+		t.Fatalf("Failed to unlock unsafe DB: %v", err)
+	}
+
+	if d.isLocked {
+		t.Error("Expected daemon to be unlocked")
+	}
+	d.LockDB()
+}
+
+// TestRotatePassword_UnsafeMode_SkipsValidation verifies weak passphrase accepted in unsafe mode.
+func TestRotatePassword_UnsafeMode_SkipsValidation(t *testing.T) {
+	d := setupTestDaemonUnsafe(t, "dev")
+	defer d.LockDB()
+
+	// Add a secret to verify rotation works end-to-end
+	if err := d.AddSecret("common", "common", "key1", "value1"); err != nil {
+		t.Fatalf("Failed to add secret: %v", err)
+	}
+
+	// Rotate to another weak passphrase — should succeed in unsafe mode
+	rotated, _, err := d.RotatePassword("dev", "new")
+	if err != nil {
+		t.Fatalf("RotatePassword failed in unsafe mode: %v", err)
+	}
+	if rotated != 1 {
+		t.Errorf("Expected 1 secret rotated, got %d", rotated)
+	}
+
+	// Verify secret still accessible
+	allSecrets, err := d.ListSecrets("common")
+	if err != nil {
+		t.Fatalf("Failed to list secrets: %v", err)
+	}
+	if allSecrets["common"]["key1"] != "value1" {
+		t.Errorf("Expected 'value1', got '%s'", allSecrets["common"]["key1"])
 	}
 }
 

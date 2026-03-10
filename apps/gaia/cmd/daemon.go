@@ -3,9 +3,12 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/daemon"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
@@ -13,9 +16,11 @@ import (
 const DaemonStopTimeout = 5 * time.Second
 
 var (
-	grpcPort string
-	dbFile   string
-	certsDir string
+	grpcPort   string
+	dbFile     string
+	certsDir   string
+	unsafeMode bool
+	unsafeDir  string
 )
 
 // startCmd is the Cobra command for `gaia start`.
@@ -54,6 +59,15 @@ For example:
 			cfg.TLS.CACert = "ca.crt"
 			cfg.TLS.ServerCert = "server.crt"
 			cfg.TLS.ServerKey = "server.key"
+		}
+
+		// Handle unsafe local dev mode
+		if unsafeMode {
+			if err := configureUnsafeMode(cfg); err != nil {
+				return err
+			}
+			// Re-create daemon with updated config (includes UnsafeMode flag)
+			gaiaDaemon = daemon.NewDaemon(cfg)
 		}
 
 		if err := gaiaDaemon.Start(cfg); err != nil {
@@ -150,8 +164,67 @@ var statusCmd = &cobra.Command{
 	},
 }
 
+// configureUnsafeMode sets up the config for unsafe local dev mode.
+// It resolves the --dir path, creates directories, overrides all config paths,
+// and prints a warning banner.
+func configureUnsafeMode(cfg *config.Config) error {
+	dir := unsafeDir
+	if dir == "" {
+		dir = "./gaia-dev"
+	}
+
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve unsafe dir path: %w", err)
+	}
+
+	// Create directories
+	if err := os.MkdirAll(absDir, 0700); err != nil {
+		return fmt.Errorf("failed to create unsafe dir: %w", err)
+	}
+	certsPath := filepath.Join(absDir, "certs")
+	if err := os.MkdirAll(certsPath, 0700); err != nil {
+		return fmt.Errorf("failed to create unsafe certs dir: %w", err)
+	}
+
+	// Override all config paths to point inside the unsafe dir
+	cfg.Daemon.DBFile = filepath.Join(absDir, "gaia.db")
+	cfg.TLS.CertsDirectory = certsPath
+	cfg.TLS.CACert = "ca.crt"
+	cfg.TLS.ServerCert = "server.crt"
+	cfg.TLS.ServerKey = "server.key"
+	cfg.Log.FilePath = filepath.Join(absDir, "gaia.log")
+	cfg.UnsafeMode = true
+	cfg.UnsafeDir = absDir
+
+	// Override audit file backend paths if configured
+	for i := range cfg.Audit.Backends {
+		if cfg.Audit.Backends[i].Type == "file" {
+			cfg.Audit.Backends[i].Path = filepath.Join(absDir, "audit.log")
+		}
+	}
+
+	printUnsafeWarning(absDir)
+	return nil
+}
+
+func printUnsafeWarning(absDir string) {
+	fmt.Fprintf(os.Stderr, "\n"+
+		"╔══════════════════════════════════════════════════════════════╗\n"+
+		"║  WARNING: UNSAFE LOCAL DEV MODE — NOT FOR PRODUCTION USE    ║\n"+
+		"║                                                              ║\n"+
+		"║  All data is stored in: %-36s ║\n"+
+		"║  Passphrase strength is NOT enforced.                        ║\n"+
+		"║  This database CANNOT be migrated to safe mode.             ║\n"+
+		"║  Do NOT store real secrets here.                             ║\n"+
+		"╚══════════════════════════════════════════════════════════════╝\n\n",
+		absDir)
+}
+
 func init() {
 	startCmd.Flags().StringVarP(&grpcPort, "port", "p", "", "The port to run the gRPC server on")
 	startCmd.Flags().StringVarP(&dbFile, "db-file", "d", "", "The path to the BoltDB file")
 	startCmd.Flags().StringVarP(&certsDir, "certs-dir", "C", "", "The directory containing TLS certificates")
+	startCmd.Flags().BoolVar(&unsafeMode, "unsafe", false, "Run in unsafe local dev mode (relaxed passphrase, local directory)")
+	startCmd.Flags().StringVar(&unsafeDir, "dir", "", "Working directory for unsafe mode (default: ./gaia-dev)")
 }
