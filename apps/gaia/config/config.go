@@ -188,6 +188,34 @@ func getDefaultCertsDirectory() string {
 	}
 }
 
+// Save writes the configuration to the specified path, or the default config path if empty.
+// Runtime-only fields (UnsafeMode, UnsafeDir) are excluded via yaml:"-" tags.
+// Returns the resolved path that was written.
+func Save(cfg *Config, path string) (string, error) {
+	if path == "" {
+		var err error
+		path, err = getDefaultConfigPath()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return "", fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return "", fmt.Errorf("failed to write config file '%s': %w", path, err)
+	}
+
+	return path, nil
+}
+
 // Load reads the configuration from the specified path or the default path if empty.
 func Load(path string) (*Config, error) {
 	cfg := NewDefaultConfig()

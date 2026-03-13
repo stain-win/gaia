@@ -98,6 +98,18 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	}
 	if setupUnsafeMode {
 		cfg.UnsafeMode = true
+		// Redirect all paths into the current working directory so everything
+		// is self-contained and trivially removable (rm -rf ./certs ./gaia.db …).
+		cwd, err := os.Getwd()
+		if err != nil {
+			cwd = "."
+		}
+		cfg.Daemon.DBFile = filepath.Join(cwd, "gaia.db")
+		cfg.TLS.CertsDirectory = filepath.Join(cwd, "certs")
+		cfg.Log.FilePath = filepath.Join(cwd, "gaia.log")
+		if cfgFile == "" {
+			cfgFile = filepath.Join(cwd, "gaia-config.yaml")
+		}
 	}
 
 	// Print welcome banner
@@ -204,6 +216,14 @@ func runSetupWizard(cfg *config.Config) error {
 		}
 	}
 
+	// Persist the configuration so subsequent commands (e.g. gaia start) pick up
+	// the same paths that were used during setup.
+	savedConfigPath, saveErr := config.Save(cfg, cfgFile)
+	if saveErr != nil {
+		fmt.Println(wizardWarningStyle.Render(fmt.Sprintf("⚠  Could not save config file: %v", saveErr)))
+		fmt.Println(wizardWarningStyle.Render("   You may need to pass --config on subsequent commands."))
+	}
+
 	// Step 2: Create directories
 	fmt.Println()
 	fmt.Println(wizardStepStyle.Render("━━━ Step 2/4: Creating Directories ━━━"))
@@ -237,7 +257,7 @@ func runSetupWizard(cfg *config.Config) error {
 	}
 
 	// Success!
-	printSetupSuccess(cfg)
+	printSetupSuccess(cfg, savedConfigPath)
 
 	// Offer to start daemon
 	if err := offerStartDaemon(); err != nil {
@@ -536,14 +556,19 @@ func initializeDatabaseWithProgress(cfg *config.Config, passphrase string) error
 	return nil
 }
 
-func printSetupSuccess(cfg *config.Config) {
+func printSetupSuccess(cfg *config.Config, configPath string) {
 	fmt.Println()
+	configLine := ""
+	if configPath != "" {
+		configLine = fmt.Sprintf("  Config file:  %s\n", configPath)
+	}
 	successBox := wizardBoxStyle.BorderForeground(lipgloss.Color("#10B981")).Render(
 		wizardSuccessStyle.Render("🎉 Gaia Setup Complete!") + "\n\n" +
 			"Your secrets vault is ready to use.\n\n" +
 			wizardInfoStyle.Render("Configuration:") + "\n" +
 			fmt.Sprintf("  Database:     %s\n", cfg.Daemon.DBFile) +
 			fmt.Sprintf("  Certificates: %s\n", cfg.TLS.CertsDirectory) +
+			configLine +
 			"\n" +
 			wizardInfoStyle.Render("Next steps:") + "\n" +
 			"  1. Start the daemon:  " + wizardHighlightStyle.Render("gaia start") + "\n" +

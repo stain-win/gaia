@@ -28,6 +28,15 @@ var rootCmd = &cobra.Command{
 	Long: `Gaia is a daemon that securely stores and provides runtime context and
 credentials to web applications running on the same server.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// If no explicit --config flag, check for a local gaia-config.yaml in the
+		// current working directory first (written by "gaia setup --unsafe").
+		// This lets all subsequent commands work without requiring --config.
+		if cfgFile == "" {
+			if _, err := os.Stat("gaia-config.yaml"); err == nil {
+				cfgFile = "gaia-config.yaml"
+			}
+		}
+
 		cfg, err := config.Load(cfgFile)
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)

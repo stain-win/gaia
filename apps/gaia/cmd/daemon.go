@@ -170,7 +170,7 @@ var statusCmd = &cobra.Command{
 func configureUnsafeMode(cfg *config.Config) error {
 	dir := unsafeDir
 	if dir == "" {
-		dir = "./gaia-dev"
+		dir = "."
 	}
 
 	absDir, err := filepath.Abs(dir)
@@ -213,7 +213,9 @@ func printUnsafeWarning(absDir string) {
 		"╔══════════════════════════════════════════════════════════════╗\n"+
 		"║  WARNING: UNSAFE LOCAL DEV MODE — NOT FOR PRODUCTION USE    ║\n"+
 		"║                                                              ║\n"+
-		"║  All data is stored in: %-36s ║\n"+
+		"║  All data is stored in:                                      ║\n"+
+		"║    %s\n"+
+		"║                                                              ║\n"+
 		"║  Passphrase strength is NOT enforced.                        ║\n"+
 		"║  This database CANNOT be migrated to safe mode.             ║\n"+
 		"║  Do NOT store real secrets here.                             ║\n"+
