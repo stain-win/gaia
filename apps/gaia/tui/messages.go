@@ -47,6 +47,14 @@ type recordAddedMsg struct {
 	err error
 }
 
+// recordDeletedMsg is sent when the DeleteSecret RPC is complete.
+type recordDeletedMsg struct {
+	client    string
+	namespace string
+	id        string
+	err       error
+}
+
 type statusUpdatedMsg struct {
 	status string
 	err    error
@@ -180,6 +188,28 @@ func fetchClientsCmd(cfg *config.Config) tea.Cmd {
 		// "common" is a special client, always add it to the list for selection.
 		//clients := append(res.Clients, "common")
 		return clientsLoadedMsg{clients: res.Clients}
+	}
+}
+
+// deleteRecordFromDaemonCmd makes the gRPC call to delete a secret.
+func deleteRecordFromDaemonCmd(cfg *config.Config, clientName, namespace, id string) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := getAdminClientConn(cfg)
+		if err != nil {
+			return recordDeletedMsg{client: clientName, namespace: namespace, id: id, err: err}
+		}
+		defer conn.Close()
+
+		client := pb.NewGaiaAdminClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.GRPCClientTimeout)
+		defer cancel()
+
+		_, err = client.DeleteSecret(ctx, &pb.DeleteSecretRequest{
+			ClientName: clientName,
+			Namespace:  namespace,
+			Id:         id,
+		})
+		return recordDeletedMsg{client: clientName, namespace: namespace, id: id, err: err}
 	}
 }
 

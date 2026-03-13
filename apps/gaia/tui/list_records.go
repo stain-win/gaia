@@ -113,6 +113,13 @@ type inspectorModel struct {
 	editValue     string
 	editNamespace string
 	editClient    string
+
+	// Delete confirmation state
+	deleting        bool
+	deleteForm      *huh.Form
+	deleteKey       string
+	deleteNamespace string
+	deleteClient    string
 }
 
 func newInspectorModel(cfg *config.Config) *inspectorModel {
@@ -169,6 +176,9 @@ func (m *inspectorModel) updateFocusStates() {
 }
 
 func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
+	if m.deleting {
+		return m.updateDeleteView(msg)
+	}
 	if m.editing {
 		return m.updateEditView(msg)
 	}
@@ -230,6 +240,14 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 		m.statusMessage = "Secret updated successfully!"
 		return m, nil
 
+	case recordDeletedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("Error deleting secret: %v. Reverting.", msg.err)
+			return m, m.Init()
+		}
+		m.statusMessage = fmt.Sprintf("Deleted '%s' successfully.", msg.id)
+		return m, nil
+
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, keys.Back):
@@ -248,6 +266,12 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 			}
 			m.updateFocusStates()
 			return m, nil
+		case msg.String() == "d" || msg.String() == "delete":
+			if m.focusedPane == secretsPane &&
+				m.secretsList.SelectedItem() != nil &&
+				m.secretsList.FilterState() != list.Filtering {
+				return m.startDeleting()
+			}
 		case key.Matches(msg, keys.Enter):
 			if m.focusedPane == secretsPane && m.secretsList.SelectedItem() != nil {
 				return m.startEditing()
@@ -379,6 +403,80 @@ func (m *inspectorModel) updateEditView(msg tea.Msg) (*inspectorModel, tea.Cmd) 
 	return m, tea.Batch(cmds...)
 }
 
+func (m *inspectorModel) startDeleting() (*inspectorModel, tea.Cmd) {
+	item, ok := m.secretsList.SelectedItem().(secretItem)
+	if !ok {
+		return m, nil
+	}
+
+	m.deleting = true
+	m.deleteKey = item.id
+	m.deleteNamespace = item.namespace
+	m.deleteClient = item.client
+
+	var confirmed bool
+	m.deleteForm = huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Key("confirm").
+				Title(fmt.Sprintf("Delete secret '%s'?", item.id)).
+				Description(fmt.Sprintf("Client: %s  •  Namespace: %s\nThis action is irreversible.", item.client, item.namespace)).
+				Affirmative("Yes, delete").
+				Negative("No, cancel").
+				Value(&confirmed),
+		),
+	).WithTheme(huh.ThemeBase())
+	return m, m.deleteForm.Init()
+}
+
+func (m *inspectorModel) updateDeleteView(msg tea.Msg) (*inspectorModel, tea.Cmd) {
+	// Intercept ESC for immediate cancel
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+		m.deleting = false
+		m.statusMessage = fmt.Sprintf("Ready | %d keys found", len(m.allSecrets))
+		return m, nil
+	}
+
+	var cmds []tea.Cmd
+	form, cmd := m.deleteForm.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		m.deleteForm = f
+	}
+	cmds = append(cmds, cmd)
+
+	if m.deleteForm.State == huh.StateCompleted {
+		confirmed := m.deleteForm.GetBool("confirm")
+		m.deleting = false
+
+		if confirmed {
+			// Optimistically remove from local list
+			filtered := make([]secretItem, 0, len(m.allSecrets))
+			for _, s := range m.allSecrets {
+				if !(s.id == m.deleteKey && s.namespace == m.deleteNamespace && s.client == m.deleteClient) {
+					filtered = append(filtered, s)
+				}
+			}
+			m.allSecrets = filtered
+
+			items := make([]list.Item, len(m.allSecrets))
+			for i, s := range m.allSecrets {
+				items[i] = s
+			}
+			m.secretsList.SetItems(items)
+			m.updateDetailView()
+			m.statusMessage = fmt.Sprintf("Deleting '%s'...", m.deleteKey)
+			cmds = append(cmds, deleteRecordFromDaemonCmd(m.config, m.deleteClient, m.deleteNamespace, m.deleteKey))
+		} else {
+			m.statusMessage = fmt.Sprintf("Ready | %d keys found", len(m.allSecrets))
+		}
+	} else if m.deleteForm.State == huh.StateAborted {
+		m.deleting = false
+		m.statusMessage = fmt.Sprintf("Ready | %d keys found", len(m.allSecrets))
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
 func (m *inspectorModel) updateDetailView() {
 	item, ok := m.secretsList.SelectedItem().(secretItem)
 	if !ok {
@@ -414,6 +512,9 @@ func (m *inspectorModel) updateDetailView() {
 func (m *inspectorModel) View() string {
 	if m.editing {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, paneBorderUnselectedStyle.Render(m.editForm.View()))
+	}
+	if m.deleting {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, paneBorderUnselectedStyle.Render(m.deleteForm.View()))
 	}
 
 	// --- Top Left: Client Selector ---

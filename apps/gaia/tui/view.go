@@ -95,7 +95,15 @@ func (m *model) renderHelpBar() string {
 			helpKeyStyle.Render("enter") + " " + helpDescStyle.Render("submit"),
 			helpKeyStyle.Render("esc") + " " + helpDescStyle.Render("cancel"),
 		}
-	case listRecords, listPolicies, viewPolicy:
+	case listRecords:
+		keys = []string{
+			helpKeyStyle.Render("↑/↓") + " " + helpDescStyle.Render("scroll"),
+			helpKeyStyle.Render("/") + " " + helpDescStyle.Render("filter"),
+			helpKeyStyle.Render("b/esc") + " " + helpDescStyle.Render("back"),
+			helpKeyStyle.Render("enter") + " " + helpDescStyle.Render("edit"),
+			helpKeyStyle.Render("d/del") + " " + helpDescStyle.Render("delete"),
+		}
+	case listPolicies, viewPolicy:
 		keys = []string{
 			helpKeyStyle.Render("↑/↓") + " " + helpDescStyle.Render("scroll"),
 			helpKeyStyle.Render("/") + " " + helpDescStyle.Render("filter"),
