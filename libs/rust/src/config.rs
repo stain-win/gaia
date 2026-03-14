@@ -51,12 +51,18 @@ impl GaiaClientConfig {
         S: Into<String>,
         P: AsRef<Path>,
     {
+        let server_address = server_address.into();
+        let domain_name = server_address
+            .split(':')
+            .next()
+            .unwrap_or("localhost")
+            .to_string();
         Self {
-            server_address: server_address.into(),
+            server_address,
             ca_cert_path: ca_cert_path.as_ref().to_path_buf(),
             client_cert_path: client_cert_path.as_ref().to_path_buf(),
             client_key_path: client_key_path.as_ref().to_path_buf(),
-            domain_name: "gaia".to_string(),
+            domain_name,
         }
     }
 
