@@ -83,7 +83,7 @@ func (m *model) renderHelpBar() string {
 			helpKeyStyle.Render("enter") + " " + helpDescStyle.Render("select"),
 			helpKeyStyle.Render("q") + " " + helpDescStyle.Render("quit"),
 		}
-	case dataManagement, accessManagement, certManagement, policyManagement:
+	case dataManagement, accessManagement, certManagement, policyManagement, listClients:
 		keys = []string{
 			helpKeyStyle.Render("↑/↓") + " " + helpDescStyle.Render("navigate"),
 			helpKeyStyle.Render("enter") + " " + helpDescStyle.Render("select"),
@@ -182,6 +182,8 @@ func (m *model) View() string {
 		screenView = lipgloss.JoinVertical(lipgloss.Left, logo, menuContainer.Render(m.certForm.View()))
 	case registerClient:
 		screenView = lipgloss.JoinVertical(lipgloss.Left, logo, menuContainer.Render(m.registerClientFormModel.View()))
+	case listClients:
+		screenView = lipgloss.JoinVertical(lipgloss.Left, logo, menuContainer.Render(m.renderClientListView()))
 	case listRecords:
 		screenView = m.inspector.View()
 	case listPolicies:
@@ -292,6 +294,8 @@ func (m *model) renderBreadcrumb() string {
 		segments = []string{"Home", "Access", "Certificates"}
 	case createCerts:
 		segments = []string{"Home", "Access", "Certificates", "Create"}
+	case listClients:
+		segments = []string{"Home", "Access", "Certificates", "Registered Clients"}
 	case registerClient:
 		segments = []string{"Home", "Access", "Certificates", "Register Client"}
 	case policyManagement:
@@ -334,49 +338,56 @@ func (m *model) renderPolicyListView() string {
 	if len(m.policies) == 0 {
 		emptyMsg := policyErrorStyle.Render("No policies found")
 		helpMsg := policyDescStyle.Render("Press 'b' to go back")
-
-		return lipgloss.JoinVertical(
-			lipgloss.Center,
-			emptyMsg,
-			helpMsg,
-		)
+		return lipgloss.JoinVertical(lipgloss.Center, emptyMsg, helpMsg)
 	}
 
-	l := renderPolicyList(m.policies, m.width, m.height)
-	countMsg := policySuccessStyle.Render(fmt.Sprintf("%d policies loaded", len(m.policies)))
-
-	return lipgloss.JoinVertical(lipgloss.Center, l.View(), countMsg)
+	countMsg := policySuccessStyle.Render(fmt.Sprintf("%d policies loaded — press enter to view", len(m.policies)))
+	return lipgloss.JoinVertical(lipgloss.Center, m.policyListView.View(), countMsg)
 }
 
 func (m *model) renderClientSelectorView() string {
 	if len(m.clients) == 0 {
 		emptyMsg := policyErrorStyle.Render("No clients found")
 		helpMsg := policyDescStyle.Render("Press 'b' to go back")
-
-		return lipgloss.JoinVertical(
-			lipgloss.Center,
-			emptyMsg,
-			helpMsg,
-		)
+		return lipgloss.JoinVertical(lipgloss.Center, emptyMsg, helpMsg)
 	}
 
-	// Use createClientSelector to build a huh-form based selector
-	selectorTitle := "Select Client"
-	switch m.policyOperation {
-	case "view":
-		selectorTitle = "Select client to view policy"
-	case "edit":
-		selectorTitle = "Select client to edit policy"
-	case "create":
-		selectorTitle = "Select client to create policy"
-	case "delete":
-		selectorTitle = "Select client to delete policy"
-	case "export":
-		selectorTitle = "Select client to export policy"
+	if m.clientSelectorForm != nil {
+		return lipgloss.JoinVertical(lipgloss.Center, m.clientSelectorForm.View())
 	}
 
-	selectorForm := createClientSelector(m.clients, selectorTitle)
-	return lipgloss.JoinVertical(lipgloss.Center, selectorForm.View())
+	return policyDescStyle.Render("Loading...")
+}
+
+func (m *model) renderClientListView() string {
+	if len(m.registeredClients) == 0 {
+		emptyMsg := policyErrorStyle.Render("No registered clients found")
+		helpMsg := policyDescStyle.Render("Press 'b' to go back")
+		return lipgloss.JoinVertical(lipgloss.Center, emptyMsg, helpMsg)
+	}
+
+	var rows []string
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(colorSecondary)
+	header := fmt.Sprintf("%-24s  %-12s  %s",
+		headerStyle.Render("NAME"),
+		headerStyle.Render("STATUS"),
+		headerStyle.Render("CREATED"),
+	)
+	rows = append(rows, header)
+	rows = append(rows, strings.Repeat("─", 60))
+
+	rowStyle := lipgloss.NewStyle().Foreground(colorText)
+	for _, c := range m.registeredClients {
+		created := c.timeCreated
+		if len(created) > 19 {
+			created = created[:19] // trim to YYYY-MM-DDTHH:MM:SS
+		}
+		rows = append(rows, rowStyle.Render(fmt.Sprintf("%-24s  %-12s  %s", c.name, c.status, created)))
+	}
+
+	countMsg := policySuccessStyle.Render(fmt.Sprintf("%d client(s) registered", len(m.registeredClients)))
+	table := strings.Join(rows, "\n")
+	return lipgloss.JoinVertical(lipgloss.Left, table, "", countMsg)
 }
 
 func (m *model) renderExportOptionsView() string {

@@ -125,6 +125,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateCreateCerts(msg)
 	case registerClient:
 		return m.updateRegisterClient(msg)
+	case listClients:
+		return m.updateListClients(msg)
 	case listRecords:
 		var cmd tea.Cmd
 		m.inspector, cmd = m.inspector.Update(msg)
@@ -268,8 +270,9 @@ func (m *model) updateAddRecord(msg tea.Msg) (tea.Model, tea.Cmd) {
 // updateCertManagement handles updates for the certificate management screen.
 func (m *model) updateCertManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.String() {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
 		case "enter":
 			selected := m.certMenu.SelectedItem().(menuItem)
 			switch selected.title {
@@ -282,7 +285,16 @@ func (m *model) updateCertManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.clearStatus()
 				return m, m.registerClientFormModel.Init()
 			case "List Existing Certificates":
-				// TODO: Implement list functionality
+				if isDaemonLocked(m.daemonStatus) {
+					m.setWarning("Cannot list clients - Gaia is locked. Please unlock first.")
+					return m, nil
+				}
+				if isOffline(m.daemonStatus) {
+					m.setWarning("Cannot list clients - Daemon is not running.")
+					return m, nil
+				}
+				m.setInfo("Loading registered clients...")
+				return m, fetchAllClientsCmd(m.config)
 			case "Back":
 				m.activeScreen = accessManagement
 			}
@@ -290,9 +302,38 @@ func (m *model) updateCertManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeScreen = accessManagement
 			return m, nil
 		}
+	case allClientsLoadedMsg:
+		if msg.err != nil {
+			m.setError(fmt.Sprintf("Error loading clients: %v", msg.err))
+			return m, nil
+		}
+		m.registeredClients = make([]registeredClientItem, len(msg.clients))
+		for i, c := range msg.clients {
+			m.registeredClients[i] = registeredClientItem{
+				name:        c.Name,
+				status:      c.Status,
+				timeCreated: c.TimeCreated,
+			}
+		}
+		m.clearStatus()
+		m.activeScreen = listClients
+		return m, nil
 	}
 	m.certMenu, cmd = m.certMenu.Update(msg)
 	return m, cmd
+}
+
+// updateListClients handles the registered clients list screen.
+func (m *model) updateListClients(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "b", "esc":
+			m.activeScreen = certManagement
+			m.clearStatus()
+			return m, nil
+		}
+	}
+	return m, nil
 }
 
 // updateCreateCerts handles updates for the 'Create Certificates' form screen.
@@ -458,8 +499,19 @@ func (m *model) updateAccessManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 // updatePolicyManagement handles updates for the policy management menu screen.
 func (m *model) updatePolicyManagement(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.String() {
+	switch msg := msg.(type) {
+	case policiesLoadedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("❌ Error loading policies: %v", msg.err)
+			return m, nil
+		}
+		m.policies = msg.policies
+		m.policyListView = renderPolicyList(m.policies, m.width, m.height)
+		m.activeScreen = listPolicies
+		m.statusMessage = fmt.Sprintf("Loaded %d policies", len(m.policies))
+		return m, nil
+	case tea.KeyMsg:
+		switch msg.String() {
 		case "enter":
 			selected := m.policyMenu.SelectedItem().(menuItem)
 			switch selected.title {
@@ -541,24 +593,27 @@ func (m *model) updateListPolicies(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMessage = ""
 			return m, nil
 		case "enter":
-			if len(m.policies) > 0 {
-				// TODO: Show policy details
-				m.statusMessage = "View policy details - Coming soon"
+			if selected, ok := m.policyListView.SelectedItem().(policyListItem); ok {
+				m.policyOperation = "view"
+				m.statusMessage = fmt.Sprintf("Loading policy for '%s'...", selected.clientName)
+				return m, fetchPolicyCmd(m.config, selected.clientName)
 			}
 			return m, nil
 		}
-	case policiesLoadedMsg:
+	case policyLoadedMsg:
 		if msg.err != nil {
-			m.statusMessage = fmt.Sprintf("❌ Error loading policies: %v", msg.err)
-			m.activeScreen = policyManagement
+			m.statusMessage = fmt.Sprintf("❌ Error loading policy: %v", msg.err)
 			return m, nil
 		}
-		m.policies = msg.policies
-		m.activeScreen = listPolicies
-		m.statusMessage = fmt.Sprintf("Loaded %d policies", len(m.policies))
+		m.selectedPolicy = newPolicyDetailModel(msg.policy)
+		m.selectedPolicy.setSize(m.width, m.height)
+		m.activeScreen = viewPolicy
+		m.statusMessage = fmt.Sprintf("Viewing policy for '%s'", msg.policy.ClientName)
 		return m, nil
 	}
-	return m, nil
+	var cmd tea.Cmd
+	m.policyListView, cmd = m.policyListView.Update(msg)
+	return m, cmd
 }
 
 // updateViewPolicy handles updates for viewing a specific policy.
@@ -584,6 +639,24 @@ func (m *model) updateViewPolicy(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// proceedWithSelectedClient routes to the correct screen after a client is chosen.
+func (m *model) proceedWithSelectedClient() (tea.Model, tea.Cmd) {
+	switch m.policyOperation {
+	case "create":
+		m.policyEditorModel = newPolicyEditorModel(m.selectedClientName, nil)
+		if m.policyEditorModel != nil {
+			m.policyEditorModel.form = m.policyEditorModel.Init()
+			m.activeScreen = createPolicy
+			m.statusMessage = "Creating new policy..."
+			return m, m.policyEditorModel.form.Init()
+		}
+		return m, nil
+	default:
+		m.statusMessage = fmt.Sprintf("Loading policy for '%s'...", m.selectedClientName)
+		return m, fetchPolicyCmd(m.config, m.selectedClientName)
+	}
+}
+
 // updateSelectPolicyClient handles client selection for policy operations
 func (m *model) updateSelectPolicyClient(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -594,30 +667,8 @@ func (m *model) updateSelectPolicyClient(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMessage = ""
 			m.selectedClientName = ""
 			m.policyOperation = ""
+			m.clientSelectorForm = nil
 			return m, nil
-		case "enter":
-			// Get selected client
-			if len(m.clients) == 0 {
-				return m, nil
-			}
-
-			// For now, select the first client (TODO: make this interactive)
-			m.selectedClientName = m.clients[0]
-
-			// Route based on policyOperation
-			switch m.policyOperation {
-			case "create":
-				m.policyEditorModel = newPolicyEditorModel(m.selectedClientName, nil)
-				if m.policyEditorModel != nil {
-					m.policyEditorModel.form = m.policyEditorModel.Init()
-					m.activeScreen = createPolicy
-					m.statusMessage = "Creating new policy..."
-				}
-				return m, nil
-			default:
-				m.statusMessage = fmt.Sprintf("Loading policy for '%s'...", m.selectedClientName)
-				return m, fetchPolicyCmd(m.config, m.selectedClientName)
-			}
 		}
 	case clientsForPolicyMsg:
 		if msg.err != nil {
@@ -626,45 +677,31 @@ func (m *model) updateSelectPolicyClient(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Store operation type and clients
 		m.clients = msg.clients
 		m.policyOperation = msg.operation
 
-		// If only one client, auto-select
+		// Auto-select when only one client
 		if len(m.clients) == 1 {
 			m.selectedClientName = m.clients[0]
-
-			// Route immediately based on operation
-			switch m.policyOperation {
-			case "view", "edit", "delete", "export":
-				m.statusMessage = fmt.Sprintf("Loading policy for '%s'...", m.selectedClientName)
-				return m, fetchPolicyCmd(m.config, m.selectedClientName)
-			case "create":
-				// Initialize editor for new policy
-				m.policyEditorModel = newPolicyEditorModel(m.selectedClientName, nil)
-				if m.policyEditorModel != nil {
-					m.policyEditorModel.form = m.policyEditorModel.Init()
-					m.activeScreen = createPolicy
-					m.statusMessage = "Creating new policy..."
-				}
-				return m, nil
-			}
+			return m.proceedWithSelectedClient()
 		}
 
-		// Show client selector with appropriate message
+		// Multiple clients — build the interactive selector form
+		selectorTitle := "Select client"
 		switch m.policyOperation {
 		case "view":
-			m.statusMessage = "Select a client to view their policy"
+			selectorTitle = "Select a client to view their policy"
 		case "edit":
-			m.statusMessage = "Select a client to edit their policy"
+			selectorTitle = "Select a client to edit their policy"
 		case "create":
-			m.statusMessage = "Select a client to create a policy"
+			selectorTitle = "Select a client to create a policy"
 		case "delete":
-			m.statusMessage = "Select a client to delete their policy"
+			selectorTitle = "Select a client to delete their policy"
 		case "export":
-			m.statusMessage = "Select a client to export their policy"
+			selectorTitle = "Select a client to export their policy"
 		}
-		return m, nil
+		m.clientSelectorForm = createClientSelector(m.clients, selectorTitle)
+		return m, m.clientSelectorForm.Init()
 
 	case policyLoadedMsg:
 		if msg.err != nil {
@@ -673,7 +710,6 @@ func (m *model) updateSelectPolicyClient(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Route based on policyOperation
 		switch m.policyOperation {
 		case "view":
 			m.selectedPolicy = newPolicyDetailModel(msg.policy)
@@ -682,8 +718,10 @@ func (m *model) updateSelectPolicyClient(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMessage = fmt.Sprintf("Viewing policy for '%s'", msg.policy.ClientName)
 		case "edit":
 			m.policyEditorModel = newPolicyEditorModel(msg.policy.ClientName, &msg.policy)
+			m.policyEditorModel.form = m.policyEditorModel.Init()
 			m.activeScreen = editPolicy
-			m.statusMessage = fmt.Sprintf("Editing policy for '%s'", msg.policy.ClientName)
+			m.statusMessage = fmt.Sprintf("Editing policy for '%s' — %d existing rules. Add more or press Esc to save.", msg.policy.ClientName, len(msg.policy.Rules))
+			return m, m.policyEditorModel.form.Init()
 		case "delete":
 			m.policyDeleteModel = newPolicyDeleteModel(msg.policy.ClientName, msg.policy)
 			m.activeScreen = deletePolicy
@@ -695,77 +733,49 @@ func (m *model) updateSelectPolicyClient(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+
+	// Process the client selector form when it's active
+	if m.clientSelectorForm != nil {
+		form, cmd := m.clientSelectorForm.Update(msg)
+		if f, ok := form.(*huh.Form); ok {
+			m.clientSelectorForm = f
+			if f.State == huh.StateCompleted {
+				m.selectedClientName = f.GetString("client")
+				m.clientSelectorForm = nil
+				return m.proceedWithSelectedClient()
+			}
+		}
+		return m, cmd
+	}
+
 	return m, nil
 }
 
 // updateCreatePolicy handles policy creation workflow
 func (m *model) updateCreatePolicy(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle esc explicitly before forwarding to the form
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+		if m.policyEditorModel != nil && m.policyEditorModel.step == 2 {
+			m.policyEditorModel.addRule()
+			pol := m.policyEditorModel.buildPolicy()
+			valid, warnings := validatePolicyWithFeedback(pol)
+			if !valid {
+				m.statusMessage = fmt.Sprintf("❌ Invalid policy: %s", warnings[0])
+				return m, nil
+			}
+			if len(warnings) > 0 {
+				m.statusMessage = fmt.Sprintf("⚠️ Warning: %s", warnings[0])
+			}
+			m.statusMessage = "Saving policy..."
+			return m, savePolicyCmd(m.config, pol)
+		}
+		m.activeScreen = policyManagement
+		m.statusMessage = ""
+		m.policyEditorModel = nil
+		return m, nil
+	}
+
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc":
-			// If editing rules, finish and save
-			if m.policyEditorModel != nil && m.policyEditorModel.step == 2 {
-				// Collect any in-progress rule
-				m.policyEditorModel.addRule()
-
-				// Build and save policy
-				pol := m.policyEditorModel.buildPolicy()
-
-				valid, warnings := validatePolicyWithFeedback(pol)
-				if !valid {
-					m.statusMessage = fmt.Sprintf("❌ Invalid policy: %s", warnings[0])
-					return m, nil
-				}
-
-				if len(warnings) > 0 {
-					m.statusMessage = fmt.Sprintf("⚠️ Warning: %s", warnings[0])
-				}
-
-				m.statusMessage = "Saving policy..."
-				return m, savePolicyCmd(m.config, pol)
-			}
-
-			m.activeScreen = policyManagement
-			m.statusMessage = ""
-			m.policyEditorModel = nil
-			return m, nil
-		}
-
-		// Handle form updates
-		if m.policyEditorModel != nil && m.policyEditorModel.form != nil {
-			form, cmd := m.policyEditorModel.form.Update(msg)
-			if f, ok := form.(*huh.Form); ok {
-				m.policyEditorModel.form = f
-
-				// Check if form is completed
-				if f.State == huh.StateCompleted {
-					if m.policyEditorModel.step == 2 {
-						// Rule form completed — add the rule and offer another
-						m.policyEditorModel.addRule()
-						m.statusMessage = fmt.Sprintf("%d rule(s) added. Fill another or press Esc to save.", len(m.policyEditorModel.rules))
-						m.policyEditorModel.form = m.policyEditorModel.initRuleForm()
-						return m, nil
-					}
-
-					// Template selection completed — apply and move to rule editing
-					if m.policyEditorModel.selectedTemplate != "" {
-						m.policyEditorModel.applyTemplate()
-					}
-
-					// Transition to step 2: rule editing
-					m.policyEditorModel.step = 2
-					m.policyEditorModel.form = m.policyEditorModel.Init()
-					if len(m.policyEditorModel.rules) > 0 {
-						m.statusMessage = fmt.Sprintf("Template applied with %d rule(s). Add more or press Esc to save.", len(m.policyEditorModel.rules))
-					} else {
-						m.statusMessage = "Add rules to the policy. Press Esc when done to save."
-					}
-					return m, nil
-				}
-			}
-			return m, cmd
-		}
 	case policySavedMsg:
 		if msg.err != nil {
 			m.statusMessage = fmt.Sprintf("❌ Error saving policy: %v", msg.err)
@@ -776,88 +786,64 @@ func (m *model) updateCreatePolicy(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.policyEditorModel = nil
 		return m, nil
 	}
+
+	// Forward ALL message types to the form (huh needs non-key msgs for cursor, focus, etc.)
+	if m.policyEditorModel != nil && m.policyEditorModel.form != nil {
+		form, cmd := m.policyEditorModel.form.Update(msg)
+		if f, ok := form.(*huh.Form); ok {
+			m.policyEditorModel.form = f
+			if f.State == huh.StateCompleted {
+				if m.policyEditorModel.step == 2 {
+					// Rule form completed — add the rule and offer another
+					m.policyEditorModel.addRule()
+					m.statusMessage = fmt.Sprintf("%d rule(s) added. Fill another or press Esc to save.", len(m.policyEditorModel.rules))
+					m.policyEditorModel.form = m.policyEditorModel.initRuleForm()
+					return m, m.policyEditorModel.form.Init()
+				}
+				// Template selection completed — apply and move to rule editing
+				if m.policyEditorModel.selectedTemplate != "" {
+					m.policyEditorModel.applyTemplate()
+				}
+				m.policyEditorModel.step = 2
+				m.policyEditorModel.form = m.policyEditorModel.Init()
+				if len(m.policyEditorModel.rules) > 0 {
+					m.statusMessage = fmt.Sprintf("Template applied with %d rule(s). Add more or press Esc to save.", len(m.policyEditorModel.rules))
+				} else {
+					m.statusMessage = "Add rules to the policy. Press Esc when done to save."
+				}
+				return m, m.policyEditorModel.form.Init()
+			}
+		}
+		return m, cmd
+	}
 	return m, nil
 }
 
 // updateEditPolicy handles policy editing workflow
 func (m *model) updateEditPolicy(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc":
-			// If editing rules, finish and save
-			if m.policyEditorModel != nil && m.policyEditorModel.step == 2 {
-				// Collect any in-progress rule
-				m.policyEditorModel.addRule()
-
-				pol := m.policyEditorModel.buildPolicy()
-
-				valid, warnings := validatePolicyWithFeedback(pol)
-				if !valid {
-					m.statusMessage = fmt.Sprintf("❌ Invalid policy: %s", warnings[0])
-					return m, nil
-				}
-
-				if len(warnings) > 0 {
-					m.statusMessage = fmt.Sprintf("⚠️ Warning: %s", warnings[0])
-				}
-
-				m.statusMessage = "Saving changes..."
-				return m, savePolicyCmd(m.config, pol)
+	// Handle esc explicitly before forwarding to the form
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+		if m.policyEditorModel != nil && m.policyEditorModel.step == 2 {
+			m.policyEditorModel.addRule()
+			pol := m.policyEditorModel.buildPolicy()
+			valid, warnings := validatePolicyWithFeedback(pol)
+			if !valid {
+				m.statusMessage = fmt.Sprintf("❌ Invalid policy: %s", warnings[0])
+				return m, nil
 			}
-
-			m.activeScreen = policyManagement
-			m.statusMessage = ""
-			m.policyEditorModel = nil
-			return m, nil
-		}
-
-		// Handle form updates
-		if m.policyEditorModel != nil && m.policyEditorModel.form != nil {
-			form, cmd := m.policyEditorModel.form.Update(msg)
-			if f, ok := form.(*huh.Form); ok {
-				m.policyEditorModel.form = f
-
-				if f.State == huh.StateCompleted {
-					if m.policyEditorModel.step == 2 {
-						// Rule form completed — add the rule and offer another
-						m.policyEditorModel.addRule()
-						m.statusMessage = fmt.Sprintf("%d rule(s). Fill another or press Esc to save.", len(m.policyEditorModel.rules))
-						m.policyEditorModel.form = m.policyEditorModel.initRuleForm()
-						return m, nil
-					}
-
-					// For editing, step is already 2, but handle edge case
-					pol := m.policyEditorModel.buildPolicy()
-
-					valid, warnings := validatePolicyWithFeedback(pol)
-					if !valid {
-						m.statusMessage = fmt.Sprintf("❌ Invalid policy: %s", warnings[0])
-						return m, nil
-					}
-
-					if len(warnings) > 0 {
-						m.statusMessage = fmt.Sprintf("⚠️ Warning: %s", warnings[0])
-					}
-
-					m.statusMessage = "Saving changes..."
-					return m, savePolicyCmd(m.config, pol)
-				}
+			if len(warnings) > 0 {
+				m.statusMessage = fmt.Sprintf("⚠️ Warning: %s", warnings[0])
 			}
-			return m, cmd
+			m.statusMessage = "Saving changes..."
+			return m, savePolicyCmd(m.config, pol)
 		}
-	case policyLoadedMsg:
-		if msg.err != nil {
-			m.statusMessage = fmt.Sprintf("❌ Error loading policy: %v", msg.err)
-			m.activeScreen = policyManagement
-			return m, nil
-		}
-
-		// Initialize editor with existing policy — jump to rule editing (step 2)
-		m.policyEditorModel = newPolicyEditorModel(msg.policy.ClientName, &msg.policy)
-		m.policyEditorModel.form = m.policyEditorModel.Init()
-		m.statusMessage = fmt.Sprintf("Editing policy for '%s' — %d existing rules. Add more or press Esc to save.", msg.policy.ClientName, len(msg.policy.Rules))
+		m.activeScreen = policyManagement
+		m.statusMessage = ""
+		m.policyEditorModel = nil
 		return m, nil
+	}
+
+	switch msg := msg.(type) {
 	case policySavedMsg:
 		if msg.err != nil {
 			m.statusMessage = fmt.Sprintf("❌ Error saving policy: %v", msg.err)
@@ -867,6 +853,21 @@ func (m *model) updateEditPolicy(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.activeScreen = policyManagement
 		m.policyEditorModel = nil
 		return m, nil
+	}
+
+	// Forward ALL message types to the form (huh needs non-key msgs for cursor, focus, etc.)
+	if m.policyEditorModel != nil && m.policyEditorModel.form != nil {
+		form, cmd := m.policyEditorModel.form.Update(msg)
+		if f, ok := form.(*huh.Form); ok {
+			m.policyEditorModel.form = f
+			if f.State == huh.StateCompleted {
+				m.policyEditorModel.addRule()
+				m.statusMessage = fmt.Sprintf("%d rule(s). Fill another or press Esc to save.", len(m.policyEditorModel.rules))
+				m.policyEditorModel.form = m.policyEditorModel.initRuleForm()
+				return m, m.policyEditorModel.form.Init()
+			}
+		}
+		return m, cmd
 	}
 	return m, nil
 }

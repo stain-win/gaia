@@ -182,14 +182,15 @@ var (
 
 // policyEditorModel handles creating and editing policies
 type policyEditorModel struct {
-	form             *huh.Form
-	clientName       string
-	existingPolicy   *policy.Policy
-	step             int // 0=client selection, 1=template/manual, 2=rule building
-	rules            []policy.PolicyRule
-	selectedTemplate string
-	ruleForm         *huh.Form // Active rule editing form
-	editingRule      *policy.PolicyRule
+	form                 *huh.Form
+	clientName           string
+	existingPolicy       *policy.Policy
+	step                 int // 0=client selection, 1=template/manual, 2=rule building
+	rules                []policy.PolicyRule
+	selectedTemplate     string
+	ruleForm             *huh.Form // Active rule editing form
+	editingRule          *policy.PolicyRule
+	selectedCapabilities []string // Bound to the MultiSelect in the rule form
 }
 
 func newPolicyEditorModel(clientName string, existingPolicy *policy.Policy) *policyEditorModel {
@@ -305,26 +306,33 @@ func (m *policyEditorModel) buildPolicy() policy.Policy {
 // initRuleForm initializes a new rule editing form using createRuleForm.
 func (m *policyEditorModel) initRuleForm() *huh.Form {
 	m.editingRule = &policy.PolicyRule{}
-	m.ruleForm = createRuleForm(m.editingRule)
+	m.selectedCapabilities = nil
+	m.ruleForm = createRuleForm(m.editingRule, &m.selectedCapabilities)
 	return m.ruleForm
 }
 
 // addRule appends the currently editing rule to the rules list.
 func (m *policyEditorModel) addRule() {
 	if m.editingRule != nil && m.editingRule.Path != "" {
+		caps := make([]policy.Capability, len(m.selectedCapabilities))
+		for i, c := range m.selectedCapabilities {
+			caps[i] = policy.Capability(c)
+		}
+		m.editingRule.Capabilities = caps
 		m.rules = append(m.rules, *m.editingRule)
 		m.editingRule = nil
 		m.ruleForm = nil
+		m.selectedCapabilities = nil
 	}
 }
 
 // Rule editor form
-func createRuleForm(rule *policy.PolicyRule) *huh.Form {
+func createRuleForm(rule *policy.PolicyRule, selectedCaps *[]string) *huh.Form {
 	if rule == nil {
 		rule = &policy.PolicyRule{}
 	}
 
-	// Capability checkboxes
+	// Pre-select capabilities from existing rule
 	var hasRead, hasWrite, hasDelete, hasList bool
 	for _, capability := range rule.Capabilities {
 		switch capability {
@@ -362,7 +370,8 @@ func createRuleForm(rule *policy.PolicyRule) *huh.Form {
 					huh.NewOption("Write (add/update secrets)", "write").Selected(hasWrite),
 					huh.NewOption("Delete (remove secrets)", "delete").Selected(hasDelete),
 					huh.NewOption("List (list namespaces)", "list").Selected(hasList),
-				),
+				).
+				Value(selectedCaps),
 			huh.NewInput().
 				Key("description").
 				Title("Description (optional)").

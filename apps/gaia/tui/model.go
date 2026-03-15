@@ -38,7 +38,15 @@ const (
 	editPolicy         // New: Edit existing policy
 	selectPolicyClient // New: Select client for policy operations
 	policyExport       // New: Export policy
+	listClients        // List registered clients / certificates
 )
+
+// registeredClientItem holds display data for a registered client on the list clients screen.
+type registeredClientItem struct {
+	name        string
+	status      string
+	timeCreated string
+}
 
 // A custom item type for our list.
 type menuItem struct {
@@ -78,8 +86,12 @@ type model struct {
 	unlockFormModel         *unlockFormModel
 	statusMessage           string
 	statusMessageType       messageType
+	// Certificate/client list state
+	registeredClients []registeredClientItem
 	// Policy management state
 	policies           []policyListItem
+	policyListView     list.Model
+	clientSelectorForm *huh.Form
 	selectedPolicy     *policyDetailModel
 	policyEditorModel  *policyEditorModel
 	policyDeleteModel  *policyDeleteModel
