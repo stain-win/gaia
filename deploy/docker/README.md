@@ -1,5 +1,32 @@
 # Gaia Docker Environment Setup
 
+This guide covers both the **production** Docker Compose setup and the **dev image** for local development.
+
+---
+
+## Dev image (zero-setup, local development only)
+
+The dev image starts Gaia in unsafe mode with no manual certificate or database setup required.
+
+```sh
+# Build and run (from project root)
+make docker-dev
+
+# Or with Compose
+docker compose -f deploy/docker/docker-compose.dev.yml up
+```
+
+| Environment variable | Default | Description |
+|----------------------|---------|-------------|
+| `GAIA_DEV_PASSPHRASE` | `devpassphrase` | Master passphrase (strength not enforced) |
+| `GAIA_DEV_DIR` | `/tmp/gaia-dev` | Data directory inside the container |
+
+> **Warning:** The dev image runs in unsafe mode. Do **not** use it in production or store real secrets in it.
+
+---
+
+## Production setup
+
 This guide explains how to set up and run the Gaia ecosystem using Docker Compose. It assumes you have already created the local configuration directories as described in the main project `README.md`.
 
 ## 1. Generate and Place Certificates

@@ -515,6 +515,144 @@ func TestRotatePassword_UnsafeMode_SkipsValidation(t *testing.T) {
 	}
 }
 
+// setupTestDaemonEphemeral creates a daemon in ephemeral+unsafe mode for testing.
+func setupTestDaemonEphemeral(t *testing.T) *Daemon {
+	t.Helper()
+
+	tmpDir := t.TempDir()
+
+	cfg := config.NewDefaultConfig()
+	cfg.TLS.CertsDirectory = tmpDir
+	cfg.UnsafeMode = true
+	cfg.EphemeralMode = true
+	// DBFile intentionally empty; InitializeDB creates a temp file.
+
+	d := NewDaemon(cfg)
+
+	if err := d.InitializeDB("dev"); err != nil {
+		t.Fatalf("ephemeral InitializeDB failed: %v", err)
+	}
+
+	createDummyCerts(t, tmpDir)
+
+	if err := d.UnlockDB("dev"); err != nil {
+		t.Fatalf("ephemeral UnlockDB failed: %v", err)
+	}
+
+	return d
+}
+
+// TestEphemeral_DataGoneAfterRestart verifies that ephemeral data does not persist between instances.
+func TestEphemeral_DataGoneAfterRestart(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	makeDaemon := func() *Daemon {
+		cfg := config.NewDefaultConfig()
+		cfg.TLS.CertsDirectory = tmpDir
+		cfg.UnsafeMode = true
+		cfg.EphemeralMode = true
+		return NewDaemon(cfg)
+	}
+
+	// Session 1: init, unlock, write a secret.
+	d1 := makeDaemon()
+	if err := d1.InitializeDB("pass"); err != nil {
+		t.Fatalf("session1 InitializeDB failed: %v", err)
+	}
+	createDummyCerts(t, tmpDir)
+	if err := d1.UnlockDB("pass"); err != nil {
+		t.Fatalf("session1 UnlockDB failed: %v", err)
+	}
+	if err := d1.AddSecret("common", "common", "ephemeral-key", "ephemeral-value"); err != nil {
+		t.Fatalf("session1 AddSecret failed: %v", err)
+	}
+	d1.LockDB()
+
+	// Session 2: new daemon, new temp file — data from session 1 must be absent.
+	d2 := makeDaemon()
+	if err := d2.InitializeDB("pass"); err != nil {
+		t.Fatalf("session2 InitializeDB failed: %v", err)
+	}
+	createDummyCerts(t, tmpDir)
+	if err := d2.UnlockDB("pass"); err != nil {
+		t.Fatalf("session2 UnlockDB failed: %v", err)
+	}
+	defer d2.LockDB()
+
+	allSecrets, err := d2.ListSecrets("common")
+	if err != nil {
+		t.Fatalf("session2 ListSecrets failed: %v", err)
+	}
+	if _, found := allSecrets["common"]["ephemeral-key"]; found {
+		t.Error("ephemeral secret leaked across sessions; data should not persist")
+	}
+}
+
+// TestEphemeral_SkipsConsistencyCheck verifies that ephemeral DBs bypass the unsafe-flag check.
+func TestEphemeral_SkipsConsistencyCheck(t *testing.T) {
+	d := setupTestDaemonEphemeral(t)
+	defer d.LockDB()
+
+	// openDB was already called by UnlockDB; call checkUnsafeModeConsistency directly.
+	// It must return nil regardless of what flags are in the DB.
+	if err := d.checkUnsafeModeConsistency(); err != nil {
+		t.Errorf("expected no error for ephemeral mode, got: %v", err)
+	}
+}
+
+// TestEphemeral_InitializeDB_CreatesTempFile verifies that InitializeDB in ephemeral mode
+// creates a temp file and stores its path in d.config.Daemon.DBFile.
+func TestEphemeral_InitializeDB_CreatesTempFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := config.NewDefaultConfig()
+	cfg.Daemon.DBFile = "" // intentionally empty for ephemeral
+	cfg.TLS.CertsDirectory = tmpDir
+	cfg.UnsafeMode = true
+	cfg.EphemeralMode = true
+
+	d := NewDaemon(cfg)
+
+	if err := d.InitializeDB("dev"); err != nil {
+		t.Fatalf("InitializeDB failed: %v", err)
+	}
+
+	// The DB path must have been set to a temp file.
+	if d.config.Daemon.DBFile == "" {
+		t.Fatal("expected d.config.Daemon.DBFile to be set after ephemeral InitializeDB")
+	}
+
+	// After UnlockDB (which calls openDB and unlinks the file), the path no longer exists on disk.
+	createDummyCerts(t, tmpDir)
+	if err := d.UnlockDB("dev"); err != nil {
+		t.Fatalf("UnlockDB failed: %v", err)
+	}
+	defer d.LockDB()
+
+	// The temp file should be unlinked by openDB.
+	if _, err := os.Stat(d.config.Daemon.DBFile); !os.IsNotExist(err) {
+		t.Error("expected temp DB file to be unlinked after openDB in ephemeral mode")
+	}
+}
+
+// TestEphemeral_WriteAndRead verifies that secrets written in an ephemeral session are readable.
+func TestEphemeral_WriteAndRead(t *testing.T) {
+	d := setupTestDaemonEphemeral(t)
+	defer d.LockDB()
+
+	if err := d.AddSecret("common", "common", "k", "v"); err != nil {
+		t.Fatalf("AddSecret failed: %v", err)
+	}
+
+	allSecrets, err := d.ListSecrets("common")
+	if err != nil {
+		t.Fatalf("ListSecrets failed: %v", err)
+	}
+	if allSecrets["common"]["k"] != "v" {
+		t.Errorf("expected 'v', got %q", allSecrets["common"]["k"])
+	}
+}
+
 // createDummyCerts creates properly formatted CA certs for testing.
 func createDummyCerts(t *testing.T, dir string) {
 	t.Helper()

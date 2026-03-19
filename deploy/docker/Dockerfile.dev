@@ -1,0 +1,32 @@
+# Gaia Dev Docker Image
+# Builds a minimal image for local development and demos.
+# NOT for production use — starts in unsafe mode.
+#
+# Usage:
+#   docker build -f deploy/docker/Dockerfile.dev -t gaia:dev .
+#   docker run --rm -p 50051:50051 gaia:dev
+
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /build
+
+# Copy only what's needed for go mod download first (layer cache)
+COPY apps/gaia/go.mod apps/gaia/go.sum ./
+RUN go mod download
+
+# Copy source and pre-generated proto files
+COPY apps/gaia/ .
+RUN go build -ldflags="-s -w" -o /gaia ./main.go
+
+# --- Final minimal image ---
+FROM alpine:3.21
+
+RUN apk add --no-cache ca-certificates tzdata
+
+COPY --from=builder /gaia /usr/local/bin/gaia
+COPY deploy/docker/entrypoint-dev.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 50051
+
+ENTRYPOINT ["/entrypoint.sh"]

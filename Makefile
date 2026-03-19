@@ -27,7 +27,7 @@ LDFLAGS := -s -w \
 
 # --- Commands ---
 
-.PHONY: all build protoc clean test cross-build protoc-client-go protoc-client-rust protoc-client-js build-js-client help
+.PHONY: all build protoc clean test cross-build protoc-client-go protoc-client-rust protoc-client-js build-js-client docker-dev help
 
 # Default command to run everything
 all: protoc build
@@ -127,3 +127,10 @@ clean:
 debug_build:
 	@echo "Building Gaia with debug flags..."
 	cd $(BUILD_DIR) && ./build_gaia
+
+# Build and run the dev Docker image (unsafe mode, not for production)
+docker-dev:
+	@echo "Building Gaia dev Docker image..."
+	docker build -f deploy/docker/Dockerfile.dev -t gaia:dev .
+	@echo "Starting Gaia dev container on port 50051..."
+	docker run --rm -p 50051:50051 gaia:dev

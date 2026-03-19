@@ -89,6 +89,10 @@ type Config struct {
 	// Unsafe local dev mode (runtime-only, never persisted to config file)
 	UnsafeMode bool   `yaml:"-"` // When true, relaxes passphrase strength and uses faster key derivation
 	UnsafeDir  string `yaml:"-"` // Resolved absolute path of --dir for unsafe mode
+
+	// Ephemeral mode (runtime-only, never persisted to config file)
+	EphemeralMode bool   `yaml:"-"` // When true, all data lives in a temp file unlinked at startup
+	EphemeralDir  string `yaml:"-"` // Temp dir created for ephemeral certs; cleaned up after Stop
 }
 
 // NewDefaultConfig returns a Config with default values.

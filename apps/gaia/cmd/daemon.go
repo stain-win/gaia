@@ -8,19 +8,22 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/stain-win/gaia/apps/gaia/certs"
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/daemon"
+	gaialog "github.com/stain-win/gaia/apps/gaia/log"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
 
 const DaemonStopTimeout = 5 * time.Second
 
 var (
-	grpcPort   string
-	dbFile     string
-	certsDir   string
-	unsafeMode bool
-	unsafeDir  string
+	grpcPort      string
+	dbFile        string
+	certsDir      string
+	unsafeMode    bool
+	unsafeDir     string
+	ephemeralMode bool
 )
 
 // startCmd is the Cobra command for `gaia start`.
@@ -61,16 +64,40 @@ For example:
 			cfg.TLS.ServerKey = "server.key"
 		}
 
+		// --ephemeral requires --unsafe
+		if ephemeralMode && !unsafeMode {
+			return fmt.Errorf("--ephemeral requires --unsafe; ephemeral mode is for local development only")
+		}
+
 		// Handle unsafe local dev mode
 		if unsafeMode {
 			if err := configureUnsafeMode(cfg); err != nil {
 				return err
 			}
-			// Re-create daemon with updated config (includes UnsafeMode flag)
-			gaiaDaemon = daemon.NewDaemon(cfg)
+			gaialog.Get().Warn("daemon running in UNSAFE LOCAL DEV MODE",
+				"dir", cfg.UnsafeDir,
+				"mode", "unsafe",
+			)
 		}
 
-		if err := gaiaDaemon.Start(cfg); err != nil {
+		// Handle ephemeral mode (requires --unsafe)
+		if ephemeralMode {
+			if err := configureEphemeralMode(cfg); err != nil {
+				return err
+			}
+		}
+
+		// Re-create daemon with updated config
+		gaiaDaemon = daemon.NewDaemon(cfg)
+
+		err := gaiaDaemon.Start(cfg)
+
+		// Clean up ephemeral temp dir after daemon stops
+		if ephemeralMode && cfg.EphemeralDir != "" {
+			os.RemoveAll(cfg.EphemeralDir)
+		}
+
+		if err != nil {
 			return fmt.Errorf("daemon failed to start: %w", err)
 		}
 		return nil
@@ -170,7 +197,7 @@ var statusCmd = &cobra.Command{
 func configureUnsafeMode(cfg *config.Config) error {
 	dir := unsafeDir
 	if dir == "" {
-		dir = "."
+		dir = "gaia-dev"
 	}
 
 	absDir, err := filepath.Abs(dir)
@@ -208,6 +235,56 @@ func configureUnsafeMode(cfg *config.Config) error {
 	return nil
 }
 
+// configureEphemeralMode sets up the config for ephemeral (in-memory) mode.
+// It creates a temp directory for certs, auto-generates them, and sets EphemeralMode=true.
+// The DB file path is set by daemon.InitializeDB at startup (new temp file each run).
+func configureEphemeralMode(cfg *config.Config) error {
+	tmpDir, err := os.MkdirTemp("", "gaia-ephemeral-*")
+	if err != nil {
+		return fmt.Errorf("failed to create ephemeral temp dir: %w", err)
+	}
+
+	certsPath := filepath.Join(tmpDir, "certs")
+	if err := os.MkdirAll(certsPath, 0700); err != nil {
+		os.RemoveAll(tmpDir)
+		return fmt.Errorf("failed to create ephemeral certs dir: %w", err)
+	}
+
+	cfg.TLS.CertsDirectory = certsPath
+	cfg.TLS.CACert = "ca.crt"
+	cfg.TLS.ServerCert = "server.crt"
+	cfg.TLS.ServerKey = "server.key"
+	cfg.EphemeralMode = true
+	cfg.EphemeralDir = tmpDir
+
+	// Auto-generate certs for the ephemeral session (mTLS still active)
+	if err := certs.GenerateCA(cfg, "Gaia Ephemeral CA"); err != nil {
+		os.RemoveAll(tmpDir)
+		return fmt.Errorf("failed to generate ephemeral CA: %w", err)
+	}
+	if err := certs.GenerateServerCertificate(cfg, "localhost"); err != nil {
+		os.RemoveAll(tmpDir)
+		return fmt.Errorf("failed to generate ephemeral server cert: %w", err)
+	}
+	if err := certs.GenerateClientCertificate(cfg, "gaia_client"); err != nil {
+		os.RemoveAll(tmpDir)
+		return fmt.Errorf("failed to generate ephemeral client cert: %w", err)
+	}
+
+	printEphemeralWarning()
+	return nil
+}
+
+func printEphemeralWarning() {
+	fmt.Fprintf(os.Stderr, "\n"+
+		"╔══════════════════════════════════════════════════════════════════╗\n"+
+		"║  ⚠  UNSAFE LOCAL DEV MODE — EPHEMERAL (NO DATA PERSISTENCE) ⚠  ║\n"+
+		"║                                                                  ║\n"+
+		"║  All data is IN-MEMORY ONLY. Nothing survives process exit.     ║\n"+
+		"║  mTLS is still active. Do NOT store real secrets here.          ║\n"+
+		"╚══════════════════════════════════════════════════════════════════╝\n\n")
+}
+
 func printUnsafeWarning(absDir string) {
 	fmt.Fprintf(os.Stderr, "\n"+
 		"╔══════════════════════════════════════════════════════════════╗\n"+
@@ -229,4 +306,5 @@ func init() {
 	startCmd.Flags().StringVarP(&certsDir, "certs-dir", "C", "", "The directory containing TLS certificates")
 	startCmd.Flags().BoolVar(&unsafeMode, "unsafe", false, "Run in unsafe local dev mode (relaxed passphrase, local directory)")
 	startCmd.Flags().StringVar(&unsafeDir, "dir", "", "Working directory for unsafe mode (default: ./gaia-dev)")
+	startCmd.Flags().BoolVar(&ephemeralMode, "ephemeral", false, "Run in ephemeral mode: all data is in-memory only and lost on exit (requires --unsafe)")
 }

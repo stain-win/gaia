@@ -1,0 +1,26 @@
+services:
+  gaia-dev:
+    image: gaia:dev
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.dev
+    ports:
+      - "50051:50051"
+    environment:
+      # Override with a custom passphrase if desired
+      GAIA_DEV_PASSPHRASE: devpassphrase
+      # Optional: persist state across container restarts by mounting a volume
+      # GAIA_DEV_DIR: /data/gaia-dev
+    # volumes:
+    #   - gaia-dev-data:/data/gaia-dev
+    restart: unless-stopped
+    healthcheck:
+      # Check that the gRPC port is accepting connections
+      test: ["CMD-SHELL", "nc -z localhost 50051 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+# volumes:
+#   gaia-dev-data:

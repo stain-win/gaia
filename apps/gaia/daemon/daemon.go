@@ -12,6 +12,7 @@ import (
 	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -81,21 +82,22 @@ const (
 
 // Daemon represents the state of the Gaia daemon.
 type Daemon struct {
-	config      *config.Config
-	server      *grpc.Server
-	db          *bbolt.DB
-	policyStore *policy.Store
-	auditLogger *audit.Logger
-	key         []byte
-	caCert      *x509.Certificate
-	caKey       *rsa.PrivateKey
-	dbLock      sync.RWMutex
-	status      string
-	isLocked    bool
-	unsafeMode  bool
-	stopChannel chan struct{}
-	stopOnce    sync.Once // Ensures shutdown runs only once
-	createdAt   time.Time
+	config        *config.Config
+	server        *grpc.Server
+	db            *bbolt.DB
+	policyStore   *policy.Store
+	auditLogger   *audit.Logger
+	key           []byte
+	caCert        *x509.Certificate
+	caKey         *rsa.PrivateKey
+	dbLock        sync.RWMutex
+	status        string
+	isLocked      bool
+	unsafeMode    bool
+	ephemeralMode bool
+	stopChannel   chan struct{}
+	stopOnce      sync.Once // Ensures shutdown runs only once
+	createdAt     time.Time
 
 	// Rate limiting for unlock attempts
 	unlockAttempts    int       // Current number of failed attempts
@@ -107,12 +109,13 @@ type Daemon struct {
 // NewDaemon creates a new Daemon instance with the default configuration.
 func NewDaemon(cfg *config.Config) *Daemon {
 	return &Daemon{
-		config:      cfg,
-		status:      StatusStopped,
-		isLocked:    true,
-		unsafeMode:  cfg.UnsafeMode,
-		stopChannel: make(chan struct{}),
-		createdAt:   time.Now().UTC(),
+		config:        cfg,
+		status:        StatusStopped,
+		isLocked:      true,
+		unsafeMode:    cfg.UnsafeMode,
+		ephemeralMode: cfg.EphemeralMode,
+		stopChannel:   make(chan struct{}),
+		createdAt:     time.Now().UTC(),
 	}
 }
 
@@ -136,8 +139,10 @@ func (d *Daemon) Start(cfg *config.Config) error {
 
 	d.config = cfg
 
-	if _, err := os.Stat(d.config.Daemon.DBFile); os.IsNotExist(err) {
-		return fmt.Errorf("initial setup not complete, run 'gaia init' first")
+	if !d.ephemeralMode {
+		if _, err := os.Stat(d.config.Daemon.DBFile); os.IsNotExist(err) {
+			return fmt.Errorf("initial setup not complete, run 'gaia init' first")
+		}
 	}
 
 	d.status = StatusStarting
@@ -148,22 +153,40 @@ func (d *Daemon) Start(cfg *config.Config) error {
 		return fmt.Errorf("failed to load TLS credentials: %w", err)
 	}
 
-	d.dbLock.Lock()
-	if err := d.openDB(); err != nil {
-		d.dbLock.Unlock()
-		d.status = StatusStopped
-		return fmt.Errorf("failed to open database: %w", err)
-	}
+	if d.ephemeralMode {
+		// Auto-initialize and unlock the ephemeral database with a random session key.
+		randBytes := make([]byte, 32)
+		if _, err := rand.Read(randBytes); err != nil {
+			d.status = StatusStopped
+			return fmt.Errorf("ephemeral: failed to generate session key: %w", err)
+		}
+		ephemeralPass := base64.StdEncoding.EncodeToString(randBytes)
+		if err := d.InitializeDB(ephemeralPass); err != nil {
+			d.status = StatusStopped
+			return fmt.Errorf("ephemeral: failed to initialize DB: %w", err)
+		}
+		if err := d.UnlockDB(ephemeralPass); err != nil {
+			d.status = StatusStopped
+			return fmt.Errorf("ephemeral: failed to unlock DB: %w", err)
+		}
+	} else {
+		d.dbLock.Lock()
+		if err := d.openDB(); err != nil {
+			d.dbLock.Unlock()
+			d.status = StatusStopped
+			return fmt.Errorf("failed to open database: %w", err)
+		}
 
-	// Check unsafe mode flag consistency between DB and runtime flag
-	if err := d.checkUnsafeModeConsistency(); err != nil {
-		d.db.Close()
-		d.db = nil
+		// Check unsafe mode flag consistency between DB and runtime flag
+		if err := d.checkUnsafeModeConsistency(); err != nil {
+			d.db.Close()
+			d.db = nil
+			d.dbLock.Unlock()
+			d.status = StatusStopped
+			return err
+		}
 		d.dbLock.Unlock()
-		d.status = StatusStopped
-		return err
 	}
-	d.dbLock.Unlock()
 
 	// Initialize audit logger
 	if err := d.initAuditLogger(); err != nil {
@@ -201,7 +224,8 @@ func (d *Daemon) Start(cfg *config.Config) error {
 	}
 
 	d.status = StatusRunning
-	d.isLocked = true
+	// Ephemeral mode starts fully unlocked; safe/unsafe modes start locked.
+	d.isLocked = !d.ephemeralMode
 
 	gaialog.Get().Info("Gaia daemon started successfully", "address", d.config.Daemon.ListenAddr)
 
@@ -323,8 +347,19 @@ func (s *gaiaAdminServer) ListSecretsStream(req *pb.ListSecretsRequest, stream p
 
 // InitializeDB creates the encrypted BoltDB, derives the key, and stores a hash of the key for validation.
 func (d *Daemon) InitializeDB(passphrase string) error {
-	if _, err := os.Stat(d.config.Daemon.DBFile); err == nil {
-		return gaiaerrors.ErrDatabaseExists
+	if d.ephemeralMode {
+		// Create a temporary file for the ephemeral database.
+		// The path is stored in d.config.Daemon.DBFile so openDB can find it.
+		tmpFile, err := os.CreateTemp("", "gaia-ephemeral-*.db")
+		if err != nil {
+			return fmt.Errorf("failed to create ephemeral database: %w", err)
+		}
+		d.config.Daemon.DBFile = tmpFile.Name()
+		tmpFile.Close()
+	} else {
+		if _, err := os.Stat(d.config.Daemon.DBFile); err == nil {
+			return gaiaerrors.ErrDatabaseExists
+		}
 	}
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
@@ -1267,6 +1302,12 @@ func (d *Daemon) openDB() error {
 		return err
 	}
 
+	// For ephemeral mode, unlink the file immediately after opening.
+	// The file descriptor stays valid (POSIX); the OS reclaims disk space when closed.
+	if d.ephemeralMode {
+		os.Remove(d.config.Daemon.DBFile) //nolint:errcheck — best-effort unlink
+	}
+
 	// Initialize policy store
 	d.policyStore, err = policy.NewStore(d.db)
 	if err != nil {
@@ -1279,7 +1320,11 @@ func (d *Daemon) openDB() error {
 
 // checkUnsafeModeConsistency verifies that the --unsafe runtime flag matches the database's
 // stored unsafe mode state. Must be called with d.db open and d.dbLock held.
+// Ephemeral databases are always created fresh and skip this check.
 func (d *Daemon) checkUnsafeModeConsistency() error {
+	if d.ephemeralMode {
+		return nil
+	}
 	var dbIsUnsafe bool
 	err := d.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(secretsBucket))

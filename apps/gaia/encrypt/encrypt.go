@@ -39,8 +39,8 @@ func DeriveKey(passphrase, salt []byte) ([]byte, error) {
 	return key, nil
 }
 
-// DeriveKeyLegacy derives a key using legacy scrypt parameters (N=2^15).
-// Only use this for migrating existing databases.
+// DeriveKeyLegacy derives a key using lighter scrypt parameters (N=2^15, ~4x faster).
+// Use for: unsafe/dev mode databases and legacy migration. Never use for production.
 func DeriveKeyLegacy(passphrase, salt []byte) ([]byte, error) {
 	key, err := scrypt.Key(passphrase, salt, 1<<15, 8, 1, KeyLen)
 	if err != nil {
