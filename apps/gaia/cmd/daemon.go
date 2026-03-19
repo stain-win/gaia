@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -89,6 +90,14 @@ For example:
 
 		// Re-create daemon with updated config
 		gaiaDaemon = daemon.NewDaemon(cfg)
+
+		if cfg.UnsafeMode || cfg.EphemeralMode {
+			host, _, err := net.SplitHostPort(cfg.Daemon.ListenAddr)
+			if err == nil && host != "127.0.0.1" && host != "::1" && host != "localhost" {
+				gaialog.Get().Error("CRITICAL WARNING: Running in UNSAFE mode bound to a non-loopback address. This exposes a weakened daemon to the network!", "listen_addr", cfg.Daemon.ListenAddr)
+				fmt.Fprintf(os.Stderr, "\nCRITICAL WARNING: Running in UNSAFE mode bound to a non-loopback address. This exposes a weakened daemon to the network!\n\n")
+			}
+		}
 
 		err := gaiaDaemon.Start(cfg)
 
@@ -281,6 +290,7 @@ func printEphemeralWarning() {
 		"║  ⚠  UNSAFE LOCAL DEV MODE — EPHEMERAL (NO DATA PERSISTENCE) ⚠  ║\n"+
 		"║                                                                  ║\n"+
 		"║  All data is IN-MEMORY ONLY. Nothing survives process exit.     ║\n"+
+		"║  ALL DATA AND AUDIT LOGS WILL BE LOST ON EXIT.                  ║\n"+
 		"║  mTLS is still active. Do NOT store real secrets here.          ║\n"+
 		"╚══════════════════════════════════════════════════════════════════╝\n\n")
 }

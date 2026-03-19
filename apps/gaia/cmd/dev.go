@@ -9,6 +9,7 @@ import (
 	"github.com/stain-win/gaia/apps/gaia/certs"
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/daemon"
+	gaialog "github.com/stain-win/gaia/apps/gaia/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -124,6 +125,8 @@ func runDev(_ *cobra.Command, _ []string) error {
 // resolveDevPassphrase returns the passphrase from flag, env var, or prompts the user.
 func resolveDevPassphrase(unsafeMode bool) (string, error) {
 	if devPassphrase != "" {
+		gaialog.Get().Warn("Passphrase provided via CLI flag. This is visible in the system process list (e.g., 'ps aux'). Prefer interactive prompts or environment variables.")
+		fmt.Fprintln(os.Stderr, "\nWARNING: Passphrase provided via CLI flag. This is visible in the system process list (e.g., 'ps aux'). Prefer interactive prompts or environment variables.")
 		return devPassphrase, nil
 	}
 	if p := os.Getenv("GAIA_PASSPHRASE"); p != "" {
