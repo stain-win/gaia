@@ -291,12 +291,11 @@ func TestCreateDefaultPolicy(t *testing.T) {
 
 	// Should have common read access
 	hasCommonRead := false
-	hasOwnFullAccess := false
+	hasOwnReadAccess := false
 
 	for _, rule := range policy.Rules {
 		if rule.Path == "common/*" {
 			hasCommonRead = true
-			// Check for read capability
 			for _, cap := range rule.Capabilities {
 				if cap != CapabilityRead && cap != CapabilityList {
 					t.Errorf("Common should only have read/list, got %s", cap)
@@ -304,10 +303,11 @@ func TestCreateDefaultPolicy(t *testing.T) {
 			}
 		}
 		if rule.Path == "test-client/*" {
-			hasOwnFullAccess = true
-			// Should have all capabilities
-			if len(rule.Capabilities) < 3 {
-				t.Error("Own namespace should have full access")
+			hasOwnReadAccess = true
+			for _, cap := range rule.Capabilities {
+				if cap != CapabilityRead && cap != CapabilityList {
+					t.Errorf("Own namespace should only have read/list, got %s", cap)
+				}
 			}
 		}
 	}
@@ -315,8 +315,8 @@ func TestCreateDefaultPolicy(t *testing.T) {
 	if !hasCommonRead {
 		t.Error("Default policy missing common read access")
 	}
-	if !hasOwnFullAccess {
-		t.Error("Default policy missing own namespace full access")
+	if !hasOwnReadAccess {
+		t.Error("Default policy missing own namespace read access")
 	}
 }
 

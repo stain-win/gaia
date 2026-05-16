@@ -52,7 +52,7 @@
     mode: "{{ item.mode | default('0755') }}"
   loop:
     - { path: "{{ gaia_config_dir }}", mode: "0750" }
-    - { path: "{{ gaia_certs_dir }}", mode: "0750" }  # Group-readable for admin users
+    - { path: "{{ gaia_certs_dir }}", mode: "01770" }  # Group rwx + sticky bit: admin users can create certs but cannot delete gaia-owned keys
     - { path: "{{ gaia_data_dir }}", mode: "0750" }
     - { path: "{{ gaia_log_dir }}", mode: "0750" }
     - { path: "{{ gaia_backup_dir }}", mode: "0750" }

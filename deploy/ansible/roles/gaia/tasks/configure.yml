@@ -33,4 +33,4 @@
     state: directory
     owner: "{{ gaia_user }}"
     group: "{{ gaia_group }}"
-    mode: "0700"
+    mode: "01770"  # rwxrwx--- + sticky bit: group can read/write/create, but cannot delete gaia-owned files (ca.key, server.key)

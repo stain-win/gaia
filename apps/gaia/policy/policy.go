@@ -175,7 +175,7 @@ func pathMatches(requestedPath, policyPath string) bool {
 }
 
 // CreateDefaultPolicy creates a default policy for a client.
-// The default policy allows full access to the client's own namespace.
+// The default policy allows read access to the client's own namespace.
 func CreateDefaultPolicy(clientName string) Policy {
 	return Policy{
 		ClientName: clientName,
@@ -187,8 +187,8 @@ func CreateDefaultPolicy(clientName string) Policy {
 			},
 			{
 				Path:         clientName + "/*",
-				Capabilities: []Capability{CapabilityRead, CapabilityWrite, CapabilityDelete, CapabilityList},
-				Description:  "Full access to own namespace",
+				Capabilities: []Capability{CapabilityRead, CapabilityList},
+				Description:  "Read access to own namespace",
 			},
 		},
 	}

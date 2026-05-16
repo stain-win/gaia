@@ -175,12 +175,15 @@ ansible/
 
 Gaia uses mTLS for authentication. Both the daemon and CLI/TUI clients need certificates to communicate:
 
-| File | Mode | Purpose |
-|------|------|---------|
-| `ca.key` | `0600` | CA private key (critical - only gaia user) |
+| File/Dir | Mode | Purpose |
+|----------|------|---------|
+| `certs/` (directory) | `01770` | Group rwx + sticky bit: admin users can read and create certs, but cannot delete gaia-owned keys |
+| `ca.key` | `0600` | CA private key (critical — only gaia user) |
 | `server.key` | `0600` | Server private key (daemon only) |
 | `gaia.key` | `0640` | Admin client key (group-readable for CLI/TUI) |
 | `*.crt` | `0644` | Certificates (public, readable by all) |
+
+The sticky bit on the certs directory (`01770`) means admin users can create new certificate files but cannot delete any files they don't own. This protects `ca.key` and `server.key` from accidental deletion even though group members have write access to the directory.
 
 ### Configuring Admin Access
 
@@ -364,6 +367,7 @@ The playbook implements several security measures:
 - **Restrictive permissions**: 
   - CA & server private keys: `0600` (daemon only)
   - Admin client key: `0640` (group readable for CLI/TUI)
+  - Certs directory: `01770` (group rwx + sticky bit — admin users can create certs, cannot delete gaia-owned keys)
   - Config files: `0640` (group readable)
   - Database: `0600` (daemon only)
 - **Systemd hardening**: PrivateTmp, ProtectSystem, NoNewPrivileges, MemoryDenyWriteExecute
@@ -382,6 +386,19 @@ For additional security:
 ### "Could not connect to daemon" / "Is it running?"
 
 This is usually a **permission issue**, not a daemon issue. The CLI can't read the admin certificates.
+
+**Check 0: Can you access the certs directory?**
+```bash
+ls -la /etc/gaia/certs/
+# Should NOT return "Permission denied"
+# Directory mode should be 1770 (drwxrwx--T) with group 'gaia'
+```
+
+**Fix:** Correct the directory permissions:
+```bash
+sudo chmod 01770 /etc/gaia/certs
+sudo chown gaia:gaia /etc/gaia/certs
+```
 
 **Check 1: Are you in the gaia group?**
 ```bash
@@ -430,7 +447,11 @@ sudo -u gaia gaia --config /etc/gaia/gaia-config.yaml daemon status
 ### Certificate issues
 
 ```bash
-# Check certificate permissions
+# Check certificate directory permissions
+ls -la /etc/gaia/
+# certs/ should be drwxrwx--T (mode 01770, group gaia)
+
+# Check certificate file permissions
 ls -la /etc/gaia/certs/
 
 # Expected permissions:
