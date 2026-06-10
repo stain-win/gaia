@@ -4,10 +4,19 @@
 # Permission model:
 # - CA key (ca.key): 0600 - Only gaia user (critical secret)
 # - Server key (server.key): 0600 - Only gaia user (daemon secret)
-# - Admin key (gaia.key): 0640 - Group readable for CLI/TUI admin access
+# - Admin key (gaia_client.key): 0640 - Group readable for CLI/TUI admin access
 # - Certificates (.crt): 0644 - Readable by all (public part)
+# - Certificates directory: 01770 - group-writable with sticky bit
 #
 # Users in the 'gaia' group can use the CLI/TUI to manage the daemon.
+
+- name: Ensure certificates directory keeps shared sticky permissions
+  ansible.builtin.file:
+    path: "{{ gaia_certs_dir }}"
+    state: directory
+    owner: "{{ gaia_user }}"
+    group: "{{ gaia_group }}"
+    mode: "01770"
 
 - name: Check if CA certificate exists
   ansible.builtin.stat:
@@ -55,7 +64,7 @@
     group: "{{ gaia_group }}"
     mode: "0640"
   loop:
-    - gaia.key
+    - gaia_client.key
   failed_when: false
 
 - name: Set permissions on certificates (public parts, readable)
@@ -67,7 +76,7 @@
   loop:
     - ca.crt
     - server.crt
-    - gaia.crt
+    - gaia_client.crt
   failed_when: false
 
 - name: Verify certificates exist
@@ -78,8 +87,8 @@
     - ca.key
     - server.crt
     - server.key
-    - gaia.crt
-    - gaia.key
+    - gaia_client.crt
+    - gaia_client.key
   register: gaia_cert_files
 
 - name: Display certificate status

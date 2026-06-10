@@ -15,6 +15,10 @@ var (
 	gitCommit = "unknown"
 	// buildDate is the build timestamp
 	buildDate = "unknown"
+
+	updateInstall bool
+	updateForce   bool
+	updateYes     bool
 )
 
 // versionCmd represents the version command
@@ -40,10 +44,14 @@ var updateCmd = &cobra.Command{
 	Long: `Check if a newer version of Gaia is available and show update instructions.
 
 This command queries the GitHub releases API to compare your installed 
-version with the latest release.`,
+version with the latest release. By default it does not change your installation.
+Use --install to download, verify, and install the matching GitHub release asset.`,
 	RunE: runVersionCheck,
 }
 
 func init() {
+	updateCmd.Flags().BoolVar(&updateInstall, "install", false, "download, verify, and install the latest release")
+	updateCmd.Flags().BoolVar(&updateForce, "force", false, "allow reinstalling or replacing dev/newer builds")
+	updateCmd.Flags().BoolVar(&updateYes, "yes", false, "skip confirmation prompts")
 	rootCmd.AddCommand(updateCmd)
 }

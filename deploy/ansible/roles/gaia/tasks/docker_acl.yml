@@ -45,13 +45,12 @@
     - docker_group_check.ansible_facts.getent_group is defined
     - docker_group_check.ansible_facts.getent_group[gaia_docker_group] is not none
   block:
-    # Set base ownership and permissions (chmod -R 750)
+    # Set base ownership recursively without changing file or directory modes.
     - name: Set base ownership on certs directory
       ansible.builtin.file:
         path: "{{ gaia_certs_dir }}"
         owner: "{{ gaia_user }}"
         group: "{{ gaia_group }}"
-        mode: "0750"
         recurse: true
 
     # Set ACL on config directory for traversal to certs
@@ -105,6 +104,13 @@
         mode: "0600"
       failed_when: false
 
+    - name: Restore certs directory shared sticky permissions
+      ansible.builtin.file:
+        path: "{{ gaia_certs_dir }}"
+        owner: "{{ gaia_user }}"
+        group: "{{ gaia_group }}"
+        mode: "01770"
+
 # Optional: Add ACLs for additional admin users (like TUI users not in docker group)
 - name: Apply ACLs for admin users on certs directory
   when: gaia_admin_users | length > 0
@@ -120,6 +126,13 @@
         cmd: "setfacl -d -m u:{{ item }}:rX {{ gaia_certs_dir }}"
       loop: "{{ gaia_admin_users }}"
       changed_when: true
+
+- name: Ensure certs directory keeps shared sticky permissions after ACL changes
+  ansible.builtin.file:
+    path: "{{ gaia_certs_dir }}"
+    owner: "{{ gaia_user }}"
+    group: "{{ gaia_group }}"
+    mode: "01770"
 
 - name: Display ACL configuration summary
   ansible.builtin.debug:

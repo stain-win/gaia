@@ -1,10 +1,19 @@
 package cmd
 
 import (
+	"archive/tar"
+	"bufio"
+	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -25,15 +34,18 @@ const (
 
 // GitHubRelease represents a GitHub release
 type GitHubRelease struct {
-	TagName     string    `json:"tag_name"`
-	Name        string    `json:"name"`
-	PublishedAt time.Time `json:"published_at"`
-	HTMLURL     string    `json:"html_url"`
-	Body        string    `json:"body"`
-	Assets      []struct {
-		Name               string `json:"name"`
-		BrowserDownloadURL string `json:"browser_download_url"`
-	} `json:"assets"`
+	TagName     string        `json:"tag_name"`
+	Name        string        `json:"name"`
+	PublishedAt time.Time     `json:"published_at"`
+	HTMLURL     string        `json:"html_url"`
+	Body        string        `json:"body"`
+	Assets      []GitHubAsset `json:"assets"`
+}
+
+// GitHubAsset represents a downloadable release asset.
+type GitHubAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
 // Version styles
@@ -88,6 +100,9 @@ func runVersionCheck(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	comparison := compareVersions(currentVersion, latestVersion)
+	if updateInstall {
+		return runVersionInstall(release, currentVersion, latestVersion, comparison)
+	}
 
 	switch comparison {
 	case 0:
@@ -108,6 +123,112 @@ func runVersionCheck(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
+	return nil
+}
+
+func runVersionInstall(release *GitHubRelease, currentVersion, latestVersion string, comparison int) error {
+	if version == "dev" && !updateForce {
+		return NewGaiaError(
+			ErrCodeUnknown,
+			"Refusing to self-update a development build",
+			nil,
+		).WithHint("Run 'gaia update --install --force' if you intentionally want to replace this dev build").
+			WithHint("For server installs, prefer: ansible-playbook -i inventories/production/hosts.yml update.yml")
+	}
+
+	if comparison == 0 && !updateForce {
+		fmt.Println(versionBoxStyle.Render(versionUpToDateStyle.Render("✓ You're running the latest version of Gaia.")))
+		fmt.Println("Use --force to reinstall the current release.")
+		return nil
+	}
+
+	if comparison > 0 && !updateForce {
+		return NewGaiaError(
+			ErrCodeUnknown,
+			"Refusing to replace a newer local version",
+			nil,
+		).WithHint("Use --force to install the latest GitHub release anyway").
+			WithHint(fmt.Sprintf("Manual release page: %s", release.HTMLURL))
+	}
+
+	asset, err := findReleaseAsset(release, runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		return err
+	}
+
+	checksumAsset, err := findChecksumAsset(release)
+	if err != nil {
+		return err
+	}
+
+	executablePath, err := os.Executable()
+	if err != nil {
+		return NewGaiaError(ErrCodeUnknown, "Could not determine current Gaia executable path", err)
+	}
+
+	if runtime.GOOS == "linux" && isGaiaSystemdServiceActive() {
+		fmt.Println(versionCurrentStyle.Render("⚠ Gaia systemd service is active; Ansible is preferred for service-managed installs."))
+		fmt.Println(versionCurrentStyle.Render("  ansible-playbook -i inventories/production/hosts.yml update.yml"))
+		fmt.Println()
+	}
+
+	if !updateYes {
+		var confirmed bool
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title(fmt.Sprintf("Install Gaia %s over %s?", release.TagName, currentVersion)).
+					Value(&confirmed).
+					Affirmative("Install").
+					Negative("Cancel"),
+			),
+		)
+		if err := form.Run(); err != nil {
+			return err
+		}
+		if !confirmed {
+			fmt.Println("Update cancelled.")
+			return nil
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
+	defer cancel()
+
+	tmpDir, err := os.MkdirTemp("", "gaia-update-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	archivePath := filepath.Join(tmpDir, asset.Name)
+	checksumsPath := filepath.Join(tmpDir, checksumAsset.Name)
+
+	fmt.Printf("Downloading %s...\n", asset.Name)
+	if err := downloadFile(ctx, asset.BrowserDownloadURL, archivePath); err != nil {
+		return NewGaiaError(ErrCodeNetwork, "Failed to download Gaia release asset", err).
+			WithHint(fmt.Sprintf("Manual download: %s", asset.BrowserDownloadURL))
+	}
+	if err := downloadFile(ctx, checksumAsset.BrowserDownloadURL, checksumsPath); err != nil {
+		return NewGaiaError(ErrCodeNetwork, "Failed to download Gaia checksums", err).
+			WithHint(fmt.Sprintf("Manual download: %s", checksumAsset.BrowserDownloadURL))
+	}
+
+	checksums, err := os.ReadFile(checksumsPath)
+	if err != nil {
+		return err
+	}
+
+	if err := installReleaseArchive(archivePath, checksums, executablePath); err != nil {
+		if isPermissionError(err) {
+			return NewGaiaError(ErrCodePermission, "Permission denied while replacing Gaia executable", err).
+				WithHint(fmt.Sprintf("Run with elevated permissions: sudo %s update --install --yes", shellQuote(executablePath))).
+				WithHint(fmt.Sprintf("For Ansible-managed servers: ansible-playbook -i inventories/production/hosts.yml update.yml --extra-vars \"gaia_version=%s\"", release.TagName))
+		}
+		return err
+	}
+
+	fmt.Println(versionBoxStyle.Render(versionUpToDateStyle.Render(fmt.Sprintf("✓ Gaia updated to %s", release.TagName))))
 	return nil
 }
 
@@ -301,6 +422,226 @@ func getArchName() string {
 	default:
 		return runtime.GOARCH
 	}
+}
+
+func findReleaseAsset(release *GitHubRelease, goos, goarch string) (GitHubAsset, error) {
+	osName, archName, err := platformReleaseNames(goos, goarch)
+	if err != nil {
+		return GitHubAsset{}, err
+	}
+
+	expectedName := fmt.Sprintf("gaia_%s_%s_%s.tar.gz", release.TagName, osName, archName)
+	for _, asset := range release.Assets {
+		if asset.Name == expectedName {
+			return asset, nil
+		}
+	}
+
+	return GitHubAsset{}, NewGaiaError(
+		ErrCodeUnknown,
+		fmt.Sprintf("No Gaia release asset found for %s/%s", goos, goarch),
+		nil,
+	).WithHint("Use a manual update from https://github.com/stain-win/gaia/releases").
+		WithHint(fmt.Sprintf("Expected asset: %s", expectedName))
+}
+
+func findChecksumAsset(release *GitHubRelease) (GitHubAsset, error) {
+	for _, asset := range release.Assets {
+		if asset.Name == "checksums.txt" {
+			return asset, nil
+		}
+	}
+
+	return GitHubAsset{}, NewGaiaError(
+		ErrCodeUnknown,
+		"Release checksums.txt asset was not found",
+		nil,
+	).WithHint("Use a manual update from https://github.com/stain-win/gaia/releases")
+}
+
+func platformReleaseNames(goos, goarch string) (string, string, error) {
+	var osName string
+	switch goos {
+	case "darwin":
+		osName = "Darwin"
+	case "linux":
+		osName = "Linux"
+	default:
+		return "", "", NewGaiaError(
+			ErrCodeUnknown,
+			fmt.Sprintf("Self-update is not supported on %s/%s; please use a manual update", goos, goarch),
+			nil,
+		).WithHint("Please use a manual update from https://github.com/stain-win/gaia/releases")
+	}
+
+	var archName string
+	switch goarch {
+	case "amd64":
+		archName = "x86_64"
+	case "arm64":
+		archName = "arm64"
+	default:
+		return "", "", NewGaiaError(
+			ErrCodeUnknown,
+			fmt.Sprintf("Self-update is not supported on %s/%s; please use a manual update", goos, goarch),
+			nil,
+		).WithHint("Please use a manual update from https://github.com/stain-win/gaia/releases")
+	}
+
+	return osName, archName, nil
+}
+
+func downloadFile(ctx context.Context, url, dest string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", fmt.Sprintf("Gaia/%s", version))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download returned status %d", resp.StatusCode)
+	}
+
+	out, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
+
+func installReleaseArchive(archivePath string, checksums []byte, targetPath string) error {
+	if err := verifyArchiveChecksum(archivePath, checksums); err != nil {
+		return err
+	}
+
+	targetDir := filepath.Dir(targetPath)
+	tmpDir, err := os.MkdirTemp(targetDir, ".gaia-update-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	tmpBinary := filepath.Join(tmpDir, filepath.Base(targetPath))
+	if err := extractGaiaBinary(archivePath, tmpBinary); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmpBinary, 0o755); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpBinary, targetPath); err != nil {
+		return err
+	}
+
+	return os.Chmod(targetPath, 0o755)
+}
+
+func verifyArchiveChecksum(archivePath string, checksums []byte) error {
+	archiveName := filepath.Base(archivePath)
+	want, err := checksumForAsset(checksums, archiveName)
+	if err != nil {
+		return err
+	}
+
+	data, err := os.ReadFile(archivePath)
+	if err != nil {
+		return err
+	}
+	got := fmt.Sprintf("%x", sha256.Sum256(data))
+	if !strings.EqualFold(got, want) {
+		return fmt.Errorf("checksum mismatch for %s: got %s, want %s", archiveName, got, want)
+	}
+
+	return nil
+}
+
+func checksumForAsset(checksums []byte, assetName string) (string, error) {
+	scanner := bufio.NewScanner(strings.NewReader(string(checksums)))
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 2 {
+			continue
+		}
+		name := strings.TrimPrefix(fields[1], "*")
+		if filepath.Base(name) == assetName {
+			return fields[0], nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	return "", fmt.Errorf("checksum for %s not found", assetName)
+}
+
+func extractGaiaBinary(archivePath, destPath string) error {
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		return err
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+	for {
+		header, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if header.FileInfo().IsDir() || filepath.Base(header.Name) != "gaia" {
+			continue
+		}
+
+		out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+		if err != nil {
+			return err
+		}
+		_, copyErr := io.Copy(out, tr)
+		closeErr := out.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		return closeErr
+	}
+
+	return fmt.Errorf("gaia binary not found in %s", archivePath)
+}
+
+func isGaiaSystemdServiceActive() bool {
+	cmd := exec.Command("systemctl", "is-active", "--quiet", "gaia")
+	return cmd.Run() == nil
+}
+
+func isPermissionError(err error) bool {
+	if errors.Is(err, os.ErrPermission) {
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "permission denied") || strings.Contains(msg, "operation not permitted")
+}
+
+func shellQuote(value string) string {
+	if value == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
 func printMacOSUpdateInstructions(version, downloadURL, assetName string) {
