@@ -4,7 +4,7 @@
 </h1>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://go.dev)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev)
 [![Node Version](https://img.shields.io/badge/Node-14+-339933?logo=node.js)](https://nodejs.org)
 
 Gaia is a **lightweight, secure, and self-hosted secrets management daemon** designed for developers and small teams. Think of it as a "toy version of HashiCorp Vault" with a carefully cherry-picked feature set that makes it easy and fun to use.
@@ -12,7 +12,11 @@ Gaia is a **lightweight, secure, and self-hosted secrets management daemon** des
 **Perfect for small web projects where Docker secrets are too simple and Vault is overkill.**
 
 <p align="center">
-  <img src="./gaia_tui.png" alt="Gaia TUI" width="800"/>
+  <img src="./demo/gaia-demo.gif" alt="Gaia demo — CLI quickstart and TUI" width="800"/>
+</p>
+
+<p align="center">
+  <em>One command to spin up a local dev daemon, plus a beautiful interactive TUI.</em>
 </p>
 
 ---
@@ -195,7 +199,22 @@ gaia version
 
 For other platforms, see the [Installation](#installation) section.
 
-### 2. Run the Setup Wizard (Recommended)
+### 2. Try It Instantly (Local Dev Mode)
+
+Want to kick the tyres without generating production certificates or a strong
+passphrase? Use **unsafe local dev mode** — it auto-initialises, auto-unlocks,
+and (optionally) seeds secrets into a throwaway `./gaia-dev` directory:
+
+```bash
+# One command: init + unlock + seed, all in ./gaia-dev
+GAIA_PASSPHRASE=devpass gaia dev --seed seed.yaml
+```
+
+> ⚠️ **Dev mode is not for production.** Passphrase strength is not enforced and
+> the database is permanently flagged unsafe — it can never be promoted to a
+> production database. Use it for local development, demos, and CI only.
+
+### 3. Run the Setup Wizard (Recommended for real use)
 
 The easiest way to get started is with the interactive setup wizard:
 
@@ -231,7 +250,7 @@ gaia daemon start
 
 </details>
 
-### 3. Use the TUI
+### 4. Use the TUI
 
 ```bash
 # Launch the interactive interface
@@ -348,7 +367,7 @@ sha256sum gaia_${VERSION}_Linux_x86_64.tar.gz
 ### From Source
 
 ```bash
-# Prerequisites: Go 1.21+, protoc
+# Prerequisites: Go 1.25+, protoc
 git clone https://github.com/stain-win/gaia.git
 cd gaia
 
@@ -952,22 +971,27 @@ See `examples/policy-*.json` for more policy examples.
 
 ### Secret Management
 
+Individual secrets are created, viewed, and deleted **interactively in the TUI**
+(`gaia` → **Manage Data**). From the command line, secrets are managed in bulk or
+consumed by applications:
+
 ```bash
-# Add a secret
-gaia secrets add <client> <namespace> <key> <value>
+# Bulk-create secrets from a JSON file
+gaia secrets import secrets.json
 
-# Example
-gaia secrets add web-app production database_url "postgres://..."
+# Seed secrets at startup in local dev mode (YAML)
+gaia dev --seed seed.yaml
 
-# Get a secret
-gaia secrets get <client> <namespace> <key>
+# Read secrets back by exporting them (JSON or YAML)
+gaia secrets export --client web-app --format yaml
 
-# List secrets
-gaia secrets list <client>
-
-# Delete a secret
-gaia secrets delete <client> <namespace> <key>
+# Inject secrets into a process as environment variables (no files on disk)
+gaia exec -- node server.js
 ```
+
+> The interactive TUI is the primary tool for day-to-day add/view/delete of
+> individual records. For automation, prefer `secrets import` / `secrets export`
+> and `gaia exec`. See [Bulk Import/Export](#bulk-importexport) below for details.
 
 ### Execute Commands with Secrets
 
@@ -1692,7 +1716,7 @@ ps aux | grep gaia
 
 ### Prerequisites
 
-- **Go 1.21+** - [Install Go](https://go.dev/doc/install)
+- **Go 1.25+** - [Install Go](https://go.dev/doc/install)
 - **protoc** - Protocol Buffer compiler
   ```bash
   # macOS
@@ -1768,6 +1792,19 @@ go fmt ./...
 # Lint code
 golangci-lint run
 ```
+
+### Regenerating the Demo GIF
+
+The demo at the top of this README is generated with
+[charmbracelet/vhs](https://github.com/charmbracelet/vhs) from a scripted
+"tape". After building the binary, regenerate it from the repo root:
+
+```bash
+make build                 # produce ./bin/gaia (the tape puts it on PATH)
+vhs demo/gaia-demo.tape    # writes demo/gaia-demo.gif
+```
+
+Edit `demo/gaia-demo.tape` to change the recorded flow, timing, or theme.
 
 ---
 

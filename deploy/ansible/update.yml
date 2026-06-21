@@ -1,0 +1,65 @@
+---
+# Gaia Secrets Management - Update Playbook
+#
+# Usage:
+#   ansible-playbook -i inventories/production/hosts.yml update.yml
+#   ansible-playbook -i inventories/production/hosts.yml update.yml --extra-vars "gaia_version=vX.Y.Z"
+
+- name: Update Gaia Secrets Management Daemon
+  hosts: gaia_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Validate target OS
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family in ['Debian', 'RedHat']
+        fail_msg: "This playbook only supports Debian/Ubuntu or RHEL/CentOS based systems"
+        success_msg: "Target OS {{ ansible_distribution }} {{ ansible_distribution_version }} is supported"
+      tags: always
+
+    - name: Display update info
+      ansible.builtin.debug:
+        msg: |
+          Updating Gaia on {{ inventory_hostname }}
+          - OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          - Architecture: {{ ansible_architecture }}
+          - Gaia Version: {{ gaia_version | default('latest') }}
+      tags: always
+
+  tasks:
+    - name: Install or upgrade Gaia binary
+      ansible.builtin.include_role:
+        name: gaia
+        tasks_from: install
+      tags: [install]
+
+    - name: Re-apply certificate permissions
+      ansible.builtin.include_role:
+        name: gaia
+        tasks_from: certificates
+      tags: [certificates]
+
+    - name: Re-apply Docker certificate ACLs
+      ansible.builtin.include_role:
+        name: gaia
+        tasks_from: docker_acl
+      when: gaia_docker_acl_enabled | default(false) | bool
+      tags: [certificates, docker]
+
+    - name: Re-apply Gaia systemd service
+      ansible.builtin.include_role:
+        name: gaia
+        tasks_from: service
+      tags: [service]
+
+  post_tasks:
+    - name: Display update completion instructions
+      ansible.builtin.debug:
+        msg: |
+          Gaia update playbook complete.
+
+          Verify the service:
+            sudo systemctl status gaia
+            sudo -u gaia gaia version
