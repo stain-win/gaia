@@ -122,7 +122,7 @@ func fetchPoliciesCmd(cfg *config.Config) tea.Cmd {
 		if err != nil {
 			return policiesLoadedMsg{err: err}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
@@ -175,7 +175,7 @@ func fetchClientsCmd(cfg *config.Config) tea.Cmd {
 		if err != nil {
 			return clientsLoadedMsg{err: err}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 		ctx, cancel := context.WithTimeout(context.Background(), quickTimeout)
@@ -198,7 +198,7 @@ func deleteRecordFromDaemonCmd(cfg *config.Config, clientName, namespace, id str
 		if err != nil {
 			return recordDeletedMsg{client: clientName, namespace: namespace, id: id, err: err}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.GRPCClientTimeout)
@@ -220,7 +220,7 @@ func addRecordToDaemonCmd(cfg *config.Config, clientName, namespace, key, value 
 		if err != nil {
 			return recordAddedMsg{err: err}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.GRPCClientTimeout)
@@ -260,7 +260,7 @@ func fetchAllClientsCmd(cfg *config.Config) tea.Cmd {
 		if err != nil {
 			return allClientsLoadedMsg{err: err}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 
@@ -282,7 +282,7 @@ func fetchSecretsForClientCmd(cfg *config.Config, clientName string) tea.Cmd {
 		if err != nil {
 			return secretsForClientLoadedMsg{clientName: clientName, err: err}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 
@@ -304,7 +304,7 @@ func registerClientCmd(cfg *config.Config, clientName string) tea.Cmd {
 		if err != nil {
 			return clientRegisteredMsg{clientName: clientName, err: err}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
@@ -341,7 +341,7 @@ func unlockDaemonCmd(cfg *config.Config, passphrase string) tea.Cmd {
 		if err != nil {
 			return unlockResultMsg{success: false, err: err}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
@@ -365,7 +365,7 @@ func fetchClientsForPolicyCmd(cfg *config.Config, operation string) tea.Cmd {
 		if err != nil {
 			return clientsForPolicyMsg{err: err, operation: operation}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 		ctx, cancel := context.WithTimeout(context.Background(), quickTimeout)
@@ -392,7 +392,7 @@ func fetchPolicyCmd(cfg *config.Config, clientName string) tea.Cmd {
 		if err != nil {
 			return policyLoadedMsg{err: err}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
@@ -415,7 +415,7 @@ func savePolicyCmd(cfg *config.Config, pol policy.Policy) tea.Cmd {
 		if err != nil {
 			return policySavedMsg{clientName: pol.ClientName, err: err}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
@@ -440,7 +440,7 @@ func deletePolicyCmd(cfg *config.Config, clientName string) tea.Cmd {
 		if err != nil {
 			return policyDeletedMsg{clientName: clientName, err: err}
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client := pb.NewGaiaAdminClient(conn)
 		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)

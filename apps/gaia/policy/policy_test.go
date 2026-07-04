@@ -266,6 +266,14 @@ func TestPathMatches(t *testing.T) {
 		{"myapp/prod/secret", "myapp/*", true},
 		{"myapp/prod/secret", "myapp/prod/*", true},
 		{"myapp/prod/secret", "other/*", false},
+		// Bare trailing "*" completes a single segment only — it must not
+		// cross into sibling namespaces that merely share a prefix.
+		{"app2", "app*", true},
+		{"app-admin/prod/key", "app*", false},
+		{"app2/prod/key", "app*", false},
+		{"myapp/prod/secret-v2", "myapp/prod/secret*", true},
+		{"a/b/c", "*", false},
+		{"abc", "*", true},
 	}
 
 	for _, tt := range tests {

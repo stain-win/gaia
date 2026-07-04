@@ -15,6 +15,13 @@ import (
 	"time"
 )
 
+// AdminOU is the X.509 Organizational Unit stamped onto administrative client
+// certificates. The daemon's admin-authorization interceptor treats any peer
+// certificate carrying this OU as authorized for the privileged GaiaAdmin
+// service. It is never applied to certificates issued through the RegisterClient
+// RPC, so an application client cannot obtain an admin-marked certificate.
+const AdminOU = "gaia-admin"
+
 // randomSerialNumber generates a cryptographically random 128-bit serial number
 // for use in X.509 certificates, as recommended by RFC 5280 §4.1.2.2.
 func randomSerialNumber() (*big.Int, error) {
@@ -24,6 +31,7 @@ func randomSerialNumber() (*big.Int, error) {
 }
 
 // generateCA creates a self-signed Root Certificate Authority.
+// validityDays is the CA's own validity period (see config TLS.CAExpiryDays).
 func generateCA(commonName string, validityDays int) (*rsa.PrivateKey, *x509.Certificate, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
@@ -42,7 +50,7 @@ func generateCA(commonName string, validityDays int) (*rsa.PrivateKey, *x509.Cer
 			Organization: []string{"Gaia Root CA"},
 		},
 		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(0, 0, validityDays*10), // CA valid for 10x longer
+		NotAfter:              time.Now().AddDate(0, 0, validityDays),
 		IsCA:                  true,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
@@ -116,7 +124,9 @@ func generateCert(commonName string, caKey *rsa.PrivateKey, caCert *x509.Certifi
 // generateClientCert creates a client certificate using ECDSA, signed by the given CA.
 // This is the preferred method for client certificates as ECDSA provides equivalent security
 // with smaller key sizes and better performance.
-func generateClientCert(commonName string, caKey *rsa.PrivateKey, caCert *x509.Certificate, validityDays int) (*ecdsa.PrivateKey, *x509.Certificate, error) {
+// orgUnits, when non-empty, are written to the certificate's Subject Organizational Unit;
+// administrative certificates pass certs.AdminOU here so the daemon can distinguish them.
+func generateClientCert(commonName string, orgUnits []string, caKey *rsa.PrivateKey, caCert *x509.Certificate, validityDays int) (*ecdsa.PrivateKey, *x509.Certificate, error) {
 	// Use ECDSA with P-256 curve for client certificates
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -131,7 +141,8 @@ func generateClientCert(commonName string, caKey *rsa.PrivateKey, caCert *x509.C
 	template := x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
-			CommonName: commonName,
+			CommonName:         commonName,
+			OrganizationalUnit: orgUnits,
 		},
 		NotBefore:   time.Now(),
 		NotAfter:    time.Now().AddDate(0, 0, validityDays),

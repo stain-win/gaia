@@ -45,6 +45,11 @@ jobs:
       - name: Run go vet
         run: cd apps/gaia && go vet ./...
 
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          cd apps/gaia && govulncheck ./...
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -103,7 +108,7 @@ jobs:
         run: make protoc
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
           version: latest
           working-directory: apps/gaia

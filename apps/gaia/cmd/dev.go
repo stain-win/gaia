@@ -130,7 +130,7 @@ func resolveDevPassphrase(unsafeMode bool) (string, error) {
 		return devPassphrase, nil
 	}
 	if p := os.Getenv("GAIA_PASSPHRASE"); p != "" {
-		os.Unsetenv("GAIA_PASSPHRASE")
+		_ = os.Unsetenv("GAIA_PASSPHRASE")
 		return p, nil
 	}
 	return promptForPassphrase(unsafeMode)

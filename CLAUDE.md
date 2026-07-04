@@ -79,7 +79,7 @@ Client → Namespace → Record (key/value secret)
 
 - **At-rest encryption**: AES-256-GCM; master key derived from passphrase via scrypt.
 - **Transport**: mTLS — both daemon and clients present certificates.
-- **Certificates**: Ed25519, self-signed, issued by the daemon's built-in CA; stored in the configured `certs_dir`.
+- **Certificates**: issued by the daemon's built-in self-signed CA (RSA-4096); server certificates are RSA-2048, client certificates are ECDSA P-256. Admin client certificates carry the `gaia-admin` Organizational Unit marker. Stored in the configured `certs_directory`.
 - **Unlock flow**: Daemon starts locked; `gaia unlock` (or TUI) supplies the passphrase to decrypt the master key into memory.
 - **Memory security**: Sensitive byte slices are zeroed via `internal/secutil` after use.
 - **Rate limiting**: Configurable limits on unlock attempts.
@@ -275,9 +275,13 @@ logging:
   max_backups: 3
 
 tls:
-  certs_dir: "/etc/gaia/certs"
-  algorithm: "ed25519"
-  expiry_days: 365
+  certs_directory: "/etc/gaia/certs"
+  key_algorithm: "ECDSA"
+  key_size: "P256"
+  cert_expiry_days: 365
+  ca_expiry_days: 3650
+  admin_common_names:
+    - "gaia_client"
 
 audit:
   backends:

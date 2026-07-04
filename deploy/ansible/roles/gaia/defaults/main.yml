@@ -63,7 +63,10 @@ gaia_db_file: "{{ gaia_data_dir }}/gaia.db"
 # DAEMON CONFIGURATION
 # =============================================================================
 
-# Listen address for gRPC server
+# Listen address for gRPC server.
+# This role deploys a network-facing server, so it binds all interfaces by
+# default — pair it with gaia_configure_firewall + gaia_firewall_allowed_ips.
+# Set to "127.0.0.1:50051" if only local clients need access.
 gaia_listen_addr: "0.0.0.0:50051"
 
 # Operation timeout
@@ -90,7 +93,8 @@ gaia_cert_expiry_days: 365
 gaia_audit_enabled: true
 
 # HMAC key for hashing sensitive data in audit logs
-# IMPORTANT: Change this in production!
+# IMPORTANT: The play REFUSES to run while this is left at the default and
+# audit logging is enabled. Generate one with: openssl rand -hex 32
 gaia_audit_hmac_key: "change-me-in-production-use-random-64-char-string"
 
 # Log incoming requests

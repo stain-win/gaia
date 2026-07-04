@@ -89,6 +89,8 @@ func NewAdminConnection(cfg *config.Config, opts *ClientOptions) (*grpc.ClientCo
 		ServerName:   serverName,
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      certPool,
+		// Match the daemon, which requires TLS 1.3.
+		MinVersion: tls.VersionTLS13,
 	}
 	creds := credentials.NewTLS(tlsConfig)
 

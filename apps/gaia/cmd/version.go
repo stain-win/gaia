@@ -16,9 +16,10 @@ var (
 	// buildDate is the build timestamp
 	buildDate = "unknown"
 
-	updateInstall bool
-	updateForce   bool
-	updateYes     bool
+	updateInstall       bool
+	updateForce         bool
+	updateYes           bool
+	updateSkipSignature bool
 )
 
 // versionCmd represents the version command
@@ -43,9 +44,15 @@ var updateCmd = &cobra.Command{
 	Short: "Check for Gaia updates",
 	Long: `Check if a newer version of Gaia is available and show update instructions.
 
-This command queries the GitHub releases API to compare your installed 
+This command queries the GitHub releases API to compare your installed
 version with the latest release. By default it does not change your installation.
-Use --install to download, verify, and install the matching GitHub release asset.`,
+Use --install to download, verify, and install the matching GitHub release asset.
+
+Releases are verified in two steps before installation: the archive's SHA-256
+is checked against the release's checksums.txt, and checksums.txt itself is
+authenticated against its sigstore signature (cosign keyless, pinned to this
+repository's GitHub Actions identity). Releases published before signing was
+introduced fall back to checksum-only verification with a warning.`,
 	RunE: runVersionCheck,
 }
 
@@ -53,5 +60,7 @@ func init() {
 	updateCmd.Flags().BoolVar(&updateInstall, "install", false, "download, verify, and install the latest release")
 	updateCmd.Flags().BoolVar(&updateForce, "force", false, "allow reinstalling or replacing dev/newer builds")
 	updateCmd.Flags().BoolVar(&updateYes, "yes", false, "skip confirmation prompts")
+	updateCmd.Flags().BoolVar(&updateSkipSignature, "skip-signature", false,
+		"skip sigstore signature verification of the release (NOT recommended)")
 	rootCmd.AddCommand(updateCmd)
 }

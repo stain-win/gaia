@@ -61,7 +61,7 @@ secrets with the values from the file.`,
 		if err != nil {
 			return fmt.Errorf("failed to open file: %w", err)
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		var secretsData map[string]map[string]map[string]string
 		if err := json.NewDecoder(file).Decode(&secretsData); err != nil {

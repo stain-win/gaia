@@ -103,9 +103,17 @@ var createClientCmd = &cobra.Command{
 		}
 
 		clientName := args[0]
-		fmt.Printf("Generating new client certificate for %s in %s...\n", clientName, cfg.TLS.CertsDirectory)
+		adminCert, _ := cmd.Flags().GetBool("admin")
 
-		if err := certs.GenerateClientCertificate(cfg, clientName); err != nil {
+		genFunc := certs.GenerateClientCertificate
+		if adminCert {
+			genFunc = certs.GenerateAdminClientCertificate
+			fmt.Printf("Generating new ADMIN client certificate for %s in %s...\n", clientName, cfg.TLS.CertsDirectory)
+		} else {
+			fmt.Printf("Generating new client certificate for %s in %s...\n", clientName, cfg.TLS.CertsDirectory)
+		}
+
+		if err := genFunc(cfg, clientName); err != nil {
 			return fmt.Errorf("failed to generate client certificate: %w", err)
 		}
 
@@ -141,8 +149,8 @@ var generateCmd = &cobra.Command{
 		}
 		fmt.Println("  ✔ Server certificate generated.")
 
-		fmt.Println("\nStep 3: Generating Client Certificate...")
-		if err := certs.GenerateClientCertificate(cfg, clientName); err != nil {
+		fmt.Println("\nStep 3: Generating Admin Client Certificate...")
+		if err := certs.GenerateAdminClientCertificate(cfg, clientName); err != nil {
 			return fmt.Errorf("failed to generate client certificate: %w", err)
 		}
 		fmt.Println("  ✔ Client certificate generated.")
@@ -162,6 +170,8 @@ func init() {
 	certsCmd.AddCommand(createCaCmd)
 	certsCmd.AddCommand(createServerCmd)
 	certsCmd.AddCommand(createClientCmd)
+
+	createClientCmd.Flags().Bool("admin", false, "Mark the certificate as an administrative certificate authorized for the GaiaAdmin service")
 
 	// Use empty default so we can detect if flag was explicitly set
 	certsCmd.PersistentFlags().StringVarP(&outputDir, "output-dir", "o", "", "Override the certificates directory from config")

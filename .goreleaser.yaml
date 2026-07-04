@@ -53,6 +53,23 @@ archives:
 checksum:
   name_template: 'checksums.txt'
 
+# Sign the checksums file with cosign (keyless, via the GitHub Actions OIDC
+# identity). Verifying checksums.txt's signature transitively authenticates
+# every archive, since each archive's SHA-256 is listed in it.
+# The output is a Sigstore bundle (certificate + signature + Rekor proof in
+# one file) — the format both `cosign verify-blob --bundle` and `gaia update`
+# (sigstore-go) consume.
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: '${artifact}.sigstore.json'
+    args:
+      - sign-blob
+      - '--bundle=${signature}'
+      - '--new-bundle-format=true'
+      - '--yes'
+      - '${artifact}'
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
@@ -102,10 +119,20 @@ release:
     **Full Changelog**: https://github.com/stain-win/gaia/compare/{{ .PreviousTag }}...{{ .Tag }}
     
     ### Verifying Downloads
-    
+
     All binaries are checksummed. Verify with:
     ```bash
     sha256sum -c checksums.txt
+    ```
+
+    The checksums file is signed with cosign (keyless). `gaia update --install`
+    verifies the signature automatically. To verify manually:
+    ```bash
+    cosign verify-blob \
+      --bundle checksums.txt.sigstore.json \
+      --certificate-identity-regexp 'https://github.com/stain-win/gaia/.*' \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      checksums.txt
     ```
     
     Released by [GoReleaser](https://github.com/goreleaser/goreleaser)

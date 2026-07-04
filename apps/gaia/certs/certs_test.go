@@ -16,7 +16,7 @@ import (
 
 // TestGenerateCA tests CA certificate generation
 func TestGenerateCA(t *testing.T) {
-	caKey, caCert, err := generateCA("Test CA", 365)
+	caKey, caCert, err := generateCA("Test CA", 3650)
 	if err != nil {
 		t.Fatalf("Failed to generate CA: %v", err)
 	}
@@ -48,10 +48,14 @@ func TestGenerateCA(t *testing.T) {
 		t.Error("CA should have KeyUsageDigitalSignature")
 	}
 
-	// Verify validity period (CA should be 10x longer than specified)
-	expectedExpiry := time.Now().AddDate(0, 0, 365*10)
+	// Verify validity period matches the requested CA validity exactly
+	// (no hidden multiplier — see config TLS.CAExpiryDays).
+	expectedExpiry := time.Now().AddDate(0, 0, 3650)
 	if caCert.NotAfter.Before(expectedExpiry.Add(-24 * time.Hour)) {
 		t.Errorf("CA certificate expires too soon: %v", caCert.NotAfter)
+	}
+	if caCert.NotAfter.After(expectedExpiry.Add(24 * time.Hour)) {
+		t.Errorf("CA certificate expires too late (hidden multiplier?): %v", caCert.NotAfter)
 	}
 
 	// Verify self-signed

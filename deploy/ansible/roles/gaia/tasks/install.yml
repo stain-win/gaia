@@ -58,16 +58,44 @@
     - name: Construct download URL
       ansible.builtin.set_fact:
         gaia_download_url: "{{ gaia_download_url_template }}"
+        gaia_checksums_url: "https://github.com/{{ gaia_github_repo }}/releases/download/{{ gaia_actual_version }}/checksums.txt"
 
     - name: Display download URL
       ansible.builtin.debug:
         msg: "Downloading from: {{ gaia_download_url }}"
 
-    - name: Download Gaia release archive
+    - name: Download release checksums file
+      ansible.builtin.get_url:
+        url: "{{ gaia_checksums_url }}"
+        dest: "{{ gaia_temp_dir.path }}/checksums.txt"
+        mode: "0644"
+
+    - name: Read release checksums
+      ansible.builtin.slurp:
+        src: "{{ gaia_temp_dir.path }}/checksums.txt"
+      register: gaia_checksums_file
+
+    - name: Extract expected archive checksum
+      ansible.builtin.set_fact:
+        gaia_archive_checksum: >-
+          {{ (gaia_checksums_file.content | b64decode).splitlines()
+             | select('search', (gaia_download_url | basename | regex_escape) ~ '$')
+             | map('regex_replace', '\\s.*$', '')
+             | first }}
+
+    - name: Verify a checksum was found for this platform
+      ansible.builtin.assert:
+        that:
+          - gaia_archive_checksum is defined
+          - gaia_archive_checksum | length == 64
+        fail_msg: "No SHA-256 entry for {{ gaia_download_url | basename }} in checksums.txt — refusing to install an unverified binary"
+
+    - name: Download Gaia release archive (checksum-verified)
       ansible.builtin.get_url:
         url: "{{ gaia_download_url }}"
         dest: "{{ gaia_temp_dir.path }}/gaia.tar.gz"
         mode: "0644"
+        checksum: "sha256:{{ gaia_archive_checksum }}"
       register: gaia_download
 
     - name: Extract Gaia binary
@@ -76,22 +104,62 @@
         dest: "{{ gaia_temp_dir.path }}"
         remote_src: true
 
-    - name: Stop Gaia service if running (for upgrade)
-      ansible.builtin.systemd:
-        name: "{{ gaia_service_name }}"
-        state: stopped
-      failed_when: false
-      when: gaia_binary_stat.stat.exists
-
-    - name: Install Gaia binary
+    - name: Back up current Gaia binary for rollback
       ansible.builtin.copy:
-        src: "{{ gaia_temp_dir.path }}/gaia"
-        dest: "{{ gaia_binary_path }}"
+        src: "{{ gaia_binary_path }}"
+        dest: "{{ gaia_binary_path }}.bak"
+        remote_src: true
         owner: root
         group: root
         mode: "0755"
-        remote_src: true
-      notify: restart gaia
+      when: gaia_binary_stat.stat.exists
+
+    - name: Install new binary (rolls back on failure)
+      block:
+        - name: Stop Gaia service if running (for upgrade)
+          ansible.builtin.systemd:
+            name: "{{ gaia_service_name }}"
+            state: stopped
+          failed_when: false
+          when: gaia_binary_stat.stat.exists
+
+        - name: Install Gaia binary
+          ansible.builtin.copy:
+            src: "{{ gaia_temp_dir.path }}/gaia"
+            dest: "{{ gaia_binary_path }}"
+            owner: root
+            group: root
+            mode: "0755"
+            remote_src: true
+          notify: restart gaia
+
+        - name: Verify the new binary executes
+          ansible.builtin.command: "{{ gaia_binary_path }} version"
+          changed_when: false
+
+      rescue:
+        - name: Restore previous Gaia binary
+          ansible.builtin.copy:
+            src: "{{ gaia_binary_path }}.bak"
+            dest: "{{ gaia_binary_path }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0755"
+          when: gaia_binary_stat.stat.exists
+
+        - name: Restart Gaia with the restored binary
+          ansible.builtin.systemd:
+            name: "{{ gaia_service_name }}"
+            state: started
+          failed_when: false
+          when: gaia_binary_stat.stat.exists
+
+        - name: Fail the play after rollback
+          ansible.builtin.fail:
+            msg: >-
+              Gaia upgrade failed and the previous binary was restored from
+              {{ gaia_binary_path }}.bak. Investigate before retrying.
 
     - name: Clean up temporary directory
       ansible.builtin.file:

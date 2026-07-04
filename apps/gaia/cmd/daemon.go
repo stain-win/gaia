@@ -103,7 +103,7 @@ For example:
 
 		// Clean up ephemeral temp dir after daemon stops
 		if ephemeralMode && cfg.EphemeralDir != "" {
-			os.RemoveAll(cfg.EphemeralDir)
+			_ = os.RemoveAll(cfg.EphemeralDir)
 		}
 
 		if err != nil {
@@ -255,7 +255,7 @@ func configureEphemeralMode(cfg *config.Config) error {
 
 	certsPath := filepath.Join(tmpDir, "certs")
 	if err := os.MkdirAll(certsPath, 0700); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		return fmt.Errorf("failed to create ephemeral certs dir: %w", err)
 	}
 
@@ -268,15 +268,15 @@ func configureEphemeralMode(cfg *config.Config) error {
 
 	// Auto-generate certs for the ephemeral session (mTLS still active)
 	if err := certs.GenerateCA(cfg, "Gaia Ephemeral CA"); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		return fmt.Errorf("failed to generate ephemeral CA: %w", err)
 	}
 	if err := certs.GenerateServerCertificate(cfg, "localhost"); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		return fmt.Errorf("failed to generate ephemeral server cert: %w", err)
 	}
 	if err := certs.GenerateClientCertificate(cfg, "gaia_client"); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		return fmt.Errorf("failed to generate ephemeral client cert: %w", err)
 	}
 

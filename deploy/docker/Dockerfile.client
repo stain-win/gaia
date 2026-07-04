@@ -2,23 +2,24 @@
 # Use the official Golang image to build the application.
 FROM golang:1.25-alpine AS builder
 
-# Set the working directory inside the container.
-WORKDIR /app
+# The Gaia application lives in its own Go module under apps/gaia
+# (the repository root go.mod is a separate workspace module).
+WORKDIR /src
 
-# Copy the Go module files and download dependencies.
-COPY go.mod go.sum ./ 
+# Copy the module files and download dependencies first for layer caching.
+COPY apps/gaia/go.mod apps/gaia/go.sum ./
 RUN go mod download
 
-# Copy the rest of the application source code.
-COPY . .
+# Copy the application source code.
+COPY apps/gaia/ ./
 
 # Build the Gaia application binary.
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /gaia ./apps/gaia
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /gaia .
 
 
 # --- Final Stage ---
-# Use a minimal base image for the final container.
-FROM alpine:latest
+# Pinned base image for reproducible builds (see Dockerfile.daemon).
+FROM alpine:3.22
 
 # Create a non-root user for security.
 RUN addgroup -S gaia && adduser -S gaia -G gaia

@@ -16,10 +16,11 @@
 # =============================================================================
 daemon:
   # Listen address (host:port)
-  # Default: 0.0.0.0:50051
-  # The address where the gRPC server will listen for client connections
-  # Use 0.0.0.0 to listen on all interfaces, or 127.0.0.1 for localhost only
-  listen_addr: "0.0.0.0:50051"
+  # Default: 127.0.0.1:50051 (localhost only)
+  # The address where the gRPC server will listen for client connections.
+  # Exposing a secrets daemon on the network is an explicit opt-in: set
+  # 0.0.0.0 to listen on all interfaces, and pair it with firewall rules.
+  listen_addr: "127.0.0.1:50051"
 
   # Database file path
   # Default (OS-specific):
@@ -105,6 +106,22 @@ tls:
   # Default: 365
   # How many days certificates should be valid when generated
   cert_expiry_days: 365
+
+  # Root CA certificate expiry in days
+  # Default: 3650 (10 years)
+  # The CA outlives leaf certificates so they can be renewed under the same
+  # root of trust. When omitted or 0, falls back to 10x cert_expiry_days.
+  ca_expiry_days: 3650
+
+  # Certificate Common Names authorized for the privileged GaiaAdmin service.
+  # A certificate is treated as an admin certificate if it carries the admin OU
+  # marker (stamped by 'gaia init' and 'gaia certs create-client --admin') OR if
+  # its Common Name appears in this list. This list exists for backward
+  # compatibility with admin certificates issued before the OU marker was added.
+  # Set it to [] to require the OU marker for all admin operations.
+  # Default: ["gaia_client"]
+  admin_common_names:
+    - "gaia_client"
 
 # =============================================================================
 # Client Configuration

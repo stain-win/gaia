@@ -59,7 +59,7 @@ prompted to enter the master passphrase securely.`,
 		if envPass := os.Getenv("GAIA_PASSPHRASE"); envPass != "" {
 			// IMPORTANT: Clear the environment variable immediately so it doesn't linger
 			// in the process environment block or leak to child processes.
-			os.Unsetenv("GAIA_PASSPHRASE")
+			_ = os.Unsetenv("GAIA_PASSPHRASE")
 
 			fmt.Println("Using master passphrase from GAIA_PASSPHRASE environment variable.")
 			passphrase = []byte(envPass)

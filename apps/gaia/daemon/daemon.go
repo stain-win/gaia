@@ -179,7 +179,7 @@ func (d *Daemon) Start(cfg *config.Config) error {
 
 		// Check unsafe mode flag consistency between DB and runtime flag
 		if err := d.checkUnsafeModeConsistency(); err != nil {
-			d.db.Close()
+			_ = d.db.Close()
 			d.db = nil
 			d.dbLock.Unlock()
 			d.status = StatusStopped
@@ -206,8 +206,11 @@ func (d *Daemon) Start(cfg *config.Config) error {
 			MinTime:             5 * time.Minute,
 			PermitWithoutStream: true,
 		}),
-		grpc.ChainUnaryInterceptor(auditInterceptor.UnaryServerInterceptor()),
-		grpc.ChainStreamInterceptor(auditInterceptor.StreamServerInterceptor()),
+		// Audit interceptor is outermost so that rejected calls are still logged;
+		// the auth interceptor runs next and blocks unauthorized admin callers and
+		// revoked clients before any handler executes.
+		grpc.ChainUnaryInterceptor(auditInterceptor.UnaryServerInterceptor(), d.authUnaryInterceptor()),
+		grpc.ChainStreamInterceptor(auditInterceptor.StreamServerInterceptor(), d.authStreamInterceptor()),
 	}
 
 	d.server = grpc.NewServer(serverOpts...)
@@ -286,7 +289,7 @@ func (d *Daemon) stopDaemon(_ context.Context) error {
 		return gaiaerrors.ErrDaemonNotRunning
 	}
 	d.server.GracefulStop()
-	d.db.Close()
+	_ = d.db.Close()
 	d.status = StatusStopped
 	d.isLocked = true
 	log.Println("Gaia daemon stopped")
@@ -355,7 +358,7 @@ func (d *Daemon) InitializeDB(passphrase string) error {
 			return fmt.Errorf("failed to create ephemeral database: %w", err)
 		}
 		d.config.Daemon.DBFile = tmpFile.Name()
-		tmpFile.Close()
+		_ = tmpFile.Close()
 	} else {
 		if _, err := os.Stat(d.config.Daemon.DBFile); err == nil {
 			return gaiaerrors.ErrDatabaseExists
@@ -434,7 +437,7 @@ func (d *Daemon) InitializeDB(passphrase string) error {
 		return nil
 	})
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return err
 	}
 	return db.Close()
@@ -446,7 +449,7 @@ func (d *Daemon) LockDB() {
 	defer d.dbLock.Unlock()
 
 	if d.db != nil {
-		d.db.Close()
+		_ = d.db.Close()
 		d.db = nil
 	}
 	// Wipe the key from memory
@@ -526,7 +529,7 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 	defer d.dbLock.Unlock()
 
 	if d.db != nil {
-		d.db.Close()
+		_ = d.db.Close()
 	}
 
 	err := d.openDB()
@@ -551,7 +554,7 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 		return nil
 	})
 	if err != nil {
-		d.db.Close()
+		_ = d.db.Close()
 		return fmt.Errorf("failed to read database metadata: %w", err)
 	}
 
@@ -570,7 +573,7 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 		return nil
 	})
 	if err != nil {
-		d.db.Close()
+		_ = d.db.Close()
 		return fmt.Errorf("failed to read derivation version: %w", err)
 	}
 
@@ -581,7 +584,7 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 
 	derivedKey, err := deriveFunc([]byte(passphrase), salt)
 	if err != nil {
-		d.db.Close()
+		_ = d.db.Close()
 		return fmt.Errorf("failed to derive key: %w", err)
 	}
 
@@ -589,7 +592,7 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 	// Hash the derived key and compare it to the stored hash.
 	derivedKeyHash := sha256.Sum256(derivedKey)
 	if subtle.ConstantTimeCompare(derivedKeyHash[:], storedHash) != 1 {
-		d.db.Close()
+		_ = d.db.Close()
 		return gaiaerrors.ErrInvalidPassphrase
 	}
 
@@ -597,7 +600,7 @@ func (d *Daemon) UnlockDB(passphrase string) error {
 	d.key = derivedKey
 
 	if err := d.loadCACredentials(); err != nil {
-		d.db.Close()
+		_ = d.db.Close()
 		d.db = nil
 		d.key = nil
 		return fmt.Errorf("failed to load CA credentials: %w", err)
@@ -773,14 +776,14 @@ func (d *Daemon) createBackup() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create backup file: %w", err)
 	}
-	defer backupFile.Close()
+	defer func() { _ = backupFile.Close() }()
 
 	err = d.db.View(func(tx *bbolt.Tx) error {
 		_, err := tx.WriteTo(backupFile)
 		return err
 	})
 	if err != nil {
-		os.Remove(backupPath)
+		_ = os.Remove(backupPath)
 		return "", fmt.Errorf("failed to write backup: %w", err)
 	}
 
@@ -1305,13 +1308,13 @@ func (d *Daemon) openDB() error {
 	// For ephemeral mode, unlink the file immediately after opening.
 	// The file descriptor stays valid (POSIX); the OS reclaims disk space when closed.
 	if d.ephemeralMode {
-		os.Remove(d.config.Daemon.DBFile) //nolint:errcheck — best-effort unlink
+		_ = os.Remove(d.config.Daemon.DBFile) // best-effort unlink
 	}
 
 	// Initialize policy store
 	d.policyStore, err = policy.NewStore(d.db)
 	if err != nil {
-		d.db.Close()
+		_ = d.db.Close()
 		return fmt.Errorf("failed to initialize policy store: %w", err)
 	}
 
@@ -1432,6 +1435,9 @@ func (d *Daemon) loadTLSCredentials() (credentials.TransportCredentials, error) 
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		Certificates: []tls.Certificate{serverCert},
 		ClientCAs:    certPool,
+		// All Gaia components are Go and support TLS 1.3; refusing older
+		// protocol versions removes the legacy downgrade surface.
+		MinVersion: tls.VersionTLS13,
 	})
 	return creds, nil
 }

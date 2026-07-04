@@ -351,18 +351,28 @@ Move-Item gaia.exe C:\Windows\System32\
 
 #### Verifying Downloads
 
-All releases include checksums. Verify your download:
+All releases include checksums, and `checksums.txt` itself is signed with
+[cosign](https://github.com/sigstore/cosign) (keyless, via the repository's
+GitHub Actions identity). `gaia update --install` performs both verifications
+automatically; to verify a manual download:
 
 ```bash
-# Download checksums
+# Download checksums and their signature bundle
 wget https://github.com/stain-win/gaia/releases/download/${VERSION}/checksums.txt
+wget https://github.com/stain-win/gaia/releases/download/${VERSION}/checksums.txt.sigstore.json
 
-# Verify (Linux/macOS)
+# 1. Authenticate the checksums file (proves it came from this repo's release workflow)
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp 'https://github.com/stain-win/gaia/.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+
+# 2. Verify the archive against the authenticated checksums (Linux/macOS)
 sha256sum -c checksums.txt 2>&1 | grep gaia
-
-# Or verify specific file
-sha256sum gaia_${VERSION}_Linux_x86_64.tar.gz
 ```
+
+> Releases published before signing was introduced only have checksums.
 
 ### From Source
 
@@ -860,6 +870,15 @@ gaia setup
 # Check for updates
 gaia update
 
+# Download, verify, and install the latest release.
+# Verifies the archive's SHA-256 against checksums.txt AND authenticates
+# checksums.txt against its sigstore signature (pinned to this repository's
+# GitHub Actions identity) before installing.
+gaia update --install
+
+# Skip signature verification (NOT recommended; e.g. sigstore outage)
+gaia update --install --skip-signature
+
 # Show version with build info
 gaia version
 ```
@@ -871,7 +890,7 @@ gaia version
 gaia daemon start
 
 # Start with custom config
-gaia daemon start --config /etc/gaia/config.yaml
+gaia daemon start --config /etc/gaia/gaia-config.yaml
 
 # Check daemon status
 gaia daemon status
@@ -914,6 +933,10 @@ gaia certs generate --output-dir ./certs
 gaia certs create-ca
 gaia certs create-server localhost
 gaia certs create-client myapp
+
+# Create an ADMIN client certificate (carries the "gaia-admin" OU marker,
+# required to call the privileged admin API — see Security section)
+gaia certs create-client gaia_client --admin
 ```
 
 ### Client Management
@@ -1163,7 +1186,9 @@ Gaia uses a YAML configuration file with sensible OS-specific defaults.
 ```yaml
 # Daemon settings
 daemon:
-  listen_addr: "0.0.0.0:50051"    # Address:port for gRPC server
+  # Default: 127.0.0.1:50051 (localhost only). Exposing the daemon on the
+  # network is an explicit opt-in — set "0.0.0.0:50051" and firewall it.
+  listen_addr: "127.0.0.1:50051"   # Address:port for gRPC server
   db_file: "/var/lib/gaia/gaia.db" # BoltDB database file path
   timeout: 10s                     # Server operation timeout
 
@@ -1184,6 +1209,12 @@ tls:
   key_algorithm: "ECDSA"              # ECDSA or RSA
   key_size: "P256"                    # P256, P384, P521 (ECDSA) or 2048, 3072, 4096 (RSA)
   cert_expiry_days: 365               # Certificate validity period
+  ca_expiry_days: 3650                # Root CA validity (falls back to 10x cert_expiry_days)
+  # Certificate CNs allowed to call the privileged admin API, in addition to
+  # any certificate carrying the "gaia-admin" OU marker (stamped by
+  # 'gaia init' / 'gaia certs create-client --admin'). Set [] for OU-only.
+  admin_common_names:
+    - "gaia_client"
 
 # Client timeouts
 grpc_client_timeout: 5s      # Timeout for CLI/TUI operations
@@ -1483,6 +1514,8 @@ sudo nano /etc/gaia/gaia-config.yaml
 
 ```yaml
 daemon:
+  # The default is 127.0.0.1 (localhost only). A server that remote clients
+  # connect to needs 0.0.0.0 — pair it with firewall rules for your client IPs.
   listen_addr: "0.0.0.0:50051"
   db_file: "/var/lib/gaia/gaia.db"
   timeout: 10s
@@ -1530,11 +1563,11 @@ Restart=on-failure
 RestartSec=5s
 WorkingDirectory=/var/lib/gaia
 
-# Security hardening
+# Security hardening (abridged — see below for the full unit)
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/gaia /etc/gaia
+ReadWritePaths=/var/lib/gaia /etc/gaia /var/log/gaia
 NoNewPrivileges=true
 LimitNOFILE=65536
 
@@ -1546,6 +1579,15 @@ SyslogIdentifier=gaia
 [Install]
 WantedBy=multi-user.target
 ```
+
+> **Tip:** the repository ships a fully hardened unit (capability bounding,
+> syscall filtering, kernel protections, and more) at
+> [`deploy/systemd/gaia.service`](deploy/systemd/gaia.service) — prefer copying
+> that file over typing the abridged version above:
+>
+> ```bash
+> sudo cp deploy/systemd/gaia.service /etc/systemd/system/gaia.service
+> ```
 
 #### 6. Enable and Start
 
@@ -1640,15 +1682,20 @@ ps aux | grep gaia
 
 **At Rest:**
 - Algorithm: **AES-256-GCM**
-- Key Derivation: **scrypt** (N=32768, r=8, p=1)
+- Key Derivation: **scrypt** (N=2^17, r=8, p=1; unsafe dev mode uses N=2^15)
 - Master Key: Derived from user passphrase
-- Validation: HMAC-SHA256 hash of derived key stored for verification
+- Validation: SHA-256 hash of derived key stored for verification (constant-time compare)
 
 **In Transit:**
 - Protocol: **gRPC over mTLS**
-- TLS Version: TLS 1.3 (preferred)
+- TLS Version: **TLS 1.3 required** (older versions are refused)
 - Cipher Suites: Modern, secure defaults
 - Certificate Validation: Mutual authentication required
+
+**Certificates:**
+- Root CA: RSA-4096, self-signed, generated by Gaia
+- Server: RSA-2048; Clients: ECDSA P-256
+- Admin certificates carry the `gaia-admin` OU marker (see below)
 
 ### Authentication
 
@@ -1656,8 +1703,18 @@ ps aux | grep gaia
 - **mTLS (Mutual TLS)** - Client must present valid certificate
 - **Certificate CN** - Client identity derived from Common Name
 - **CA Verification** - All certificates signed by Gaia's CA
+- **Revocation enforced** - Revoked clients are rejected on every request,
+  before any handler runs
+
+**Admin vs. Application Clients:**
+- The privileged admin API (secrets CRUD, client registration, policies,
+  password rotation) only accepts certificates carrying the `gaia-admin`
+  OU marker or a CN listed in `tls.admin_common_names`
+- Certificates issued to application clients via `gaia clients register`
+  never carry the marker — a registered client cannot call admin operations
 
 **Access Control:**
+- Per-client policies (read/write/delete/list capabilities on path patterns)
 - Clients can only access their own namespaces
 - All clients can read from "common" namespace
 - No authentication = no access
@@ -1692,11 +1749,13 @@ ps aux | grep gaia
 ### Threat Model
 
 **Protected Against:**
-- ✅ Unauthorized network access (mTLS)
+- ✅ Unauthorized network access (mTLS, loopback-only default bind)
 - ✅ Database theft (encrypted at rest)
 - ✅ Weak passwords (scrypt key derivation)
 - ✅ Plaintext secrets in memory (when locked)
 - ✅ Client impersonation (certificate validation)
+- ✅ Privilege escalation by registered clients (admin API requires admin certificate)
+- ✅ Tampered release binaries (`gaia update` verifies sigstore signature + checksum)
 
 **Not Protected Against:**
 - ❌ Root/admin access to server (game over)

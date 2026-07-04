@@ -139,7 +139,7 @@ func promptForPassphrase(unsafeMode bool) (string, error) {
 	if envPass := os.Getenv("GAIA_PASSPHRASE"); envPass != "" {
 		// IMPORTANT: Clear the environment variable immediately so it doesn't linger
 		// in the process environment block or leak to child processes.
-		os.Unsetenv("GAIA_PASSPHRASE")
+		_ = os.Unsetenv("GAIA_PASSPHRASE")
 
 		fmt.Println("Using master passphrase from GAIA_PASSPHRASE environment variable.")
 		// Validate passphrase strength (skip in unsafe mode)
@@ -327,7 +327,7 @@ func handleCertificateSetup(cfg *config.Config) (bool, error) {
 
 	// Generate admin client certificate
 	fmt.Print(infoStyle.Render("  • Creating admin client certificate... "))
-	if err := certs.GenerateClientCertificate(cfg, "gaia_client"); err != nil {
+	if err := certs.GenerateAdminClientCertificate(cfg, "gaia_client"); err != nil {
 		fmt.Println(errorStyle.Render("✗"))
 		return false, fmt.Errorf("failed to generate client certificate: %w", err)
 	}

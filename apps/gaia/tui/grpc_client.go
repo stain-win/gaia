@@ -22,7 +22,7 @@ func GetDaemonStatus(cfg *config.Config) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := pb.NewGaiaAdminClient(conn)
 

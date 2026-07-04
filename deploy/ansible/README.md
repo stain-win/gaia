@@ -49,13 +49,20 @@ Edit `inventories/production/group_vars/all.yml`:
 gaia_admin_users:
   - ubuntu          # Replace with your SSH username
 
-gaia_version: "latest"           # or specific version like "v1.0.0"
+gaia_version: "latest"           # prefer pinning a version like "v1.0.0" in production
 gaia_listen_addr: "0.0.0.0:50051"
 gaia_log_level: "info"
 gaia_cert_expiry_days: 365
+
+# REQUIRED when audit logging is enabled (it is by default): the play refuses
+# to run with the shipped placeholder key. Generate one with:
+#   openssl rand -hex 32
+gaia_audit_hmac_key: "<your-random-64-char-hex-string>"
 ```
 
 > ⚠️ **Important:** If you don't add your SSH user to `gaia_admin_users`, you won't be able to run `gaia` commands after deployment. You'll see "daemon not running" errors even though the daemon is running.
+
+> ⚠️ **Important:** The play fails immediately if `gaia_audit_hmac_key` is left at the role's default value while audit logging is enabled. Set your own key (store it in Ansible Vault).
 
 ### 3. Run the Playbook
 
@@ -70,6 +77,11 @@ ansible-playbook -i inventories/production/hosts.yml site.yml \
 # Dry-run (check mode)
 ansible-playbook -i inventories/production/hosts.yml site.yml --check
 ```
+
+> **Integrity & rollback:** downloaded release archives are verified against the
+> release's `checksums.txt` (SHA-256) before installation, and upgrades back up
+> the previous binary to `<binary>.bak` — if the new binary fails a post-install
+> check, the previous one is restored and the service restarted automatically.
 
 ### 4. Post-Installation
 
@@ -167,6 +179,7 @@ ansible/
 | `gaia_configure_firewall` | `false` | Whether to configure firewall |
 | `gaia_firewall_allowed_ips` | `[]` | IPs allowed to access Gaia port |
 | `gaia_audit_enabled` | `true` | Enable audit logging |
+| `gaia_audit_hmac_key` | *(placeholder — must be changed)* | HMAC key for audit-log hashing; play fails if left at default |
 | `gaia_audit_log_path` | `"/var/log/gaia/audit.log"` | Audit log file path |
 
 ## Admin Users & Permissions

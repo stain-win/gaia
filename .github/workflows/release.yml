@@ -12,6 +12,10 @@ jobs:
   release:
     name: Build and Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # Required for cosign keyless signing (OIDC identity token).
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,6 +36,13 @@ jobs:
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          # Pinned: sign-blob --bundle --new-bundle-format behaviour must stay
+          # deterministic; bump deliberately alongside client-side verification.
+          cosign-release: 'v2.5.0'
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

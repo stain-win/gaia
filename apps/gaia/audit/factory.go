@@ -37,7 +37,7 @@ func NewBackendsFromConfig(configs []BackendConfig, db *bbolt.DB) ([]Backend, er
 		if err != nil {
 			// Close any already created backends
 			for _, b := range backends {
-				b.Close()
+				_ = b.Close()
 			}
 			return nil, fmt.Errorf("failed to create backend %d (%s): %w", i, cfg.Type, err)
 		}

@@ -2,35 +2,37 @@
 # Use the official Golang image to build the application.
 FROM golang:1.25-alpine AS builder
 
-# Set the working directory inside the container.
-WORKDIR /app
+# The Gaia application lives in its own Go module under apps/gaia
+# (the repository root go.mod is a separate workspace module).
+WORKDIR /src
 
-# Copy the Go module files and download dependencies.
-# This is done in a separate layer to leverage Docker's layer caching.
-COPY go.mod go.sum ./ 
+# Copy the module files and download dependencies first to leverage
+# Docker's layer caching.
+COPY apps/gaia/go.mod apps/gaia/go.sum ./
 RUN go mod download
 
-# Copy the rest of the application source code.
-COPY . .
+# Copy the application source code.
+COPY apps/gaia/ ./
 
 # Build the Gaia application, creating a static binary.
-# The -o flag specifies the output file name.
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /gaia ./apps/gaia
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /gaia .
 
 
 # --- Final Stage ---
-# Use a minimal base image for the final container.
-# Alpine Linux is small and includes a shell, which is useful for debugging.
-FROM alpine:latest
+# Pin the base image to a specific release so builds are reproducible and
+# not silently rebased when 'latest' moves. Alpine (rather than scratch)
+# keeps a shell and busybox nc available for the healthcheck and debugging.
+FROM alpine:3.22
 
 # It is a security best practice to run services as a non-root user.
 # Create a dedicated user and group for the Gaia service.
 RUN addgroup -S gaia && adduser -S gaia -G gaia
 
 # Create the directories for configuration and data with correct permissions.
-RUN mkdir -p /etc/gaia/certs /var/lib/gaia && \
+RUN mkdir -p /etc/gaia/certs /var/lib/gaia /var/log/gaia && \
     chown -R gaia:gaia /etc/gaia && \
-    chown -R gaia:gaia /var/lib/gaia
+    chown -R gaia:gaia /var/lib/gaia && \
+    chown -R gaia:gaia /var/log/gaia
 
 # Copy the compiled Gaia binary from the builder stage.
 COPY --from=builder /gaia /usr/local/bin/gaia
@@ -44,6 +46,12 @@ WORKDIR /var/lib/gaia
 # Expose the default gRPC port.
 EXPOSE 50051
 
+# Consider the container unhealthy when the gRPC port stops accepting
+# connections. (A locked daemon still listens, so this probes liveness,
+# not unlock state.)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD nc -z 127.0.0.1 50051 || exit 1
+
 # The command to run when the container starts.
-# This assumes the configuration file will be mounted at /etc/gaia/config.yaml.
-CMD ["gaia", "daemon", "start", "--config", "/etc/gaia/config.yaml"]
+# This assumes the configuration file will be mounted at /etc/gaia/gaia-config.yaml.
+CMD ["gaia", "daemon", "start", "--config", "/etc/gaia/gaia-config.yaml"]

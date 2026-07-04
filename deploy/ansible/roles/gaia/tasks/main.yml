@@ -3,6 +3,18 @@
 #
 # Orchestrates all installation and configuration tasks
 
+- name: Refuse to deploy with the shipped default audit HMAC key
+  ansible.builtin.assert:
+    that:
+      - not (gaia_audit_enabled | bool) or
+        gaia_audit_hmac_key != "change-me-in-production-use-random-64-char-string"
+    fail_msg: >-
+      gaia_audit_hmac_key is still the default shipped with this role.
+      Audit-log hashes would be forgeable. Set a unique key, e.g.:
+      openssl rand -hex 32
+    success_msg: "Audit HMAC key has been customized"
+  tags: always
+
 - name: Include OS-specific variables
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:

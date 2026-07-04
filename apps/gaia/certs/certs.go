@@ -13,13 +13,23 @@ import (
 	"github.com/stain-win/gaia/apps/gaia/config"
 )
 
+// caValidityDays resolves the CA validity period: the explicit ca_expiry_days
+// setting when present, otherwise 10x cert_expiry_days (historical behaviour
+// for configs written before the setting existed).
+func caValidityDays(cfg *config.Config) int {
+	if cfg.TLS.CAExpiryDays > 0 {
+		return cfg.TLS.CAExpiryDays
+	}
+	return cfg.TLS.CertExpiryDays * 10
+}
+
 // GenerateCA creates a new self-signed Certificate Authority and saves the certificate and private key.
 func GenerateCA(cfg *config.Config, commonName string) error {
 	if err := os.MkdirAll(cfg.TLS.CertsDirectory, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	caKey, caCert, err := generateCA(commonName, cfg.TLS.CertExpiryDays)
+	caKey, caCert, err := generateCA(commonName, caValidityDays(cfg))
 	if err != nil {
 		return fmt.Errorf("failed to generate CA: %w", err)
 	}
@@ -69,6 +79,20 @@ func GenerateServerCertificate(cfg *config.Config, serverName string) error {
 // This uses ECDSA (P-256 curve) for better performance and smaller key sizes
 // while maintaining equivalent security to RSA 2048-bit keys.
 func GenerateClientCertificate(cfg *config.Config, clientName string) error {
+	return generateAndSaveClientCert(cfg, clientName, nil)
+}
+
+// GenerateAdminClientCertificate creates a client certificate marked with the admin
+// Organizational Unit (AdminOU), authorizing its holder for the privileged GaiaAdmin
+// service. Only use this for local administrative certificates issued with direct
+// access to the CA key (e.g. 'gaia init' or 'gaia certs create-client --admin').
+func GenerateAdminClientCertificate(cfg *config.Config, clientName string) error {
+	return generateAndSaveClientCert(cfg, clientName, []string{AdminOU})
+}
+
+// generateAndSaveClientCert generates an ECDSA client certificate (optionally marked
+// with the given Organizational Units) and saves it to <clientName>.crt/.key.
+func generateAndSaveClientCert(cfg *config.Config, clientName string, orgUnits []string) error {
 	caCertPath := filepath.Join(cfg.TLS.CertsDirectory, cfg.TLS.CACert)
 	caKeyPath := filepath.Join(cfg.TLS.CertsDirectory, "ca.key")
 
@@ -77,7 +101,7 @@ func GenerateClientCertificate(cfg *config.Config, clientName string) error {
 		return err
 	}
 
-	clientKey, clientCert, err := generateClientCert(clientName, caKey, caCert, cfg.TLS.CertExpiryDays)
+	clientKey, clientCert, err := generateClientCert(clientName, orgUnits, caKey, caCert, cfg.TLS.CertExpiryDays)
 	if err != nil {
 		return fmt.Errorf("failed to generate client certificate: %w", err)
 	}

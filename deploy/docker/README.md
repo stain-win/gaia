@@ -29,6 +29,21 @@ docker compose -f deploy/docker/docker-compose.dev.yml up
 
 This guide explains how to set up and run the Gaia ecosystem using Docker Compose. It assumes you have already created the local configuration directories as described in the main project `README.md`.
 
+> **Notes on the container setup:**
+>
+> - The daemon expects its configuration at `/etc/gaia/gaia-config.yaml`, so name
+>   your file `config/daemon/gaia-config.yaml` (the host directory is mounted at
+>   `/etc/gaia`, **read-only**).
+> - The compose file publishes the gRPC port on the **host loopback only**
+>   (`127.0.0.1:50051`). If remote clients must reach the daemon, change the
+>   port mapping deliberately and firewall it.
+> - Inside the container the daemon should listen on all interfaces
+>   (`listen_addr: "0.0.0.0:50051"` in the container's config) — the loopback
+>   restriction is applied at the host port mapping, and other services on the
+>   `gaia-net` Docker network connect directly to `daemon:50051`.
+> - The container runs as a non-root user with all Linux capabilities dropped
+>   and `no-new-privileges` set, and has a TCP healthcheck on port 50051.
+
 ## 1. Generate and Place Certificates
 
 Before you can run the services, you need to generate the necessary TLS certificates for secure communication between the daemon and clients.

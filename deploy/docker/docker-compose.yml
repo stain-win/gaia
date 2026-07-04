@@ -1,5 +1,3 @@
-version: '3.8'
-
 # This Docker Compose file sets up the Gaia ecosystem for local development.
 # It defines two main services: the Gaia daemon and a client for interacting with it.
 
@@ -14,14 +12,21 @@ services:
     container_name: gaia-daemon
     restart: unless-stopped
     ports:
-      # Expose the gRPC port to the host machine for local development and testing.
-      - "50051:50051"
+      # Bind to the host loopback only: a secrets daemon should not be
+      # reachable from the network unless you explicitly change this.
+      - "127.0.0.1:50051:50051"
     volumes:
-      # Mount a local directory for configuration. This is where you will place
-      # your config.yaml and the server's TLS certificates.
-      - ./config/daemon:/etc/gaia
+      # Mount a local directory for configuration and TLS certificates.
+      # The daemon only reads from it, so mount it read-only.
+      - ./config/daemon:/etc/gaia:ro
       # Use a named volume to persist the Gaia database across container restarts.
       - gaia-data:/var/lib/gaia
+    # The daemon is a static Go binary running as a non-root user; it needs
+    # no Linux capabilities and must never gain new privileges.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     networks:
       - gaia-net
 

@@ -11,7 +11,7 @@ User=gaia
 Group=gaia
 
 Type=simple
-ExecStart=/usr/local/bin/gaia daemon start --config /etc/gaia/config.yaml
+ExecStart=/usr/local/bin/gaia daemon start --config /etc/gaia/gaia-config.yaml
 
 # Automatically restart the service on failure
 Restart=on-failure
@@ -23,10 +23,62 @@ WorkingDirectory=/var/lib/gaia
 # Configure logging to use the systemd journal.
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=gaia
 
 # Increase the file descriptor limit, which is good practice for services
 # that might handle many connections or files.
 LimitNOFILE=65536
+
+# =============================================================================
+# SECURITY HARDENING
+# (Kept in sync with deploy/ansible/roles/gaia/templates/gaia.service.j2)
+# =============================================================================
+
+# Private /tmp directory
+PrivateTmp=true
+
+# Protect system directories
+ProtectSystem=strict
+
+# Protect home directories
+ProtectHome=true
+
+# Read-write paths (database, config, logs)
+ReadWritePaths=/var/lib/gaia /etc/gaia /var/log/gaia
+
+# Prevent privilege escalation
+NoNewPrivileges=true
+
+# Restrict kernel capabilities
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Protect kernel tunables
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+
+# Protect control groups
+ProtectControlGroups=true
+
+# Restrict address families to IPv4/IPv6 only
+RestrictAddressFamilies=AF_INET AF_INET6
+
+# Restrict namespaces
+RestrictNamespaces=true
+
+# Restrict realtime scheduling
+RestrictRealtime=true
+
+# Disable personality changes
+LockPersonality=true
+
+# System call filter
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Memory deny write-execute
+MemoryDenyWriteExecute=true
 
 [Install]
 WantedBy=multi-user.target

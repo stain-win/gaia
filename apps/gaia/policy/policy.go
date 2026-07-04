@@ -151,22 +151,33 @@ func (s *Store) CheckPermission(clientName, path string, capability Capability) 
 
 // pathMatches checks if a requested path matches a policy path pattern.
 // Supports wildcards (*) and exact matches.
+//
+// Wildcard semantics:
+//   - "prefix/*" grants the whole subtree under "prefix/".
+//   - A bare trailing "*" (e.g. "app*") completes only the current path
+//     segment: "app*" matches "app2" but NOT "app2/prod/key". Without this
+//     boundary a rule for "app*" would silently grant access to sibling
+//     namespaces such as "app-admin/...".
 func pathMatches(requestedPath, policyPath string) bool {
 	// Exact match
 	if requestedPath == policyPath {
 		return true
 	}
 
-	// Wildcard matching
+	// Subtree wildcard (e.g., "common/*")
 	if strings.HasSuffix(policyPath, "/*") {
 		prefix := strings.TrimSuffix(policyPath, "/*")
 		return strings.HasPrefix(requestedPath, prefix+"/")
 	}
 
-	// Single wildcard at the end (e.g., "common/*")
+	// Bare trailing wildcard: the remainder must stay within one path segment.
 	if strings.HasSuffix(policyPath, "*") {
 		prefix := strings.TrimSuffix(policyPath, "*")
-		return strings.HasPrefix(requestedPath, prefix)
+		if !strings.HasPrefix(requestedPath, prefix) {
+			return false
+		}
+		remainder := strings.TrimPrefix(requestedPath, prefix)
+		return !strings.Contains(remainder, "/")
 	}
 
 	// Use filepath.Match for more complex patterns

@@ -199,7 +199,7 @@ func runVersionInstall(release *GitHubRelease, currentVersion, latestVersion str
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	archivePath := filepath.Join(tmpDir, asset.Name)
 	checksumsPath := filepath.Join(tmpDir, checksumAsset.Name)
@@ -217,6 +217,32 @@ func runVersionInstall(release *GitHubRelease, currentVersion, latestVersion str
 	checksums, err := os.ReadFile(checksumsPath)
 	if err != nil {
 		return err
+	}
+
+	// Authenticate checksums.txt before trusting it to validate the archive.
+	// Without this, the checksum only protects against corruption, not tampering.
+	if bundleAsset, ok := findSignatureBundleAsset(release); ok {
+		if updateSkipSignature {
+			fmt.Println(versionCurrentStyle.Render("⚠ Signature verification SKIPPED (--skip-signature)."))
+		} else {
+			bundlePath := filepath.Join(tmpDir, bundleAsset.Name)
+			if err := downloadFile(ctx, bundleAsset.BrowserDownloadURL, bundlePath); err != nil {
+				return NewGaiaError(ErrCodeNetwork, "Failed to download release signature bundle", err).
+					WithHint(fmt.Sprintf("Manual download: %s", bundleAsset.BrowserDownloadURL))
+			}
+			if err := verifyChecksumSignature(bundlePath, checksums); err != nil {
+				return NewGaiaError(
+					ErrCodeUnknown,
+					"Release signature verification FAILED — refusing to install",
+					err,
+				).WithHint("The release may have been tampered with, or Sigstore infrastructure is unreachable").
+					WithHint("If you have independently verified this release, re-run with --skip-signature")
+			}
+			fmt.Println(versionUpToDateStyle.Render("✓ Release signature verified (sigstore)"))
+		}
+	} else {
+		fmt.Println(versionCurrentStyle.Render("⚠ This release is not signed (published before signing was introduced)."))
+		fmt.Println(versionCurrentStyle.Render("  Proceeding with checksum-only verification."))
 	}
 
 	if err := installReleaseArchive(archivePath, checksums, executablePath); err != nil {
@@ -248,7 +274,7 @@ func getLatestRelease() (*GitHubRelease, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
@@ -502,7 +528,7 @@ func downloadFile(ctx context.Context, url, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download returned status %d", resp.StatusCode)
@@ -512,7 +538,7 @@ func downloadFile(ctx context.Context, url, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	_, err = io.Copy(out, resp.Body)
 	return err
@@ -528,7 +554,7 @@ func installReleaseArchive(archivePath string, checksums []byte, targetPath stri
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	tmpBinary := filepath.Join(tmpDir, filepath.Base(targetPath))
 	if err := extractGaiaBinary(archivePath, tmpBinary); err != nil {
@@ -587,13 +613,13 @@ func extractGaiaBinary(archivePath, destPath string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
+	defer func() { _ = gzr.Close() }()
 
 	tr := tar.NewReader(gzr)
 	for {

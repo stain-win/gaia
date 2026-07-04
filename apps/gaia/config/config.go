@@ -38,6 +38,18 @@ type TLSConfig struct {
 	KeyAlgorithm   string `yaml:"key_algorithm"`    // Key algorithm: "ECDSA" or "RSA"
 	KeySize        string `yaml:"key_size"`         // Key size: "P256", "P384", "P521" for ECDSA; "2048", "3072", "4096" for RSA
 	CertExpiryDays int    `yaml:"cert_expiry_days"` // Certificate validity period in days
+
+	// CAExpiryDays is the validity period of the root CA certificate in days.
+	// Kept explicit (rather than a hidden multiple of cert_expiry_days) so
+	// operators can reason about the root-of-trust lifetime. When zero, it
+	// falls back to 10x cert_expiry_days, the historical behaviour.
+	CAExpiryDays int `yaml:"ca_expiry_days"`
+
+	// AdminCommonNames lists certificate Common Names authorized for the privileged
+	// GaiaAdmin service in addition to any certificate carrying the admin OU marker.
+	// It exists for backward compatibility with admin certificates issued before the
+	// OU marker was introduced. Empty it to require the OU marker for all admin calls.
+	AdminCommonNames []string `yaml:"admin_common_names"`
 }
 
 // AuditBackendConfig holds settings for a single audit backend.
@@ -99,7 +111,9 @@ type Config struct {
 func NewDefaultConfig() *Config {
 	return &Config{
 		Daemon: DaemonConfig{
-			ListenAddr: "0.0.0.0:50051",
+			// Loopback by default: a secrets daemon should not be network-reachable
+			// unless the operator explicitly opts in (e.g. "0.0.0.0:50051").
+			ListenAddr: "127.0.0.1:50051",
 			DBFile:     getDefaultDBPath(),
 			Timeout:    10 * time.Second,
 		},
@@ -111,13 +125,15 @@ func NewDefaultConfig() *Config {
 			Level:      "info",
 		},
 		TLS: TLSConfig{
-			CertsDirectory: getDefaultCertsDirectory(),
-			CACert:         "ca.crt",
-			ServerCert:     "server.crt",
-			ServerKey:      "server.key",
-			KeyAlgorithm:   "ECDSA",
-			KeySize:        "P256",
-			CertExpiryDays: 365,
+			CertsDirectory:   getDefaultCertsDirectory(),
+			CACert:           "ca.crt",
+			ServerCert:       "server.crt",
+			ServerKey:        "server.key",
+			KeyAlgorithm:     "ECDSA",
+			KeySize:          "P256",
+			CertExpiryDays:   365,
+			CAExpiryDays:     3650,
+			AdminCommonNames: []string{"gaia_client"},
 		},
 		Audit: AuditConfig{
 			Enabled:     false, // Disabled by default for backward compatibility
@@ -283,7 +299,7 @@ func loadConfigFromFile(path string, cfg *Config) error {
 
 	// Check if we loaded any meaningful nested config
 	// If not, try legacy flat format for backwards compatibility
-	if cfg.Daemon.ListenAddr == "" || cfg.Daemon.ListenAddr == "0.0.0.0:50051" {
+	if cfg.Daemon.ListenAddr == "" || cfg.Daemon.ListenAddr == "127.0.0.1:50051" {
 		var legacy legacyConfig
 		if err := yaml.Unmarshal(data, &legacy); err == nil {
 			applyLegacyConfig(&legacy, cfg)
