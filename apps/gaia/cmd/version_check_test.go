@@ -150,13 +150,10 @@ func writeGaiaArchive(t *testing.T, archivePath string, content []byte) {
 	if err != nil {
 		t.Fatalf("create archive: %v", err)
 	}
-	defer file.Close()
 
 	gzw := gzip.NewWriter(file)
-	defer gzw.Close()
 
 	tw := tar.NewWriter(gzw)
-	defer tw.Close()
 
 	if err := tw.WriteHeader(&tar.Header{
 		Name:    "gaia",
@@ -168,6 +165,15 @@ func writeGaiaArchive(t *testing.T, archivePath string, content []byte) {
 	}
 	if _, err := tw.Write(content); err != nil {
 		t.Fatalf("write tar content: %v", err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("close tar writer: %v", err)
+	}
+	if err := gzw.Close(); err != nil {
+		t.Fatalf("close gzip writer: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close archive: %v", err)
 	}
 }
 

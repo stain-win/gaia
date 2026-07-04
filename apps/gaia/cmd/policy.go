@@ -322,11 +322,12 @@ func buildAccessSummary(p *pb.Policy) string {
 	crossAccess := 0
 
 	for _, rule := range p.Rules {
-		if rule.Path == "common/*" || rule.Path == "common/"+p.ClientName+"/*" {
+		switch rule.Path {
+		case "common/*", "common/" + p.ClientName + "/*":
 			hasCommon = true
-		} else if rule.Path == p.ClientName+"/*" {
+		case p.ClientName + "/*":
 			hasOwn = true
-		} else {
+		default:
 			crossAccess++
 		}
 	}

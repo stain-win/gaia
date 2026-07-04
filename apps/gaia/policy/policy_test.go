@@ -12,7 +12,9 @@ func setupTestDB(t *testing.T) (*bolt.DB, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmpfile.Close()
+	if err := tmpfile.Close(); err != nil {
+		t.Fatalf("close temporary database file: %v", err)
+	}
 
 	db, err := bolt.Open(tmpfile.Name(), 0600, nil)
 	if err != nil {
@@ -20,8 +22,12 @@ func setupTestDB(t *testing.T) (*bolt.DB, func()) {
 	}
 
 	cleanup := func() {
-		db.Close()
-		os.Remove(tmpfile.Name())
+		if err := db.Close(); err != nil {
+			t.Errorf("close test database: %v", err)
+		}
+		if err := os.Remove(tmpfile.Name()); err != nil {
+			t.Errorf("remove test database: %v", err)
+		}
 	}
 
 	return db, cleanup

@@ -321,7 +321,11 @@ func TestInitializeDB_UnsafeMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open DB: %v", err)
 	}
-	defer db.Close()
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close DB: %v", err)
+		}
+	})
 
 	err = db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(secretsBucket))
@@ -370,7 +374,11 @@ func TestInitializeDB_SafeMode_StoresDerivationVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open DB: %v", err)
 	}
-	defer db.Close()
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close DB: %v", err)
+		}
+	})
 
 	err = db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(secretsBucket))
@@ -420,7 +428,11 @@ func TestStart_SafeDB_RefusesUnsafeFlag(t *testing.T) {
 	if err := d2.openDB(); err != nil {
 		t.Fatalf("Failed to open DB: %v", err)
 	}
-	defer d2.db.Close()
+	t.Cleanup(func() {
+		if err := d2.db.Close(); err != nil {
+			t.Errorf("Failed to close DB: %v", err)
+		}
+	})
 
 	err := d2.checkUnsafeModeConsistency()
 	if err == nil {
@@ -456,7 +468,11 @@ func TestStart_UnsafeDB_RefusesSafeStart(t *testing.T) {
 	if err := d2.openDB(); err != nil {
 		t.Fatalf("Failed to open DB: %v", err)
 	}
-	defer d2.db.Close()
+	t.Cleanup(func() {
+		if err := d2.db.Close(); err != nil {
+			t.Errorf("Failed to close DB: %v", err)
+		}
+	})
 
 	err := d2.checkUnsafeModeConsistency()
 	if err == nil {

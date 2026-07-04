@@ -76,7 +76,9 @@ func TestLoggerEnabled(t *testing.T) {
 	// Wait for async processing
 	time.Sleep(100 * time.Millisecond)
 
-	logger.Close()
+	if err := logger.Close(); err != nil {
+		t.Fatalf("failed to close logger: %v", err)
+	}
 
 	entries := backend.getEntries()
 	if len(entries) != 1 {
@@ -92,7 +94,6 @@ func TestLoggerFiltersRequestEntries(t *testing.T) {
 		LogResponse: true,
 	}
 	logger := NewLogger(cfg, backend)
-	defer logger.Close()
 
 	reqEntry := &Entry{Type: EntryTypeRequest, Request: Request{ID: "1"}}
 	respEntry := &Entry{Type: EntryTypeResponse, Request: Request{ID: "2"}}
@@ -101,7 +102,9 @@ func TestLoggerFiltersRequestEntries(t *testing.T) {
 	logger.Log(respEntry)
 
 	time.Sleep(100 * time.Millisecond)
-	logger.Close()
+	if err := logger.Close(); err != nil {
+		t.Fatalf("failed to close logger: %v", err)
+	}
 
 	entries := backend.getEntries()
 	if len(entries) != 1 {
@@ -129,7 +132,9 @@ func TestLoggerMultipleBackends(t *testing.T) {
 	logger.Log(entry)
 
 	time.Sleep(100 * time.Millisecond)
-	logger.Close()
+	if err := logger.Close(); err != nil {
+		t.Fatalf("failed to close logger: %v", err)
+	}
 
 	if len(backend1.getEntries()) != 1 {
 		t.Errorf("backend1 expected 1 entry, got %d", len(backend1.getEntries()))
@@ -162,7 +167,9 @@ func TestLoggerRedactsSensitiveData(t *testing.T) {
 	logger.Log(entry)
 
 	time.Sleep(100 * time.Millisecond)
-	logger.Close()
+	if err := logger.Close(); err != nil {
+		t.Fatalf("failed to close logger: %v", err)
+	}
 
 	entries := backend.getEntries()
 	if len(entries) != 1 {
@@ -218,7 +225,9 @@ func TestNoopLogger(t *testing.T) {
 
 	// Should not panic
 	logger.Log(&Entry{})
-	logger.Close()
+	if err := logger.Close(); err != nil {
+		t.Fatalf("failed to close logger: %v", err)
+	}
 }
 
 func TestLoggerStats(t *testing.T) {
@@ -231,7 +240,9 @@ func TestLoggerStats(t *testing.T) {
 	}
 
 	time.Sleep(100 * time.Millisecond)
-	logger.Close()
+	if err := logger.Close(); err != nil {
+		t.Fatalf("failed to close logger: %v", err)
+	}
 
 	logged, dropped, errors := logger.Stats()
 	if logged != 3 {

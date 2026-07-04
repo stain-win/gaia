@@ -54,7 +54,7 @@ func verifyChecksumSignature(bundlePath string, artifact []byte) error {
 		return fmt.Errorf("failed to fetch Sigstore trust root (TUF): %w", err)
 	}
 
-	verifier, err := verify.NewSignedEntityVerifier(
+	verifier, err := verify.NewVerifier(
 		trustedRoot,
 		verify.WithTransparencyLog(1),
 		verify.WithObserverTimestamps(1),

@@ -138,7 +138,7 @@ func FormatError(err error) string {
 		sb.WriteString("\n")
 		sb.WriteString(errHintStyle.Render("💡 To fix this:\n"))
 		for i, hint := range gaiaErr.Hints {
-			sb.WriteString(fmt.Sprintf("   %d. %s\n", i+1, hint))
+			fmt.Fprintf(&sb, "   %d. %s\n", i+1, hint)
 		}
 	}
 

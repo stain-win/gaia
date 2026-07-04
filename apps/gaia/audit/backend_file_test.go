@@ -19,7 +19,11 @@ func TestFileBackendStdout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create file backend: %v", err)
 	}
-	defer backend.Close()
+	t.Cleanup(func() {
+		if err := backend.Close(); err != nil {
+			t.Errorf("failed to close backend: %v", err)
+		}
+	})
 
 	if backend.Type() != "file" {
 		t.Errorf("expected type 'file', got %s", backend.Type())
@@ -114,7 +118,9 @@ func TestFileBackendMultipleEntries(t *testing.T) {
 		}
 	}
 
-	backend.Close()
+	if err := backend.Close(); err != nil {
+		t.Fatalf("failed to close backend: %v", err)
+	}
 
 	// Verify file contains 3 lines (JSON lines format)
 	data, err := os.ReadFile(logPath)

@@ -487,9 +487,10 @@ func TestGenerateCmdErrorHandling(t *testing.T) {
 			clientName = "test-client"
 
 			// For server error, don't create CA
-			if tt.breakStep == "server" {
+			switch tt.breakStep {
+			case "server":
 				// CA won't exist, server generation should fail
-			} else if tt.breakStep == "client" {
+			case "client":
 				// Create CA and server but break client by making directory read-only
 				cfg := config.NewDefaultConfig()
 				cfg.TLS.CertsDirectory = tmpDir

@@ -64,7 +64,7 @@ func (m *policyDetailModel) updateContent() {
 
 	b.WriteString(policyTitleStyle.Render(fmt.Sprintf("Policy for: %s", m.policy.ClientName)))
 	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("Total Rules: %d\n\n", len(m.policy.Rules)))
+	fmt.Fprintf(&b, "Total Rules: %d\n\n", len(m.policy.Rules))
 
 	for i, rule := range m.policy.Rules {
 		b.WriteString(ruleStyle.Render(fmt.Sprintf("Rule %d:", i+1)))
@@ -439,16 +439,16 @@ func exportPolicyToFile(pol policy.Policy, format string) error {
 
 func formatPolicyAsYAML(pol policy.Policy) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("client_name: %s\n", pol.ClientName))
+	fmt.Fprintf(&b, "client_name: %s\n", pol.ClientName)
 	b.WriteString("rules:\n")
 	for _, rule := range pol.Rules {
-		b.WriteString(fmt.Sprintf("  - path: %s\n", rule.Path))
+		fmt.Fprintf(&b, "  - path: %s\n", rule.Path)
 		b.WriteString("    capabilities:\n")
 		for _, capability := range rule.Capabilities {
-			b.WriteString(fmt.Sprintf("      - %s\n", capability))
+			fmt.Fprintf(&b, "      - %s\n", capability)
 		}
 		if rule.Description != "" {
-			b.WriteString(fmt.Sprintf("    description: %s\n", rule.Description))
+			fmt.Fprintf(&b, "    description: %s\n", rule.Description)
 		}
 	}
 	return b.String()

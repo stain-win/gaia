@@ -287,7 +287,8 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	if m.focusedPane == clientsPane {
+	switch m.focusedPane {
+	case clientsPane:
 		var oldClient string
 		if item, ok := m.clientsList.SelectedItem().(clientListItem); ok {
 			oldClient = item.name
@@ -305,7 +306,7 @@ func (m *inspectorModel) Update(msg tea.Msg) (*inspectorModel, tea.Cmd) {
 			m.selectedClient = newClient
 			m.rebuildSecretsList()
 		}
-	} else if m.focusedPane == secretsPane {
+	case secretsPane:
 		m.secretsList, cmd = m.secretsList.Update(msg)
 		m.updateDetailView()
 	}
@@ -444,7 +445,8 @@ func (m *inspectorModel) updateDeleteView(msg tea.Msg) (*inspectorModel, tea.Cmd
 	}
 	cmds = append(cmds, cmd)
 
-	if m.deleteForm.State == huh.StateCompleted {
+	switch m.deleteForm.State {
+	case huh.StateCompleted:
 		confirmed := m.deleteForm.GetBool("confirm")
 		m.deleting = false
 
@@ -452,7 +454,7 @@ func (m *inspectorModel) updateDeleteView(msg tea.Msg) (*inspectorModel, tea.Cmd
 			// Optimistically remove from local list
 			filtered := make([]secretItem, 0, len(m.allSecrets))
 			for _, s := range m.allSecrets {
-				if !(s.id == m.deleteKey && s.namespace == m.deleteNamespace && s.client == m.deleteClient) {
+				if s.id != m.deleteKey || s.namespace != m.deleteNamespace || s.client != m.deleteClient {
 					filtered = append(filtered, s)
 				}
 			}
@@ -469,7 +471,7 @@ func (m *inspectorModel) updateDeleteView(msg tea.Msg) (*inspectorModel, tea.Cmd
 		} else {
 			m.statusMessage = fmt.Sprintf("Ready | %d keys found", len(m.allSecrets))
 		}
-	} else if m.deleteForm.State == huh.StateAborted {
+	case huh.StateAborted:
 		m.deleting = false
 		m.statusMessage = fmt.Sprintf("Ready | %d keys found", len(m.allSecrets))
 	}
