@@ -36,9 +36,12 @@ hardening/robustness · **P3** polish.
 - Rate-limited unlock with lockout; audit interceptor; graceful shutdown with timeout.
 
 **Cross-cutting quality issues**
-- `daemon.go` is 1,486 lines and mixes lifecycle, crypto, storage, client/secret CRUD, and TLS
-  loading. Recommend splitting into `daemon_lifecycle.go`, `daemon_secrets.go`,
-  `daemon_clients.go`, `daemon_crypto.go` for reviewability (no behaviour change).
+- ~~`daemon.go` is 1,486 lines and mixes lifecycle, crypto, storage, client/secret CRUD, and TLS
+  loading.~~ ✅ **DONE** — split into `daemon.go` (types, constants, constructor, shared helpers),
+  `daemon_lifecycle.go` (Start/stop/restart, TLS server creds, audit init, unsafe-mode check),
+  `daemon_crypto.go` (init/lock/unlock, rate limiting, rotation, backup, CA creds),
+  `daemon_clients.go` (client CRUD + lookup), and `daemon_secrets.go` (secret CRUD, streaming,
+  import). Code moved verbatim (verified byte-identical); no behaviour change.
 - `findClientByName` signals "found" by returning `fmt.Errorf("client found")` and then
   string-matches on `err.Error() == "client found"` (daemon.go:948–953). Fragile control-flow via
   error strings; use a sentinel or a boolean captured in the closure.
