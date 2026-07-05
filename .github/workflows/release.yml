@@ -125,9 +125,19 @@ jobs:
         working-directory: ./libs/js
         run: npm run build
 
+      - name: Determine npm dist-tag
+        id: npm_tag
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "tag=next" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
       - name: Publish to npm
         working-directory: ./libs/js
-        run: npm publish --access public
+        run: npm publish --access public --tag ${{ steps.npm_tag.outputs.tag }}
 
   publish-crates:
     name: Publish to crates.io
