@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stain-win/gaia/apps/gaia/certs"
 	"github.com/stain-win/gaia/apps/gaia/config"
 	"github.com/stain-win/gaia/apps/gaia/policy"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
@@ -325,6 +326,11 @@ func registerClientCmd(cfg *config.Config, clientName string) tea.Cmd {
 		if err := os.WriteFile(keyPath, []byte(res.PrivateKey), 0600); err != nil {
 			return clientRegisteredMsg{clientName: clientName, err: err}
 		}
+		// Best-effort: if cfg.TLS.CertsDirectory has an operator-configured default
+		// ACL (e.g. granting a docker/app group read access), unblock its effective
+		// permissions without widening this file's own mode bits. See
+		// certs.RelaxKeyACLMask for why this is needed and why it's safe.
+		certs.RelaxKeyACLMask(keyPath)
 
 		return clientRegisteredMsg{
 			clientName: clientName,

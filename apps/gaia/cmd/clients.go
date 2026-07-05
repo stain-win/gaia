@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/stain-win/gaia/apps/gaia/certs"
 	pb "github.com/stain-win/gaia/apps/gaia/proto"
 )
 
@@ -71,6 +72,11 @@ with the Gaia daemon.`,
 		if err := os.WriteFile(keyPath, []byte(res.PrivateKey), 0600); err != nil {
 			return fmt.Errorf("failed to write private key file: %w", err)
 		}
+		// Best-effort: if clientOutputDir has an operator-configured default ACL
+		// (e.g. granting a docker/app group read access), unblock its effective
+		// permissions without widening this file's own mode bits. See
+		// certs.RelaxKeyACLMask for why this is needed and why it's safe.
+		certs.RelaxKeyACLMask(keyPath)
 		fmt.Printf("  ✓ Private key saved to: %s\n", keyPath)
 		fmt.Println("\nClient registered successfully.")
 

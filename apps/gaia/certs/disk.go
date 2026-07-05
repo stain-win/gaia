@@ -7,6 +7,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 )
 
 // saveCert writes a certificate to a file with explicit 0644 permissions.
@@ -37,7 +39,9 @@ func saveKey(filename string, key *rsa.PrivateKey) error {
 	})
 }
 
-// savePrivateKey writes a private key (ECDSA or RSA) to a file.
+// savePrivateKey writes a client private key (ECDSA or RSA) to a file, owner-only
+// (0600). See RelaxKeyACLMask for why callers should invoke it afterward when the
+// key needs to be consumed by a separate service account.
 func savePrivateKey(filename string, key interface{}) error {
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
@@ -66,6 +70,34 @@ func savePrivateKey(filename string, key interface{}) error {
 	}
 
 	return pem.Encode(file, block)
+}
+
+// RelaxKeyACLMask is a best-effort, Linux-only fixup for a specific POSIX ACL
+// quirk: when a directory carries a default ACL (e.g. an operator-configured
+// "setfacl -d -m g:docker:rX certs/" granting a service account read access to
+// newly-created client certs), the named entries (user:foo, group:docker, ...)
+// are correctly copied onto any new file — but the new file's ACL *mask* entry
+// is computed as the default ACL's mask ANDed with the requested mode's group
+// bits. Since private keys are written with mode 0600 (group bits zero), that
+// mask collapses to zero and silently makes every named entry's *effective*
+// permission nothing, even though the entries themselves look right in getfacl.
+//
+// Rather than compensate by widening the file's own mode bits (which would
+// grant the owning group blanket read access in every deployment, including
+// ones with no ACL scheme at all), this only loosens the mask enough to let
+// whatever entries the operator already configured actually take effect.
+// It intentionally does not touch or add any ACL entries itself. Any failure
+// here (missing setfacl, non-Linux, no ACL support on the filesystem, no
+// default ACL present) is silently ignored — the key is already safely
+// readable by its owner regardless of whether this succeeds.
+func RelaxKeyACLMask(filename string) {
+	if runtime.GOOS != "linux" {
+		return
+	}
+	if _, err := exec.LookPath("setfacl"); err != nil {
+		return
+	}
+	_ = exec.Command("setfacl", "-m", "mask::r--", filename).Run()
 }
 
 // loadCA reads a CA certificate and private key from the disk.

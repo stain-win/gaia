@@ -115,6 +115,7 @@ func generateAndSaveClientCert(cfg *config.Config, clientName string, orgUnits [
 	if err := savePrivateKey(keyPath, clientKey); err != nil {
 		return fmt.Errorf("failed to save client key: %w", err)
 	}
+	RelaxKeyACLMask(keyPath)
 
 	return nil
 }
