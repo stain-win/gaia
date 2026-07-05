@@ -15,7 +15,7 @@ pub struct GaiaClientConfig {
     /// Path to the client private key file.
     pub client_key_path: PathBuf,
 
-    /// Optional domain name for TLS verification (defaults to "gaia").
+    /// Optional domain name for TLS verification (defaults to the server host).
     pub domain_name: String,
 }
 

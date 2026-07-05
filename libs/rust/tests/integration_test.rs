@@ -45,7 +45,7 @@ fn test_config_creation() {
     );
 
     assert_eq!(config.server_address, "localhost:50051");
-    assert_eq!(config.domain_name, "gaia");
+    assert_eq!(config.domain_name, "localhost");
 }
 
 #[test]
