@@ -1,0 +1,28 @@
+# golangci-lint v2 configuration.
+# The lint CI job runs with working-directory: apps/gaia, so this file is
+# auto-discovered there.
+version: "2"
+
+linters:
+  # Use the default standard set (errcheck, govet, ineffassign, staticcheck, unused).
+  default: standard
+  settings:
+    staticcheck:
+      # Keep real-bug analyzers (SA*); drop the noisy style/quickfix categories.
+      # ST* are golangci-lint's usual defaults; QF* are auto-fixable style hints
+      # we intentionally do not gate CI on.
+      checks:
+        - all
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        - -QF*
+  exclusions:
+    rules:
+      # Test files routinely ignore cleanup errors (os.Remove, deferred Close, etc.).
+      - path: _test\.go
+        linters:
+          - errcheck

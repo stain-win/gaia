@@ -6,6 +6,7 @@ on:
       - 'v*'
 
 permissions:
+  id-token: write
   contents: write
 
 jobs:
@@ -94,13 +95,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
 
       - name: Extract version from tag
         id: get_version
@@ -126,8 +128,6 @@ jobs:
       - name: Publish to npm
         working-directory: ./libs/js
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-crates:
     name: Publish to crates.io
@@ -217,6 +217,23 @@ jobs:
       - name: Run tests
         working-directory: ./libs/rust
         run: cargo test
+
+      - name: Commit release artifacts locally
+        working-directory: ./libs/rust
+        run: |
+          # The version bump, proto sync, and Cargo.lock update above are
+          # deliberate, expected changes for this release. `cargo publish`
+          # refuses to run from a dirty git tree, so commit them locally
+          # (no push needed - cargo only checks the local working tree)
+          # instead of bypassing the check with --allow-dirty.
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Cargo.toml Cargo.lock proto/gaia-client.proto src/proto.rs
+          if git diff --cached --quiet; then
+            echo "No release artifacts changed, nothing to commit"
+          else
+            git commit -m "chore(release): sync generated artifacts for v${{ steps.get_version.outputs.VERSION }}"
+          fi
 
       - name: Publish to crates.io
         working-directory: ./libs/rust

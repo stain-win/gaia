@@ -11,6 +11,24 @@ on:
       - develop
 
 jobs:
+  check-client-proto-sync:
+    name: Check client proto sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify libs/js and libs/rust proto copies match proto/gaia-client.proto
+        run: |
+          status=0
+          for copy in libs/js/proto/gaia-client.proto libs/rust/proto/gaia-client.proto; do
+            if ! diff -u proto/gaia-client.proto "$copy"; then
+              echo "::error::$copy is out of sync with proto/gaia-client.proto - run 'cp proto/gaia-client.proto $copy' and commit it"
+              status=1
+            fi
+          done
+          exit $status
+
   test:
     name: Test
     runs-on: ubuntu-latest
